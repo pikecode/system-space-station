@@ -1,0 +1,8 @@
+# macOS
+.DS_Store
+
+# OMC runtime state
+.omc/
+
+# Spec workflow
+.spec-workflow/
