@@ -9,6 +9,8 @@ import { UsersModule } from './modules/users/users.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { MemberLevelsModule } from './modules/member-levels/member-levels.module';
 import { MembershipsModule } from './modules/memberships/memberships.module';
+import { AppConfigModule } from './modules/config/config.module';
+import { CommissionsModule } from './modules/commissions/commissions.module';
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { MembershipsModule } from './modules/memberships/memberships.module';
     CustomersModule,
     MemberLevelsModule,
     MembershipsModule,
+    AppConfigModule,
+    CommissionsModule,
   ],
 })
 export class AppModule {}
