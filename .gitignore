@@ -6,3 +6,4 @@
 
 # Spec workflow
 .spec-workflow/
+node_modules

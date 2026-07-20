@@ -1,0 +1,324 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DepartmentType {
+  HQ
+  DIRECT
+  MARKET
+  DIVISION
+}
+
+enum DeptStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PositionStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum UserRole {
+  ADMIN
+  HEAD
+  MEMBER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum CustomerType {
+  INDIVIDUAL
+  COMPANY
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  UNKNOWN
+}
+
+enum CustomerSource {
+  REFERRAL
+  SELF_DEVELOPED
+  ACTIVITY
+  ONLINE
+  OTHER
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum MemberLevelStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum MembershipStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+  REFUND_PENDING
+  REFUNDED
+}
+
+enum CommissionEntry {
+  EARNING
+  REVERSAL
+}
+
+enum CommissionRole {
+  MEMBER
+  DEPT_HEAD
+  MARKET_HEAD
+  COMPANY
+}
+
+enum CommissionStatus {
+  PENDING
+  PENDING_PAYMENT
+  SETTLED
+}
+
+enum PeriodStatus {
+  OPEN
+  PENDING_PAYMENT
+  SETTLED
+}
+
+enum SchedulerStatus {
+  SUCCESS
+  FAILED
+  SKIPPED
+}
+
+model Department {
+  id            String         @id @default(cuid())
+  name          String
+  parentId      String?
+  parent        Department?    @relation("DepartmentHierarchy", fields: [parentId], references: [id])
+  children      Department[]   @relation("DepartmentHierarchy")
+  type          DepartmentType
+  headId        String?        @unique
+  head          User?          @relation("DepartmentHead", fields: [headId], references: [id])
+  sort          Int            @default(0)
+  description   String?
+  province      String?
+  city          String?
+  district      String?
+  addressDetail String?
+  status        DeptStatus     @default(ACTIVE)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  users         User[]         @relation("DepartmentUsers")
+  customers     Customer[]
+
+  @@index([parentId])
+  @@index([type])
+}
+
+model Position {
+  id        String         @id @default(cuid())
+  name      String
+  sort      Int            @default(0)
+  status    PositionStatus @default(ACTIVE)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  users     User[]
+}
+
+model User {
+  id                      String       @id @default(cuid())
+  name                    String
+  phone                   String       @unique
+  email                   String?
+  avatar                  String?
+  positionId              String?
+  position                Position?    @relation(fields: [positionId], references: [id])
+  passwordHash            String
+  role                    UserRole     @default(MEMBER)
+  departmentId            String?
+  department              Department?  @relation("DepartmentUsers", fields: [departmentId], references: [id])
+  headOf                  Department?  @relation("DepartmentHead")
+  authVersion             Int          @default(1)
+  status                  UserStatus   @default(ACTIVE)
+  lastLoginAt             DateTime?
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+  customers               Customer[]   @relation("AssignedCustomers")
+  createdCustomers        Customer[]   @relation("CreatedCustomers")
+  submittedMemberships    Membership[] @relation("SubmittedMemberships")
+  reviewedMemberships     Membership[] @relation("ReviewedMemberships")
+  refundReviewedMemberships Membership[] @relation("RefundReviewedMemberships")
+  receivedCommissions     CommissionRecord[]
+}
+
+model MemberLevel {
+  id          String            @id @default(cuid())
+  name        String
+  description String?
+  sort        Int               @default(0)
+  status      MemberLevelStatus @default(ACTIVE)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  memberships Membership[]
+}
+
+model Customer {
+  id           String         @id @default(cuid())
+  customerType CustomerType
+  name         String
+  phone        String
+  source       CustomerSource
+  tags         String?
+  notes        String?
+  wechat       String?
+  gender       Gender?
+  birthday     DateTime?
+  address      String?
+  creditCode   String?
+  industry     String?
+  contactName  String?
+  contactPhone String?
+  assignedTo   String
+  assignedUser User           @relation("AssignedCustomers", fields: [assignedTo], references: [id])
+  createdBy    String
+  creator      User           @relation("CreatedCustomers", fields: [createdBy], references: [id])
+  departmentId String
+  department   Department     @relation(fields: [departmentId], references: [id])
+  status       CustomerStatus @default(ACTIVE)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  memberships  Membership[]
+
+  @@index([assignedTo])
+  @@index([departmentId])
+  @@index([status])
+}
+
+model Membership {
+  id                  String           @id @default(cuid())
+  memberNo            String           @unique
+  customerId          String
+  customer            Customer         @relation(fields: [customerId], references: [id])
+  memberLevelId       String?
+  memberLevel         MemberLevel?     @relation(fields: [memberLevelId], references: [id])
+  fee                 Decimal          @db.Decimal(10, 2)
+  startDate           DateTime
+  endDate             DateTime
+  paidAt              DateTime?
+  status              MembershipStatus @default(PENDING)
+  submittedBy         String
+  submitter           User             @relation("SubmittedMemberships", fields: [submittedBy], references: [id])
+  reviewedBy          String?
+  reviewer            User?            @relation("ReviewedMemberships", fields: [reviewedBy], references: [id])
+  reviewedAt          DateTime?
+  reviewNote          String?
+  refundReason        String?
+  refundReviewedBy    String?
+  refundReviewer      User?            @relation("RefundReviewedMemberships", fields: [refundReviewedBy], references: [id])
+  refundReviewedAt    DateTime?
+  refundAt            DateTime?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  commissionRecords   CommissionRecord[]
+
+  @@index([customerId])
+  @@index([status, endDate])
+  @@index([submittedBy])
+}
+
+model CommissionConfig {
+  id              String   @id @default(cuid())
+  memberRatio     Decimal  @db.Decimal(5, 2)
+  deptHeadRatio   Decimal  @db.Decimal(5, 2)
+  marketHeadRatio Decimal  @db.Decimal(5, 2)
+  companyRatio    Decimal  @db.Decimal(5, 2)
+  settlementDays  Int      @default(15)
+  effectiveFrom   DateTime
+  remark          String?
+  createdBy       String
+  createdAt       DateTime @default(now())
+
+  @@index([effectiveFrom])
+}
+
+model CommissionRecord {
+  id               String            @id @default(cuid())
+  businessKey      String            @unique
+  membershipId     String
+  membership       Membership        @relation(fields: [membershipId], references: [id])
+  entryType        CommissionEntry   @default(EARNING)
+  receiverUserId   String?
+  receiverUser     User?             @relation(fields: [receiverUserId], references: [id])
+  receiverRole     CommissionRole
+  amount           Decimal           @db.Decimal(10, 2)
+  ratio            Decimal           @db.Decimal(5, 2)
+  status           CommissionStatus  @default(PENDING)
+  periodId         String?
+  period           SettlementPeriod? @relation(fields: [periodId], references: [id])
+  originalRecordId String?
+  originalRecord   CommissionRecord? @relation("CommissionReversals", fields: [originalRecordId], references: [id])
+  reversals        CommissionRecord[] @relation("CommissionReversals")
+  remark           String?
+  createdAt        DateTime          @default(now())
+  settledAt        DateTime?
+
+  @@index([membershipId])
+  @@index([status, periodId])
+}
+
+model SettlementPeriod {
+  id             String            @id @default(cuid())
+  startDate      DateTime
+  endDate        DateTime
+  totalFee       Decimal           @default(0) @db.Decimal(12, 2)
+  totalRefundFee Decimal           @default(0) @db.Decimal(12, 2)
+  totalAmount    Decimal           @default(0) @db.Decimal(12, 2)
+  recordCount    Int               @default(0)
+  status         PeriodStatus      @default(OPEN)
+  settledBy      String?
+  settledAt      DateTime?
+  remark         String?
+  createdAt      DateTime          @default(now())
+  records        CommissionRecord[]
+
+  @@index([status, endDate])
+}
+
+model SchedulerLog {
+  id            String          @id @default(cuid())
+  taskName      String
+  status        SchedulerStatus
+  affectedRows  Int             @default(0)
+  errorMessage  String?
+  executedAt    DateTime        @default(now())
+
+  @@index([taskName, executedAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  action     String
+  entityType String
+  entityId   String
+  operatorId String
+  before     Json?
+  after      Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([operatorId, createdAt])
+}
