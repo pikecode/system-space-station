@@ -6,11 +6,13 @@ import { useAuthStore } from '../store/auth';
 const LoginPage = lazy(() => import('../pages/login/LoginPage'));
 const DepartmentsPage = lazy(() => import('../pages/admin/departments/DepartmentsPage'));
 const UsersPage = lazy(() => import('../pages/admin/users/UsersPage'));
+const AdminCustomersPage = lazy(() => import('../pages/admin/customers/AdminCustomersPage'));
+const AdminCommissionsPage = lazy(() => import('../pages/admin/commissions/AdminCommissionsPage'));
+const ConfigPage = lazy(() => import('../pages/admin/config/ConfigPage'));
 const CustomersPage = lazy(() => import('../pages/my/customers/CustomersPage'));
 const MembershipsPage = lazy(() => import('../pages/my/memberships/MembershipsPage'));
 const CommissionsPage = lazy(() => import('../pages/my/commissions/CommissionsPage'));
 const ApprovalsPage = lazy(() => import('../pages/dept/approvals/ApprovalsPage'));
-const ConfigPage = lazy(() => import('../pages/admin/config/ConfigPage'));
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
@@ -64,6 +66,26 @@ export const router = createBrowserRouter([
           <RequireAdmin>
             <Suspense fallback={Fallback}>
               <UsersPage />
+            </Suspense>
+          </RequireAdmin>
+        ),
+      },
+      {
+        path: 'admin/customers',
+        element: (
+          <RequireAdmin>
+            <Suspense fallback={Fallback}>
+              <AdminCustomersPage />
+            </Suspense>
+          </RequireAdmin>
+        ),
+      },
+      {
+        path: 'admin/commissions',
+        element: (
+          <RequireAdmin>
+            <Suspense fallback={Fallback}>
+              <AdminCommissionsPage />
             </Suspense>
           </RequireAdmin>
         ),
