@@ -13,10 +13,11 @@ const menusByRole = {
   HEAD: [
     { path: '/dept/customers', name: '部门客户' },
     { path: '/dept/approvals', name: '待审批' },
-    { path: '/dept/commissions', name: '部门分成' },
+    { path: '/my/commissions', name: '我的分成' },
   ],
   MEMBER: [
     { path: '/my/customers', name: '我的客户' },
+    { path: '/my/memberships', name: '会员申请' },
     { path: '/my/commissions', name: '我的分成' },
   ],
 };

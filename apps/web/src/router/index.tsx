@@ -7,6 +7,10 @@ const LoginPage = lazy(() => import('../pages/login/LoginPage'));
 const DepartmentsPage = lazy(() => import('../pages/admin/departments/DepartmentsPage'));
 const UsersPage = lazy(() => import('../pages/admin/users/UsersPage'));
 const CustomersPage = lazy(() => import('../pages/my/customers/CustomersPage'));
+const MembershipsPage = lazy(() => import('../pages/my/memberships/MembershipsPage'));
+const CommissionsPage = lazy(() => import('../pages/my/commissions/CommissionsPage'));
+const ApprovalsPage = lazy(() => import('../pages/dept/approvals/ApprovalsPage'));
+const ConfigPage = lazy(() => import('../pages/admin/config/ConfigPage'));
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
@@ -65,10 +69,44 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: 'admin/config',
+        element: (
+          <RequireAdmin>
+            <Suspense fallback={Fallback}>
+              <ConfigPage />
+            </Suspense>
+          </RequireAdmin>
+        ),
+      },
+      {
         path: 'my/customers',
         element: (
           <Suspense fallback={Fallback}>
             <CustomersPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'my/memberships',
+        element: (
+          <Suspense fallback={Fallback}>
+            <MembershipsPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'my/commissions',
+        element: (
+          <Suspense fallback={Fallback}>
+            <CommissionsPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'dept/approvals',
+        element: (
+          <Suspense fallback={Fallback}>
+            <ApprovalsPage />
           </Suspense>
         ),
       },
