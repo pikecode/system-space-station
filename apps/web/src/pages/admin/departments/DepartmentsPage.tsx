@@ -1,12 +1,10 @@
 import { useState, useMemo } from 'react';
 import {
   Table, Card, Button, Drawer, Form, Input, Select, Space, Tag, App,
-  Dropdown, Cascader, Modal,
+  Cascader, Modal, Tooltip,
 } from 'antd';
-import type { MenuProps } from 'antd';
 import {
-  PlusOutlined, EditOutlined, PlusCircleOutlined, StopOutlined,
-  MoreOutlined, UserOutlined,
+  PlusOutlined, EditOutlined, PlusCircleOutlined, StopOutlined, UserOutlined,
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ColumnsType } from 'antd/es/table';
@@ -280,37 +278,23 @@ export default function DepartmentsPage() {
     {
       title: '操作',
       key: 'action',
-      width: 60,
+      width: 100,
       render: (_, record) => {
         const canAddChild = ALLOWED_CHILD_TYPES[record.type]?.length > 0;
-        const items: MenuProps['items'] = [
-          {
-            key: 'edit',
-            icon: <EditOutlined />,
-            label: '编辑',
-            onClick: () => openEdit(record),
-          },
-          ...(canAddChild
-            ? [{
-                key: 'add-child',
-                icon: <PlusCircleOutlined />,
-                label: '添加子部门',
-                onClick: () => openCreate(record),
-              }]
-            : []),
-          { type: 'divider' as const },
-          {
-            key: 'disable',
-            icon: <StopOutlined />,
-            label: '停用',
-            danger: true,
-            onClick: () => confirmDisable(record),
-          },
-        ];
         return (
-          <Dropdown menu={{ items }} trigger={['click']} placement="bottomRight">
-            <Button type="text" size="small" icon={<MoreOutlined />} />
-          </Dropdown>
+          <Space size={4}>
+            <Tooltip title="编辑">
+              <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(record)} />
+            </Tooltip>
+            {canAddChild && (
+              <Tooltip title="添加子部门">
+                <Button size="small" icon={<PlusCircleOutlined />} onClick={() => openCreate(record)} />
+              </Tooltip>
+            )}
+            <Tooltip title="停用">
+              <Button size="small" danger icon={<StopOutlined />} onClick={() => confirmDisable(record)} />
+            </Tooltip>
+          </Space>
         );
       },
     },
