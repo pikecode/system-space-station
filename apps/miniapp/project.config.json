@@ -1,7 +1,7 @@
 {
   "miniprogramRoot": "dist/",
   "projectname": "客户资源管理",
-  "appid": "YOUR_WECHAT_APPID",
+  "appid": "wxe7dd7a81966aae07",
   "setting": {
     "urlCheck": false,
     "es6": true,
