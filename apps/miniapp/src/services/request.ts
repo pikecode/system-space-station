@@ -1,7 +1,7 @@
 import Taro from '@tarojs/taro';
 import { storage } from '../utils/storage';
 
-const BASE_URL = process.env.TARO_APP_API_URL || '/api';
+const BASE_URL = (typeof process !== 'undefined' && process.env?.TARO_APP_API_URL) || '/api';
 
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
