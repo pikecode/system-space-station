@@ -6,6 +6,7 @@ import { membershipsApi, type MemberLevel } from '../../services/memberships';
 export default function MembershipCreatePage() {
   const router = useRouter();
   const { customerId, customerName } = router.params;
+  const decodedName = decodeURIComponent(customerName ?? '');
 
   const [levels, setLevels] = useState<MemberLevel[]>([]);
   const [form, setForm] = useState({
@@ -30,7 +31,7 @@ export default function MembershipCreatePage() {
       await membershipsApi.create({
         customerId: form.customerId,
         memberLevelId: form.memberLevelId || undefined,
-        fee: form.fee,
+        fee: parseFloat(form.fee),
         startDate: form.startDate,
         endDate: form.endDate,
       });
@@ -50,7 +51,7 @@ export default function MembershipCreatePage() {
       <View className='section-title'>客户</View>
       <View className='field'>
         <Text className='field__label'>客户姓名</Text>
-        <Text style={{ fontSize: '30rpx', color: '#1a1d21' }}>{customerName}</Text>
+        <Text style={{ fontSize: '30rpx', color: '#1a1d21' }}>{decodedName}</Text>
       </View>
 
       <View className='section-title'>会员信息</View>
