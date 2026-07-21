@@ -33,8 +33,11 @@ export interface MembershipSummary {
 }
 
 export const customersApi = {
-  getAll: (params?: { name?: string; phone?: string }) =>
-    http.get<CustomerRow[]>(`/customers?${new URLSearchParams(params as Record<string, string> ?? {})}`),
+  getAll: async (params?: { name?: string; phone?: string }): Promise<CustomerRow[]> => {
+    const qs = params ? new URLSearchParams(params as Record<string, string>).toString() : '';
+    const res = await http.get<CustomerRow[] | { data: CustomerRow[] }>(`/customers${qs ? `?${qs}` : ''}`);
+    return Array.isArray(res) ? res : (res as { data: CustomerRow[] }).data ?? [];
+  },
 
   getOne: (id: string) =>
     http.get<CustomerRow>(`/customers/${id}`),

@@ -16,6 +16,12 @@ export interface CommissionRecord {
 }
 
 export const commissionsApi = {
-  getMy: () => http.get<CommissionRecord[]>('/commissions/my'),
-  getDepartment: () => http.get<CommissionRecord[]>('/commissions/department'),
+  getMy: async (): Promise<CommissionRecord[]> => {
+    const res = await http.get<CommissionRecord[] | { data: CommissionRecord[] }>('/commissions/my');
+    return Array.isArray(res) ? res : (res as any).data ?? [];
+  },
+  getDepartment: async (): Promise<CommissionRecord[]> => {
+    const res = await http.get<CommissionRecord[] | { data: CommissionRecord[] }>('/commissions/department');
+    return Array.isArray(res) ? res : (res as any).data ?? [];
+  },
 };
