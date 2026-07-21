@@ -211,10 +211,13 @@ body {
     font-size: 1.25rem !important;
   }
 
-  /* Tables scroll */
-  .ant-table-wrapper {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+  /* Tables — let AntD handle scroll via scroll={{ x }} prop; fix sticky z-index */
+  .ant-table-cell-fix-right {
+    z-index: 2 !important;
+  }
+
+  .ant-table-thead .ant-table-cell-fix-right {
+    z-index: 3 !important;
   }
 }
 

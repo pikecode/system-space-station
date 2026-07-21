@@ -236,7 +236,6 @@ export default function DepartmentsPage() {
       dataIndex: 'name',
       key: 'name',
       width: 240,
-      fixed: 'left',
     },
     {
       title: '部门短码',
@@ -274,6 +273,7 @@ export default function DepartmentsPage() {
       title: '说明',
       dataIndex: 'description',
       key: 'description',
+      width: 180,
       ellipsis: true,
       render: (desc) => desc || '-',
     },
