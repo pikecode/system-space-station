@@ -150,6 +150,7 @@ model User {
   birthDate               DateTime?
   alternatePhone          String?
   wechat                  String?
+  wechatOpenId            String?      @unique
   province                String?
   city                    String?
   district                String?

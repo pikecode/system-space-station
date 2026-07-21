@@ -1,0 +1,45 @@
+.login-page {
+  min-height: 100vh;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  padding: 0 48rpx;
+}
+.login-header {
+  padding: 120rpx 0 60rpx;
+}
+.login-title {
+  display: block;
+  font-size: 52rpx;
+  font-weight: 700;
+  color: #1a1d21;
+  letter-spacing: -0.02em;
+}
+.login-subtitle {
+  display: block;
+  font-size: 28rpx;
+  color: #888;
+  margin-top: 12rpx;
+}
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  margin-top: 20rpx;
+}
+.field {
+  background: #f5f6f8;
+  border-radius: 12rpx;
+  padding: 28rpx 32rpx;
+  border-bottom: none;
+}
+.field__input {
+  width: 100%;
+  font-size: 30rpx;
+  color: #1a1d21;
+  background: transparent;
+}
+.login-btn {
+  margin-top: 8rpx;
+  width: 100%;
+}

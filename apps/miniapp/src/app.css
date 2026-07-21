@@ -1,0 +1,137 @@
+page {
+  background-color: #f5f6f8;
+  color: #1a1d21;
+  font-family: -apple-system, "SF Pro Text", "PingFang SC", "Helvetica Neue", sans-serif;
+  font-size: 28rpx;
+  line-height: 1.5;
+}
+
+.page {
+  min-height: 100vh;
+  background: #f5f6f8;
+}
+
+/* Card */
+.card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 28rpx 32rpx;
+  margin-bottom: 20rpx;
+}
+
+/* Row between label and value */
+.row {
+  display: flex;
+  align-items: center;
+  padding: 18rpx 0;
+  border-bottom: 1rpx solid #f0f1f3;
+}
+.row:last-child { border-bottom: none; }
+.row__label {
+  color: #888;
+  font-size: 26rpx;
+  width: 160rpx;
+  flex-shrink: 0;
+}
+.row__value {
+  flex: 1;
+  color: #1a1d21;
+  font-size: 26rpx;
+}
+
+/* Tag */
+.tag {
+  display: inline-block;
+  padding: 4rpx 14rpx;
+  border-radius: 8rpx;
+  font-size: 22rpx;
+  background: #e8f6f6;
+  color: #00a3a3;
+}
+.tag--pending { background: #fff7e6; color: #fa8c16; }
+.tag--approved { background: #f0fff4; color: #52c41a; }
+.tag--rejected { background: #fff1f0; color: #f5222d; }
+.tag--expired  { background: #f5f5f5; color: #999; }
+
+/* Button */
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 88rpx;
+  border-radius: 12rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  border: none;
+}
+.btn--primary {
+  background: #00a3a3;
+  color: #fff;
+}
+.btn--danger {
+  background: #f5222d;
+  color: #fff;
+}
+.btn--outline {
+  background: transparent;
+  border: 2rpx solid #00a3a3;
+  color: #00a3a3;
+}
+.btn--ghost {
+  background: #f5f6f8;
+  color: #666;
+}
+
+/* Form field */
+.field {
+  background: #fff;
+  padding: 24rpx 32rpx;
+  border-bottom: 1rpx solid #f0f1f3;
+}
+.field__label {
+  font-size: 24rpx;
+  color: #888;
+  margin-bottom: 12rpx;
+}
+.field__input {
+  width: 100%;
+  font-size: 30rpx;
+  color: #1a1d21;
+  border: none;
+  outline: none;
+  background: transparent;
+}
+
+/* Section title */
+.section-title {
+  font-size: 26rpx;
+  color: #888;
+  padding: 24rpx 32rpx 12rpx;
+  font-weight: 500;
+}
+
+/* Empty state */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80rpx 0;
+  color: #bbb;
+  font-size: 26rpx;
+}
+
+/* Loading */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60rpx 0;
+  color: #bbb;
+  font-size: 26rpx;
+}
+
+/* Amount text */
+.amount--positive { color: #52c41a; }
+.amount--negative { color: #f5222d; }
+.amount--pending  { color: #fa8c16; }

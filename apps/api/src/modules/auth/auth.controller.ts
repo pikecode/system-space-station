@@ -13,6 +13,20 @@ export class AuthController {
     return this.authService.login(dto);
   }
 
+  @Post('wechat-login')
+  wechatLogin(@Body('code') code: string) {
+    return this.authService.wechatLogin(code);
+  }
+
+  @Post('wechat-bind')
+  bindWechat(
+    @Body('code') code: string,
+    @Body('account') account: string,
+    @Body('password') password: string,
+  ) {
+    return this.authService.bindWechat(code, account, password);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get('me')
   me(@CurrentUser() user: any) {

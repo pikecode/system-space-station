@@ -20,6 +20,7 @@ async function createFixture() {
   const service = new AuthService(
     { user: { findFirst } } as never,
     { sign } as never,
+    { getOrThrow: vi.fn() } as never,
   );
   return { service, findFirst };
 }
