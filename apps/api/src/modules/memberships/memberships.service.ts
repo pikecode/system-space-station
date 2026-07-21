@@ -19,7 +19,7 @@ export class MembershipsService {
   constructor(private prisma: PrismaService) {}
 
   private async generateMemberNo(tx: Prisma.TransactionClient): Promise<string> {
-    await tx.$queryRaw(
+    await tx.$executeRaw(
       Prisma.sql`SELECT pg_advisory_xact_lock(${MEMBER_NO_LOCK_KEY})`,
     );
     const prefix = `M${new Date().toISOString().slice(0, 7).replace('-', '')}`;
