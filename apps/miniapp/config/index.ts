@@ -32,6 +32,7 @@ export default defineConfig({
     publicPath: '/',
     staticDirectory: 'static',
     router: { mode: 'browser' },
+    prebundle: { enable: false },
     postcss: {
       autoprefixer: { enable: true },
       cssModules: { enable: false },
