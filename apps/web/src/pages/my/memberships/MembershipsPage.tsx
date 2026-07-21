@@ -125,21 +125,7 @@ export default function MembershipsPage() {
   };
 
   const columns: ProColumns<MembershipRecord>[] = [
-    { title: '会员编号', dataIndex: 'memberNo', width: 140 },
-    { title: '客户', dataIndex: ['customer', 'name'], width: 100 },
-    { title: '会员等级', dataIndex: ['memberLevel', 'name'], width: 100 },
-    {
-      title: '会员费',
-      dataIndex: 'fee',
-      width: 100,
-      render: (_, record) => `¥${Number(record.fee).toLocaleString()}`,
-    },
-    {
-      title: '有效期',
-      width: 200,
-      render: (_, record) =>
-        `${record.startDate?.slice(0, 10)} ~ ${record.endDate?.slice(0, 10)}`,
-    },
+    { title: '客户', dataIndex: ['customer', 'name'], width: 100, fixed: 'left' },
     {
       title: '状态',
       dataIndex: 'status',
@@ -148,7 +134,22 @@ export default function MembershipsPage() {
         <Tag color={STATUS_COLORS[record.status]}>{STATUS_LABELS[record.status]}</Tag>
       ),
     },
-    { title: '审批备注', dataIndex: 'reviewNote', width: 150, search: false },
+    {
+      title: '会员费',
+      dataIndex: 'fee',
+      width: 100,
+      render: (_, record) => `¥${Number(record.fee).toLocaleString()}`,
+    },
+    { title: '会员编号', dataIndex: 'memberNo', width: 140, responsive: ['md'] },
+    { title: '会员等级', dataIndex: ['memberLevel', 'name'], width: 100, responsive: ['md'] },
+    {
+      title: '有效期',
+      width: 200,
+      responsive: ['md'],
+      render: (_, record) =>
+        `${record.startDate?.slice(0, 10)} ~ ${record.endDate?.slice(0, 10)}`,
+    },
+    { title: '审批备注', dataIndex: 'reviewNote', width: 150, search: false, responsive: ['lg'] },
     {
       title: '操作',
       width: 180,
@@ -196,7 +197,7 @@ export default function MembershipsPage() {
             </Button>,
           ],
         }}
-        scroll={{ x: 950 }}
+        scroll={{ x: 'max-content' }}
       />
 
       <Drawer

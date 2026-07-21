@@ -1,6 +1,7 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { ProLayout } from '@ant-design/pro-components';
 import { useAuthStore } from '../store/auth';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 const menusByRole = {
   ADMIN: [
@@ -30,6 +31,8 @@ export default function AppLayout() {
   const role = user?.role ?? 'MEMBER';
   const menus = menusByRole[role as keyof typeof menusByRole] ?? menusByRole.MEMBER;
 
+  const isMobile = useIsMobile();
+
   return (
     <ProLayout
       title="客户资源管理"
@@ -52,6 +55,12 @@ export default function AppLayout() {
             </span>
           </div>
         ),
+      }}
+      layout={isMobile ? 'mix' : 'side'}
+      fixSiderbar
+      fixedHeader
+      contentStyle={{
+        padding: isMobile ? 'var(--space-sm)' : 'var(--space-md)',
       }}
     >
       <Outlet />

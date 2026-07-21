@@ -87,6 +87,7 @@ export default function ApprovalsPage() {
   };
 
   const columns: ProColumns<MembershipPending>[] = [
+    { title: '客户', dataIndex: ['customer', 'name'], width: 100, fixed: 'left' },
     {
       title: '类型',
       dataIndex: 'status',
@@ -97,26 +98,27 @@ export default function ApprovalsPage() {
         </Tag>
       ),
     },
-    { title: '客户', dataIndex: ['customer', 'name'], width: 100 },
-    { title: '手机', dataIndex: ['customer', 'phone'], width: 130 },
     {
       title: '会员费',
       dataIndex: 'fee',
       width: 100,
       render: (_, record) => `¥${Number(record.fee).toLocaleString()}`,
     },
+    { title: '手机', dataIndex: ['customer', 'phone'], width: 130, responsive: ['md'] },
     {
       title: '有效期',
       width: 200,
+      responsive: ['md'],
       render: (_, record) =>
         `${record.startDate?.slice(0, 10)} ~ ${record.endDate?.slice(0, 10)}`,
     },
-    { title: '申请人', dataIndex: ['submitter', 'name'], width: 90 },
-    { title: '退款原因', dataIndex: 'refundReason', width: 160, search: false },
+    { title: '申请人', dataIndex: ['submitter', 'name'], width: 90, responsive: ['md'] },
+    { title: '退款原因', dataIndex: 'refundReason', width: 160, search: false, responsive: ['lg'] },
     {
       title: '申请时间',
       dataIndex: 'createdAt',
       width: 150,
+      responsive: ['lg'],
       render: (_, record) => record.createdAt?.slice(0, 16).replace('T', ' '),
     },
     {
@@ -165,7 +167,7 @@ export default function ApprovalsPage() {
         search={false}
         pagination={false}
         headerTitle={`待审批 ${list.length} 条`}
-        scroll={{ x: 1050 }}
+        scroll={{ x: 'max-content' }}
       />
 
       <Modal

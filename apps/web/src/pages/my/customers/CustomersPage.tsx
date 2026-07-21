@@ -80,8 +80,8 @@ export default function CustomersPage() {
   });
 
   const columns: ProColumns<CustomerRow>[] = [
-    { title: '客户名称', dataIndex: 'name', width: 120 },
-    { title: '手机', dataIndex: 'phone', width: 130 },
+    { title: '客户名称', dataIndex: 'name', width: 120, fixed: 'left' },
+    { title: '手机', dataIndex: 'phone', width: 130, responsive: ['md'] },
     {
       title: '类型',
       dataIndex: 'customerType',
@@ -94,14 +94,16 @@ export default function CustomersPage() {
       title: '来源',
       dataIndex: 'source',
       width: 100,
+      responsive: ['md'],
       render: (_, r) => SOURCE_LABELS[r.source] ?? r.source,
     },
-    { title: '维护人', dataIndex: ['assignedUser', 'name'], width: 100 },
+    { title: '维护人', dataIndex: ['assignedUser', 'name'], width: 100, responsive: ['lg'] },
     {
       title: '标签',
       dataIndex: 'tags',
       width: 150,
       search: false,
+      responsive: ['lg'],
       render: (_, r) =>
         r.tags
           ? r.tags.split(',').map((t) => <Tag key={t}>{t}</Tag>)
@@ -178,7 +180,7 @@ export default function CustomersPage() {
             </Button>,
           ],
         }}
-        scroll={{ x: 800 }}
+        scroll={{ x: 'max-content' }}
       />
 
       <Drawer

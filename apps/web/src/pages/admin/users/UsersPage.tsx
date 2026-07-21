@@ -228,14 +228,15 @@ export default function UsersPage() {
   };
 
   const columns: ProColumns<UserRow>[] = [
-    { title: '工号', dataIndex: 'employeeNo', width: 100 },
+    { title: '工号', dataIndex: 'employeeNo', width: 100, fixed: 'left' },
     { title: '姓名', dataIndex: 'name', width: 90 },
-    { title: '手机号', dataIndex: 'phone', width: 120 },
+    { title: '手机号', dataIndex: 'phone', width: 120, responsive: ['md'] },
     {
       title: '性别',
       dataIndex: 'gender',
       width: 70,
       search: false,
+      responsive: ['lg'],
       render: (_, record) => ({ MALE: '男', FEMALE: '女', UNKNOWN: '未知' }[record.gender ?? ''] ?? '-'),
     },
     {
@@ -254,10 +255,11 @@ export default function UsersPage() {
       title: '所属部门',
       dataIndex: 'departmentId',
       width: 110,
+      responsive: ['md'],
       valueEnum: Object.fromEntries(departments.map((d) => [d.id, { text: d.name }])),
       render: (_, record) => record.department?.name ?? '-',
     },
-    { title: '岗位', dataIndex: ['position', 'name'], width: 90, search: false },
+    { title: '岗位', dataIndex: ['position', 'name'], width: 90, search: false, responsive: ['lg'] },
     {
       title: '状态',
       dataIndex: 'status',
@@ -275,6 +277,7 @@ export default function UsersPage() {
     {
       title: '操作',
       width: 132,
+      fixed: 'right',
       search: false,
       render: (_, record) => (
         <Space size={4}>
@@ -316,6 +319,7 @@ export default function UsersPage() {
         actionRef={actionRef}
         rowKey="id"
         columns={columns}
+        scroll={{ x: 'max-content' }}
         request={async (params) => {
           const response = await usersApi.getAll({
             employeeNo: params.employeeNo,

@@ -60,18 +60,7 @@ export default function CommissionsPage({ scope = 'my' }: { scope?: 'my' | 'depa
       title: '客户',
       dataIndex: ['membership', 'customer', 'name'],
       width: 100,
-    },
-    {
-      title: '会员费',
-      dataIndex: ['membership', 'fee'],
-      width: 100,
-      render: (_, r) => `¥${Number(r.membership?.fee).toLocaleString()}`,
-    },
-    {
-      title: '分成角色',
-      dataIndex: 'receiverRole',
-      width: 100,
-      render: (_, r) => RECEIVER_ROLE_LABELS[r.receiverRole] ?? r.receiverRole,
+      fixed: 'left',
     },
     {
       title: '分成金额',
@@ -84,12 +73,6 @@ export default function CommissionsPage({ scope = 'my' }: { scope?: 'my' | 'depa
       ),
     },
     {
-      title: '比例',
-      dataIndex: 'ratio',
-      width: 70,
-      render: (_, r) => `${r.ratio}%`,
-    },
-    {
       title: '状态',
       dataIndex: 'status',
       width: 90,
@@ -98,9 +81,31 @@ export default function CommissionsPage({ scope = 'my' }: { scope?: 'my' | 'depa
       ),
     },
     {
+      title: '会员费',
+      dataIndex: ['membership', 'fee'],
+      width: 100,
+      responsive: ['md'],
+      render: (_, r) => `¥${Number(r.membership?.fee).toLocaleString()}`,
+    },
+    {
+      title: '分成角色',
+      dataIndex: 'receiverRole',
+      width: 100,
+      responsive: ['md'],
+      render: (_, r) => RECEIVER_ROLE_LABELS[r.receiverRole] ?? r.receiverRole,
+    },
+    {
+      title: '比例',
+      dataIndex: 'ratio',
+      width: 70,
+      responsive: ['lg'],
+      render: (_, r) => `${r.ratio}%`,
+    },
+    {
       title: '时间',
       dataIndex: 'createdAt',
       width: 150,
+      responsive: ['md'],
       render: (_, r) => r.createdAt?.slice(0, 16).replace('T', ' '),
     },
   ];
@@ -138,7 +143,7 @@ export default function CommissionsPage({ scope = 'my' }: { scope?: 'my' | 'depa
         headerTitle={scope === 'department' ? '部门分成明细' : '个人分成明细'}
         search={false}
         pagination={{ pageSize: 20 }}
-        scroll={{ x: 700 }}
+        scroll={{ x: 'max-content' }}
       />
     </>
   );

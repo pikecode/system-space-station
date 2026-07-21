@@ -98,3 +98,70 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Mobile H5 adaptations */
+@media (max-width: 768px) {
+  :root {
+    --space-md: 1rem;     /* Tighter spacing on mobile */
+    --space-lg: 1.5rem;
+    --space-xl: 2rem;
+    --text-xl: 1.25rem;   /* Slightly smaller headings */
+    --text-2xl: 1.5rem;
+    --text-3xl: 2rem;
+  }
+
+  body {
+    font-size: var(--text-sm);  /* Smaller base font on mobile */
+  }
+
+  /* Ensure touch targets are at least 44px */
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  [role="button"],
+  [role="link"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Tables scroll horizontally on mobile */
+  .ant-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Drawers and modals take full width on mobile */
+  .ant-drawer-content-wrapper {
+    max-width: 100% !important;
+  }
+
+  .ant-modal {
+    max-width: calc(100vw - var(--space-md) * 2) !important;
+    margin: var(--space-md);
+  }
+
+  /* Form labels stack vertically on mobile */
+  .ant-form-item {
+    flex-direction: column;
+  }
+
+  .ant-form-item-label {
+    text-align: left;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Extra small phones - even tighter spacing */
+  :root {
+    --space-sm: 0.75rem;
+    --space-md: 0.875rem;
+  }
+
+  /* Full-width cards on very small screens */
+  .ant-card {
+    margin: 0;
+    border-radius: 0;
+  }
+}
