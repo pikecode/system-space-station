@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns } from '@ant-design/pro-components';
-import { App, Button, DatePicker, Descriptions, Form, Input, Modal, Space, Tag } from 'antd';
+import { App, Button, DatePicker, Descriptions, Form, Input, Modal, Space, Tag, Tooltip } from 'antd';
 import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -123,32 +123,25 @@ export default function ApprovalsPage() {
     },
     {
       title: '操作',
-      width: 170,
-      fixed: 'right',
+      width: 80,
       render: (_, record) => (
-        <Space>
-          <Button
-            size="small"
-            type="primary"
-            icon={<CheckOutlined />}
-            onClick={() => openAction(
-              record,
-              record.status === 'PENDING' ? 'approve' : 'refundApprove',
-            )}
-          >
-            通过
-          </Button>
-          <Button
-            size="small"
-            danger
-            icon={<CloseOutlined />}
-            onClick={() => openAction(
-              record,
-              record.status === 'PENDING' ? 'reject' : 'refundReject',
-            )}
-          >
-            拒绝
-          </Button>
+        <Space size={4}>
+          <Tooltip title="通过">
+            <Button
+              size="small"
+              type="primary"
+              icon={<CheckOutlined />}
+              onClick={() => openAction(record, record.status === 'PENDING' ? 'approve' : 'refundApprove')}
+            />
+          </Tooltip>
+          <Tooltip title="拒绝">
+            <Button
+              size="small"
+              danger
+              icon={<CloseOutlined />}
+              onClick={() => openAction(record, record.status === 'PENDING' ? 'reject' : 'refundReject')}
+            />
+          </Tooltip>
         </Space>
       ),
     },

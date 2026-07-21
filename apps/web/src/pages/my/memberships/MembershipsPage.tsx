@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { ProTable } from '@ant-design/pro-components';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
-import { App, Button, DatePicker, Drawer, Form, Input, InputNumber, Modal, Select, Space, Tag } from 'antd';
+import { App, Button, DatePicker, Drawer, Form, Input, InputNumber, Modal, Select, Space, Tag, Tooltip } from 'antd';
 import { EditOutlined, PlusOutlined, RollbackOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -152,25 +152,19 @@ export default function MembershipsPage() {
     { title: '审批备注', dataIndex: 'reviewNote', width: 150, search: false, responsive: ['lg'] },
     {
       title: '操作',
-      width: 180,
-      fixed: 'right',
+      width: 80,
       search: false,
       render: (_, record) => (
-        <Space>
+        <Space size={4}>
           {record.status === 'REJECTED' && (
-            <Button size="small" icon={<EditOutlined />} onClick={() => openResubmit(record)}>
-              修改重提
-            </Button>
+            <Tooltip title="修改重提">
+              <Button size="small" icon={<EditOutlined />} onClick={() => openResubmit(record)} />
+            </Tooltip>
           )}
           {record.status === 'APPROVED' && (
-            <Button
-              size="small"
-              danger
-              icon={<RollbackOutlined />}
-              onClick={() => setRefundTarget(record)}
-            >
-              申请退款
-            </Button>
+            <Tooltip title="申请退款">
+              <Button size="small" danger icon={<RollbackOutlined />} onClick={() => setRefundTarget(record)} />
+            </Tooltip>
           )}
         </Space>
       ),

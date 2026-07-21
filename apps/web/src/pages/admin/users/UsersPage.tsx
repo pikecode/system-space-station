@@ -276,8 +276,7 @@ export default function UsersPage() {
     },
     {
       title: '操作',
-      width: 132,
-      fixed: 'right',
+      width: 100,
       search: false,
       render: (_, record) => (
         <Space size={4}>

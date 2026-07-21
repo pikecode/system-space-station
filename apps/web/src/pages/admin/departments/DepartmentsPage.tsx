@@ -280,8 +280,7 @@ export default function DepartmentsPage() {
     {
       title: '操作',
       key: 'action',
-      width: 80,
-      fixed: 'right',
+      width: 60,
       render: (_, record) => {
         const canAddChild = ALLOWED_CHILD_TYPES[record.type]?.length > 0;
         const items: MenuProps['items'] = [

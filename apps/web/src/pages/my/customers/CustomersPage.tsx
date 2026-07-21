@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
 import { ProTable } from '@ant-design/pro-components';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
-import { Button, Drawer, Form, Input, Modal, Select, Space, Tag, App } from 'antd';
-import { PlusOutlined, SwapOutlined } from '@ant-design/icons';
+import { Button, Drawer, Form, Input, Modal, Select, Space, Tag, App, Tooltip } from 'antd';
+import { EditOutlined, PlusOutlined, SwapOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { customersApi } from '../../../services/customers';
 import { usersApi } from '../../../services/users';
@@ -111,35 +111,32 @@ export default function CustomersPage() {
     },
     {
       title: '操作',
-      width: user?.role === 'HEAD' ? 180 : 120,
-      fixed: 'right',
+      width: 80,
       search: false,
       render: (_, r) => (
-        <Space>
-          <Button
-            size="small"
-            onClick={() => {
-              setEditTarget(r);
-              form.setFieldsValue({
-                ...r,
-                birthday: r.birthday?.slice(0, 10),
-              });
-              setDrawerOpen(true);
-            }}
-          >
-            编辑
-          </Button>
-          {user?.role === 'HEAD' && (
+        <Space size={4}>
+          <Tooltip title="编辑">
             <Button
               size="small"
-              icon={<SwapOutlined />}
+              icon={<EditOutlined />}
               onClick={() => {
-                setTransferTarget(r);
-                transferForm.setFieldValue('newAssignedTo', r.assignedUser?.id);
+                setEditTarget(r);
+                form.setFieldsValue({ ...r, birthday: r.birthday?.slice(0, 10) });
+                setDrawerOpen(true);
               }}
-            >
-              转移
-            </Button>
+            />
+          </Tooltip>
+          {user?.role === 'HEAD' && (
+            <Tooltip title="转移">
+              <Button
+                size="small"
+                icon={<SwapOutlined />}
+                onClick={() => {
+                  setTransferTarget(r);
+                  transferForm.setFieldValue('newAssignedTo', r.assignedUser?.id);
+                }}
+              />
+            </Tooltip>
           )}
         </Space>
       ),

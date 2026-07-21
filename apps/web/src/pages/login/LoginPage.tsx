@@ -31,13 +31,15 @@ export default function LoginPage() {
         alignItems: 'center',
         justifyContent: 'center',
         minHeight: '100vh',
+        padding: 'var(--space-md)',
         background: 'var(--color-paper)',
       }}
     >
       <Card
         title="客户资源管理系统"
         style={{
-          width: 420,
+          width: '100%',
+          maxWidth: 420,
           boxShadow: '0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.06)',
         }}
         styles={{
