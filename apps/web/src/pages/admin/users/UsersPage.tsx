@@ -357,9 +357,11 @@ export default function UsersPage() {
         onClose={closeDrawer}
         width={680}
         footer={(
-          <Button type="primary" loading={saveMutation.isPending} onClick={() => form.submit()}>
-            保存
-          </Button>
+          <div style={{ textAlign: 'right' }}>
+            <Button type="primary" loading={saveMutation.isPending} onClick={() => form.submit()}>
+              保存
+            </Button>
+          </div>
         )}
       >
         <Form

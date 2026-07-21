@@ -1,8 +1,10 @@
 import { useState, useMemo } from 'react';
 import {
-  Table, Card, Button, Drawer, Form, Input, Select, Space, Tag, App,
+  Table, Button, Drawer, Form, Input, Select, Space, Tag, App,
   Cascader, Modal, Tooltip,
 } from 'antd';
+import { ProTable } from '@ant-design/pro-components';
+import type { ProColumns } from '@ant-design/pro-components';
 import {
   PlusOutlined, EditOutlined, PlusCircleOutlined, StopOutlined, UserOutlined,
 } from '@ant-design/icons';
@@ -228,7 +230,7 @@ export default function DepartmentsPage() {
     },
   ];
 
-  const columns: ColumnsType<DeptNode> = [
+  const columns: ProColumns<DeptNode>[] = [
     {
       title: '部门名称',
       dataIndex: 'name',
@@ -247,8 +249,8 @@ export default function DepartmentsPage() {
       dataIndex: 'type',
       key: 'type',
       width: 100,
-      render: (type: string) => (
-        <Tag color={DEPT_TYPE_COLORS[type]}>{DEPT_TYPE_LABELS[type]}</Tag>
+      render: (_, record) => (
+        <Tag color={DEPT_TYPE_COLORS[record.type]}>{DEPT_TYPE_LABELS[record.type]}</Tag>
       ),
     },
     {
@@ -256,7 +258,7 @@ export default function DepartmentsPage() {
       dataIndex: 'head',
       key: 'head',
       width: 100,
-      render: (head) => head?.name || '-',
+      render: (_, record) => record.head?.name || '-',
     },
     {
       title: '地址',
@@ -301,42 +303,43 @@ export default function DepartmentsPage() {
   ];
 
   return (
-    <div style={{ padding: 24 }}>
-      <Card
-        title="部门管理"
-        extra={
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => openCreate()}>
-            新建部门
-          </Button>
-        }
-      >
-        <Table<DeptNode>
-          columns={columns}
-          dataSource={treeData}
-          loading={isLoading}
-          pagination={false}
-          scroll={{ x: 1200 }}
-          expandable={{
-            defaultExpandAllRows: true,
-            indentSize: 24,
-            expandIcon: ({ expanded, onExpand, record }) => {
-              if (!record.children || record.children.length === 0) {
-                return <span style={{ marginRight: 8, display: 'inline-block', width: 16 }} />;
-              }
-              return (
-                <Button
-                  type="text"
-                  size="small"
-                  onClick={(e) => onExpand(record, e)}
-                  style={{ padding: 0, width: 16, height: 16, fontSize: 12 }}
-                >
-                  {expanded ? '−' : '+'}
-                </Button>
-              );
-            },
-          }}
-        />
-      </Card>
+    <>
+      <ProTable<DeptNode>
+        rowKey="id"
+        columns={columns}
+        dataSource={treeData}
+        loading={isLoading}
+        search={false}
+        pagination={false}
+        headerTitle="部门管理"
+        toolbar={{
+          actions: [
+            <Button key="add" type="primary" icon={<PlusOutlined />} onClick={() => openCreate()}>
+              新建部门
+            </Button>,
+          ],
+        }}
+        scroll={{ x: 1200 }}
+        expandable={{
+          defaultExpandAllRows: true,
+          indentSize: 24,
+          expandIcon: ({ expanded, onExpand, record }) => {
+            if (!record.children || record.children.length === 0) {
+              return <span style={{ marginRight: 8, display: 'inline-block', width: 16 }} />;
+            }
+            return (
+              <Button
+                type="text"
+                size="small"
+                onClick={(e) => onExpand(record, e)}
+                style={{ padding: 0, width: 16, height: 16, fontSize: 12 }}
+              >
+                {expanded ? '−' : '+'}
+              </Button>
+            );
+          },
+        }}
+      />
 
       {/* 负责人选择弹窗 */}
       <Modal
@@ -382,9 +385,11 @@ export default function DepartmentsPage() {
         }}
         width={480}
         footer={
-          <Button type="primary" loading={createMutation.isPending} onClick={() => form.submit()}>
-            保存
-          </Button>
+          <div style={{ textAlign: 'right' }}>
+            <Button type="primary" loading={createMutation.isPending} onClick={() => form.submit()}>
+              保存
+            </Button>
+          </div>
         }
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
@@ -470,6 +475,6 @@ export default function DepartmentsPage() {
           </Form.Item>
         </Form>
       </Drawer>
-    </div>
+    </>
   );
 }

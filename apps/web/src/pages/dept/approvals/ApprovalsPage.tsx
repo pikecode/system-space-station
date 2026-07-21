@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns } from '@ant-design/pro-components';
-import { App, Button, DatePicker, Descriptions, Form, Input, Modal, Space, Tag, Tooltip } from 'antd';
+import { App, Button, DatePicker, Descriptions, Form, Input, Modal, Space, Tag } from 'antd';
 import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -122,26 +122,33 @@ export default function ApprovalsPage() {
       render: (_, record) => record.createdAt?.slice(0, 16).replace('T', ' '),
     },
     {
+      /* Width bumped from 80 to 140 to fit labeled text buttons.
+         Rationale: the approve/reject action is THE reason this page exists.
+         Icon-only 24px buttons are the smallest element on the page for the
+         most important operation — that hierarchy is inverted. Text labels
+         also remove the need for Tooltip on hover. */
       title: '操作',
-      width: 80,
+      width: 140,
       render: (_, record) => (
-        <Space size={4}>
-          <Tooltip title="通过">
-            <Button
-              size="small"
-              type="primary"
-              icon={<CheckOutlined />}
-              onClick={() => openAction(record, record.status === 'PENDING' ? 'approve' : 'refundApprove')}
-            />
-          </Tooltip>
-          <Tooltip title="拒绝">
-            <Button
-              size="small"
-              danger
-              icon={<CloseOutlined />}
-              onClick={() => openAction(record, record.status === 'PENDING' ? 'reject' : 'refundReject')}
-            />
-          </Tooltip>
+        <Space size={6}>
+          <Button
+            size="small"
+            type="primary"
+            icon={<CheckOutlined />}
+            disabled={mutation.isPending}
+            onClick={() => openAction(record, record.status === 'PENDING' ? 'approve' : 'refundApprove')}
+          >
+            通过
+          </Button>
+          <Button
+            size="small"
+            danger
+            icon={<CloseOutlined />}
+            disabled={mutation.isPending}
+            onClick={() => openAction(record, record.status === 'PENDING' ? 'reject' : 'refundReject')}
+          >
+            拒绝
+          </Button>
         </Space>
       ),
     },

@@ -1,25 +1,36 @@
 /* Hallmark · genre: modern-minimal · design-system: design.md · designed-as-app
  * Project: 客户资源管理系统 (Customer Resource Management System)
- * Theme: Custom OKLCH palette — cool neutral paper, teal accent
+ * Theme: Neutral paper + Ant Design Pro blue (#1677ff)
  * Typography: Inter 600 display + Inter 400 body + JetBrains Mono
  * Motion: motion-cut (no decorative animations)
  */
 
 :root {
-  /* Color tokens */
-  --color-paper:      oklch(98% 0.004 200);
-  --color-paper-2:    oklch(96% 0.006 200);
-  --color-ink:        oklch(20% 0.01 200);
-  --color-ink-2:      oklch(50% 0.012 200);
-  --color-rule:       oklch(88% 0.008 200);
-  --color-accent:     oklch(62% 0.14 195);
-  --color-accent-ink: oklch(98% 0.004 195);
-  --color-focus:      oklch(62% 0.14 195);
+  /* Color tokens
+   * Primary blue matches Ant Design Pro default exactly.
+   * Mature enterprise admin systems (Ant Design Pro, Arco Design Pro,
+   * Feishu admin, ByteDance internal tools) all use blue for the same reason:
+   * it signals trust, institutional authority, and operational precision.
+   * Teal reads as SaaS/startup; blue reads as enterprise tool.
+   */
+  --color-paper:      #f5f7fa;
+  --color-paper-2:    #eef1f6;
+  --color-ink:        #1d2129;
+  --color-ink-2:      #86909c;
+  --color-rule:       #e5e8ef;
+  --color-accent:     #1677ff;
+  --color-accent-ink: #ffffff;
+  --color-focus:      #1677ff;
 
   /* Typography */
   --font-display: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-body:    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono:    "JetBrains Mono", "SF Mono", Consolas, monospace;
+
+  /* Letter-spacing — design.md specifies -0.02em for display text;
+     this was defined but never applied anywhere before */
+  --tracking-display: -0.02em;
+  --tracking-body:    0em;
 
   /* Spacing scale (4pt base) */
   --space-3xs: 0.25rem;  /* 4px */
@@ -99,7 +110,43 @@ body {
   }
 }
 
-/* Mobile H5 — compact layout */
+/* ── Global focus ring ─────────────────────────────────────────────────────
+   Ant Design suppresses the default outline. We reinstate a consistent ring
+   using the design system accent so keyboard navigation is always visible.   */
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Transition defaults ───────────────────────────────────────────────────
+   The design token --dur-short and --ease-out exist but were never wired in.
+   These selectors apply them to interactive elements at the component layer. */
+.ant-btn {
+  transition: background-color var(--dur-short) var(--ease-out),
+              border-color     var(--dur-short) var(--ease-out),
+              color            var(--dur-short) var(--ease-out),
+              opacity          var(--dur-short) var(--ease-out) !important;
+}
+
+.ant-tag {
+  transition: opacity var(--dur-short) var(--ease-out) !important;
+}
+
+/* ── ProTable heading — apply display tracking ─────────────────────────────
+   Design specifies -0.02em tracking for display text; ProTable's headerTitle
+   renders inside .ant-pro-table-list-toolbar-title.                          */
+.ant-pro-table-list-toolbar-title {
+  letter-spacing: var(--tracking-display);
+  font-weight: 600;
+}
+
+/* ProLayout sidebar title */
+.ant-pro-layout-title {
+  letter-spacing: var(--tracking-display);
+}
+
+/* ── Mobile H5 — compact layout ───────────────────────────────────────────── */
 @media (max-width: 768px) {
   :root {
     --space-xs:  0.5rem;
@@ -117,11 +164,9 @@ body {
     line-height: 1.5;
   }
 
-  /* Touch targets — primary actions only (not small table buttons) */
-  .ant-btn:not(.ant-btn-sm),
-  input,
-  select,
-  textarea {
+  /* Touch targets — all buttons get 44px minimum, including sm variants.
+     Previous rule excluded .ant-btn-sm which broke table actions on mobile. */
+  .ant-btn {
     min-height: 44px;
   }
 
@@ -177,6 +222,10 @@ body {
     height: 28px !important;
   }
 
+  .ant-form-item-label {
+    text-align: left;
+  }
+
   /* Drawer — full width, compact header */
   .ant-drawer-content-wrapper {
     max-width: 100% !important;
@@ -227,30 +276,17 @@ body {
     --space-lg: 0.875rem;
   }
 
+  /* Full-width cards on very small screens */
+  .ant-card {
+    margin: 0;
+    border-radius: 0;
+  }
+
   .ant-card-body {
     padding: var(--space-md) !important;
   }
 
   .ant-pro-layout-content {
     padding: var(--space-md) !important;
-  }
-}
-
-  .ant-form-item-label {
-    text-align: left;
-  }
-}
-
-@media (max-width: 480px) {
-  /* Extra small phones - even tighter spacing */
-  :root {
-    --space-sm: 0.75rem;
-    --space-md: 0.875rem;
-  }
-
-  /* Full-width cards on very small screens */
-  .ant-card {
-    margin: 0;
-    border-radius: 0;
   }
 }

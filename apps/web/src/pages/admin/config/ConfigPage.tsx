@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns } from '@ant-design/pro-components';
-import { Button, Form, InputNumber, DatePicker, Input, Card, Row, Col, App, Drawer } from 'antd';
+import { Button, Form, InputNumber, DatePicker, Input, Card, Row, Col, App, Drawer, Statistic } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { configApi } from '../../../services/config';
@@ -99,27 +99,24 @@ export default function ConfigPage() {
   return (
     <>
       {curr && (
-        <Card title="当前生效配置" style={{ marginBottom: 16 }}>
-          <Row gutter={16}>
-            <Col span={4}>
-              <div style={{ color: '#999', fontSize: 12 }}>维护人</div>
-              <div style={{ fontSize: 18, fontWeight: 600 }}>{curr.memberRatio}%</div>
+        /* Statistic replaces custom divs: consistent title/value hierarchy,
+           gutter bumped to 24 so numbers breathe, responsive cols for mobile. */
+        <Card title="当前生效配置" style={{ marginBottom: 'var(--space-md)' }}>
+          <Row gutter={[24, 16]}>
+            <Col xs={12} sm={8} md={5}>
+              <Statistic title="维护人" value={curr.memberRatio} suffix="%" />
             </Col>
-            <Col span={4}>
-              <div style={{ color: '#999', fontSize: 12 }}>事业部负责人</div>
-              <div style={{ fontSize: 18, fontWeight: 600 }}>{curr.deptHeadRatio}%</div>
+            <Col xs={12} sm={8} md={5}>
+              <Statistic title="事业部负责人" value={curr.deptHeadRatio} suffix="%" />
             </Col>
-            <Col span={4}>
-              <div style={{ color: '#999', fontSize: 12 }}>市场部负责人</div>
-              <div style={{ fontSize: 18, fontWeight: 600 }}>{curr.marketHeadRatio}%</div>
+            <Col xs={12} sm={8} md={5}>
+              <Statistic title="市场部负责人" value={curr.marketHeadRatio} suffix="%" />
             </Col>
-            <Col span={4}>
-              <div style={{ color: '#999', fontSize: 12 }}>公司</div>
-              <div style={{ fontSize: 18, fontWeight: 600 }}>{curr.companyRatio}%</div>
+            <Col xs={12} sm={8} md={4}>
+              <Statistic title="公司" value={curr.companyRatio} suffix="%" />
             </Col>
-            <Col span={4}>
-              <div style={{ color: '#999', fontSize: 12 }}>结算周期</div>
-              <div style={{ fontSize: 18, fontWeight: 600 }}>{curr.settlementDays}天</div>
+            <Col xs={12} sm={8} md={5}>
+              <Statistic title="结算周期" value={curr.settlementDays} suffix="天" />
             </Col>
           </Row>
         </Card>
@@ -156,13 +153,15 @@ export default function ConfigPage() {
         }}
         width={480}
         footer={
-          <Button
-            type="primary"
-            loading={createMutation.isPending}
-            onClick={() => form.submit()}
-          >
-            保存
-          </Button>
+          <div style={{ textAlign: 'right' }}>
+            <Button
+              type="primary"
+              loading={createMutation.isPending}
+              onClick={() => form.submit()}
+            >
+              保存
+            </Button>
+          </div>
         }
       >
         <Form
@@ -172,7 +171,7 @@ export default function ConfigPage() {
           initialValues={{ settlementDays: 15, effectiveFrom: dayjs().add(1, 'day') }}
         >
           <Form.Item style={{ marginBottom: 8 }}>
-            <span style={{ color: '#999', fontSize: 12 }}>
+            <span style={{ color: 'var(--color-ink-2)', fontSize: 'var(--text-xs)' }}>
               四项比例之和必须等于100%，配置按生效时间自动选取
             </span>
           </Form.Item>

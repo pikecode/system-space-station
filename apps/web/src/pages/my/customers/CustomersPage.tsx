@@ -190,13 +190,15 @@ export default function CustomersPage() {
         }}
         width={520}
         footer={
-          <Button
-            type="primary"
-            loading={saveMutation.isPending}
-            onClick={() => form.submit()}
-          >
-            保存
-          </Button>
+          <div style={{ textAlign: 'right' }}>
+            <Button
+              type="primary"
+              loading={saveMutation.isPending}
+              onClick={() => form.submit()}
+            >
+              保存
+            </Button>
+          </div>
         }
       >
         <Form form={form} layout="vertical" onFinish={(v) => saveMutation.mutate(v)}>

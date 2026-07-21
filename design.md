@@ -11,14 +11,18 @@ modern-minimal
 - **Content pages**: N/A (no standalone content pages in this app)
 
 ## Theme
-- `--color-paper`      oklch(98% 0.004 200)    /* soft cool white */
-- `--color-paper-2`    oklch(96% 0.006 200)    /* subtle surface lift */
-- `--color-ink`        oklch(20% 0.01 200)     /* near-black, cool tint */
-- `--color-ink-2`      oklch(50% 0.012 200)    /* muted secondary text */
-- `--color-rule`       oklch(88% 0.008 200)    /* hairline borders */
-- `--color-accent`     oklch(62% 0.14 195)     /* teal primary */
-- `--color-accent-ink` oklch(98% 0.004 195)    /* text on accent */
-- `--color-focus`      oklch(62% 0.14 195)     /* same as accent */
+Palette: neutral paper + Ant Design Pro blue. Enterprise admin systems
+(Ant Design Pro, Arco Design Pro, Feishu Admin) universally use blue.
+It signals trust, institutional authority, and operational precision.
+
+- `--color-paper`      #f5f7fa   /* off-white page bg */
+- `--color-paper-2`    #eef1f6   /* subtle surface lift */
+- `--color-ink`        #1d2129   /* near-black text */
+- `--color-ink-2`      #86909c   /* secondary / placeholder text */
+- `--color-rule`       #e5e8ef   /* dividers and borders */
+- `--color-accent`     #1677ff   /* Ant Design Pro blue — primary actions */
+- `--color-accent-ink` #ffffff   /* text on accent */
+- `--color-focus`      #1677ff   /* focus ring — same as accent */
 
 ## Typography
 - Display: Inter, weight 600, style normal

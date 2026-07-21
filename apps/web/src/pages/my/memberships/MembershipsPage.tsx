@@ -200,9 +200,11 @@ export default function MembershipsPage() {
         onClose={closeDrawer}
         width={480}
         footer={(
-          <Button type="primary" loading={saveMutation.isPending} onClick={() => form.submit()}>
-            {editingRecord ? '重新提交' : '提交'}
-          </Button>
+          <div style={{ textAlign: 'right' }}>
+            <Button type="primary" loading={saveMutation.isPending} onClick={() => form.submit()}>
+              {editingRecord ? '重新提交' : '提交'}
+            </Button>
+          </div>
         )}
       >
         <Form form={form} layout="vertical" onFinish={(values) => saveMutation.mutate(values)}>

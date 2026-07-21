@@ -1,5 +1,7 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { ProLayout } from '@ant-design/pro-components';
+import { Dropdown } from 'antd';
+import { LogoutOutlined } from '@ant-design/icons';
 import { useAuthStore } from '../store/auth';
 import { useIsMobile } from '../hooks/useIsMobile';
 
@@ -45,15 +47,20 @@ export default function AppLayout() {
         src: user?.avatar,
         title: user?.name,
         render: (_props, dom) => (
-          <div>
-            {dom}
-            <span
-              style={{ marginLeft: 8, cursor: 'pointer', fontSize: 12, color: '#999' }}
-              onClick={logout}
-            >
-              退出
-            </span>
-          </div>
+          <Dropdown
+            menu={{
+              items: [
+                {
+                  key: 'logout',
+                  icon: <LogoutOutlined />,
+                  label: '退出登录',
+                  onClick: logout,
+                },
+              ],
+            }}
+          >
+            <div style={{ cursor: 'pointer' }}>{dom}</div>
+          </Dropdown>
         ),
       }}
       layout={isMobile ? 'mix' : 'side'}

@@ -23,23 +23,41 @@ createRoot(document.getElementById('root')!).render(
         locale={zhCN}
         theme={{
           token: {
-            colorPrimary: '#00a3a3',
-            colorBgBase: '#fafbfc',
-            colorTextBase: '#1a1d21',
-            colorBorder: '#e1e4e8',
-            borderRadius: 6,
+            colorPrimary:        '#1677ff',
+            /* colorBgBase must stay #fff so Ant Design derives white for
+               colorBgContainer/colorBgElevated. Setting it to #f5f7fa caused
+               Drawer/Modal backgrounds to become indistinguishable from the
+               page background — users clicked buttons and saw nothing open. */
+            colorBgBase:         '#ffffff',
+            colorBgLayout:       '#f5f7fa',  /* page-level background only */
+            colorTextBase:       '#1d2129',
+            colorBorder:         '#e5e8ef',
+            colorTextSecondary:  '#86909c',
+            borderRadius:        6,
             fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+            motionDurationFast:  '150ms',
+            motionDurationMid:   '220ms',
+            motionEaseOut:       'cubic-bezier(0.16, 1, 0.3, 1)',
           },
           components: {
             Button: {
-              primaryShadow: 'none',
-              controlHeight: 36,
+              primaryShadow:   'none',
+              defaultShadow:   'none',
+              controlHeight:   36,
             },
             Input: {
-              controlHeight: 36,
+              controlHeight:   36,
+            },
+            Select: {
+              controlHeight:   36,
             },
             Table: {
-              borderColor: '#e1e4e8',
+              borderColor:     '#e5e8ef',
+              headerBg:        '#eef1f6',
+            },
+            Menu: {
+              itemSelectedBg:  '#e8f3ff',
+              itemSelectedColor: '#1677ff',
             },
           },
         }}
