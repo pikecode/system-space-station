@@ -1,13 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { LoginResponseDto } from 'shared';
 
-interface UserInfo {
-  id: string;
-  name: string;
-  role: string;
-  departmentId?: string;
-  avatar?: string;
-}
+type UserInfo = LoginResponseDto['user'];
 
 interface AuthState {
   token: string | null;

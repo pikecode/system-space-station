@@ -1,10 +1,12 @@
 import { useRef, useState } from 'react';
 import { ProTable } from '@ant-design/pro-components';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
-import { Button, Drawer, Form, Input, Select, Space, Tag, App } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
-import { useMutation } from '@tanstack/react-query';
+import { Button, Drawer, Form, Input, Modal, Select, Space, Tag, App } from 'antd';
+import { PlusOutlined, SwapOutlined } from '@ant-design/icons';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { customersApi } from '../../../services/customers';
+import { usersApi } from '../../../services/users';
+import { useAuthStore } from '../../../store/auth';
 
 const SOURCE_LABELS: Record<string, string> = {
   REFERRAL: '转介绍',
@@ -22,15 +24,29 @@ interface CustomerRow {
   source: string;
   tags?: string;
   birthday?: string;
-  assignedUser?: { name: string };
+  assignedUser?: { id: string; name: string };
+}
+
+interface MemberOption {
+  id: string;
+  name: string;
 }
 
 export default function CustomersPage() {
   const { message } = App.useApp();
+  const user = useAuthStore((state) => state.user);
   const actionRef = useRef<ActionType>();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<CustomerRow | null>(null);
+  const [transferTarget, setTransferTarget] = useState<CustomerRow | null>(null);
   const [form] = Form.useForm();
+  const [transferForm] = Form.useForm();
+
+  const { data: departmentMembers = [] } = useQuery<MemberOption[]>({
+    queryKey: ['department-members', user?.departmentId],
+    queryFn: () => usersApi.getDepartmentMembers() as unknown as Promise<MemberOption[]>,
+    enabled: user?.role === 'HEAD',
+  });
 
   const saveMutation = useMutation({
     mutationFn: (data: unknown) =>
@@ -45,6 +61,21 @@ export default function CustomersPage() {
     onError: (e: unknown) => {
       const err = e as { response?: { data?: { message?: string } } };
       message.error(err?.response?.data?.message ?? '操作失败');
+    },
+  });
+
+  const transferMutation = useMutation({
+    mutationFn: (newAssignedTo: string) =>
+      customersApi.transfer(transferTarget!.id, { newAssignedTo }),
+    onSuccess: () => {
+      message.success('维护人已转移');
+      setTransferTarget(null);
+      transferForm.resetFields();
+      actionRef.current?.reload();
+    },
+    onError: (e: unknown) => {
+      const err = e as { response?: { data?: { message?: string } } };
+      message.error(err.response?.data?.message ?? '转移失败');
     },
   });
 
@@ -78,7 +109,7 @@ export default function CustomersPage() {
     },
     {
       title: '操作',
-      width: 120,
+      width: user?.role === 'HEAD' ? 180 : 120,
       fixed: 'right',
       search: false,
       render: (_, r) => (
@@ -96,6 +127,18 @@ export default function CustomersPage() {
           >
             编辑
           </Button>
+          {user?.role === 'HEAD' && (
+            <Button
+              size="small"
+              icon={<SwapOutlined />}
+              onClick={() => {
+                setTransferTarget(r);
+                transferForm.setFieldValue('newAssignedTo', r.assignedUser?.id);
+              }}
+            >
+              转移
+            </Button>
+          )}
         </Space>
       ),
     },
@@ -197,6 +240,32 @@ export default function CustomersPage() {
           </Form.Item>
         </Form>
       </Drawer>
+
+      <Modal
+        title={`转移客户：${transferTarget?.name ?? ''}`}
+        open={!!transferTarget}
+        confirmLoading={transferMutation.isPending}
+        onCancel={() => {
+          setTransferTarget(null);
+          transferForm.resetFields();
+        }}
+        onOk={() => transferForm.submit()}
+      >
+        <Form
+          form={transferForm}
+          layout="vertical"
+          onFinish={(values) => transferMutation.mutate(values.newAssignedTo)}
+        >
+          <Form.Item name="newAssignedTo" label="新维护人" rules={[{ required: true }]}>
+            <Select
+              options={departmentMembers.map((member) => ({
+                value: member.id,
+                label: member.name,
+              }))}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
     </>
   );
 }

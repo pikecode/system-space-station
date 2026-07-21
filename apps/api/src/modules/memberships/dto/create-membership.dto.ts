@@ -6,5 +6,4 @@ export class CreateMembershipDto {
   @IsNumber({ maxDecimalPlaces: 2 }) @Min(0.01) fee: number;
   @IsDateString() startDate: string;
   @IsDateString() endDate: string;
-  @IsOptional() @IsString() paidAt?: string;
 }

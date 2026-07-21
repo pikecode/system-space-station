@@ -17,6 +17,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserStatus } from '@prisma/client';
 import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 class SetStatusDto {
   @IsEnum(UserStatus)
@@ -38,8 +39,31 @@ export class UsersController {
     @Query('departmentId') departmentId?: string,
     @Query('role') role?: string,
     @Query('status') status?: string,
+    @Query('employeeNo') employeeNo?: string,
+    @Query('username') username?: string,
+    @Query('name') name?: string,
+    @Query('phone') phone?: string,
   ) {
-    return this.usersService.findAll({ departmentId, role, status });
+    return this.usersService.findAll({
+      departmentId,
+      role,
+      status,
+      employeeNo,
+      username,
+      name,
+      phone,
+    });
+  }
+
+  @Roles('HEAD', 'ADMIN')
+  @Get('department-members')
+  findDepartmentMembers(
+    @CurrentUser() currentUser: any,
+    @Query('departmentId') departmentId?: string,
+  ) {
+    const targetDepartmentId = currentUser.role === 'ADMIN' ? departmentId : currentUser.departmentId;
+    if (!targetDepartmentId) return [];
+    return this.usersService.findDepartmentMembers(targetDepartmentId);
   }
 
   @Get(':id')
@@ -48,22 +72,22 @@ export class UsersController {
   }
 
   @Post()
-  create(@Body() dto: CreateUserDto) {
-    return this.usersService.create(dto);
+  create(@Body() dto: CreateUserDto, @CurrentUser() operator: any) {
+    return this.usersService.create(dto, operator.id);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
-    return this.usersService.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: UpdateUserDto, @CurrentUser() operator: any) {
+    return this.usersService.update(id, dto, operator.id);
   }
 
   @Patch(':id/transfer')
-  transfer(@Param('id') id: string, @Body() dto: TransferUserDto) {
-    return this.usersService.transfer(id, dto);
+  transfer(@Param('id') id: string, @Body() dto: TransferUserDto, @CurrentUser() operator: any) {
+    return this.usersService.transfer(id, dto, operator.id);
   }
 
   @Patch(':id/status')
-  setStatus(@Param('id') id: string, @Body() dto: SetStatusDto) {
-    return this.usersService.setStatus(id, dto.status, dto.successorId);
+  setStatus(@Param('id') id: string, @Body() dto: SetStatusDto, @CurrentUser() operator: any) {
+    return this.usersService.setStatus(id, dto.status, dto.successorId, operator.id);
   }
 }

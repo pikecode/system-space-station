@@ -1,7 +1,7 @@
 import { UserRole } from '../enums';
 
 export interface LoginDto {
-  phone: string;
+  account: string;
   password: string;
 }
 
@@ -11,7 +11,7 @@ export interface LoginResponseDto {
     id: string;
     name: string;
     role: UserRole;
-    departmentId?: string;
-    avatar?: string;
+    departmentId?: string | null;
+    avatar?: string | null;
   };
 }

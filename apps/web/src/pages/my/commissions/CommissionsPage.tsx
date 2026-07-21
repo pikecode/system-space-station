@@ -35,10 +35,13 @@ interface CommissionRecord {
   };
 }
 
-export default function CommissionsPage() {
+export default function CommissionsPage({ scope = 'my' }: { scope?: 'my' | 'department' }) {
   const { data } = useQuery({
-    queryKey: ['my-commissions'],
-    queryFn: () => commissionsApi.getMy({ pageSize: 100 }),
+    queryKey: [`${scope}-commissions`],
+    queryFn: () =>
+      scope === 'department'
+        ? commissionsApi.getDepartment({ pageSize: 100 })
+        : commissionsApi.getMy({ pageSize: 100 }),
   });
 
   const list: CommissionRecord[] =
@@ -132,6 +135,7 @@ export default function CommissionsPage() {
         rowKey="id"
         columns={columns}
         dataSource={list}
+        headerTitle={scope === 'department' ? '部门分成明细' : '个人分成明细'}
         search={false}
         pagination={{ pageSize: 20 }}
         scroll={{ x: 700 }}

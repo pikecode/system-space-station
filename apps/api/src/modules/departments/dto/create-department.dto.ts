@@ -6,6 +6,11 @@ export class CreateDepartmentDto {
   @MaxLength(50)
   name: string;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  code?: string;
+
   @IsEnum(DepartmentType)
   type: DepartmentType;
 

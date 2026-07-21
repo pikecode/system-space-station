@@ -1,13 +1,13 @@
 import {
-  Injectable,
   BadRequestException,
-  NotFoundException,
   ConflictException,
+  Injectable,
+  NotFoundException,
 } from '@nestjs/common';
+import { DepartmentType, Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
-import { DepartmentType } from '@prisma/client';
 
 @Injectable()
 export class DepartmentsService {
@@ -22,22 +22,27 @@ export class DepartmentsService {
   }
 
   async findTree() {
-    const all = await this.prisma.department.findMany({
-      where: { status: 'ACTIVE' },
-      include: { head: { select: { id: true, name: true } } },
-      orderBy: [{ sort: 'asc' }, { createdAt: 'asc' }],
-    });
-    return this.buildTree(all, null);
+    const all = await this.findAll();
+    return this.buildTree(all, null, new Set());
   }
 
-  private buildTree(all: any[], parentId: string | null): any[] {
+  private buildTree(all: any[], parentId: string | null, ancestors: Set<string>): any[] {
     return all
-      .filter((d) => d.parentId === parentId)
-      .map((d) => ({ ...d, children: this.buildTree(all, d.id) }));
+      .filter((department) => department.parentId === parentId)
+      .map((department) => {
+        if (ancestors.has(department.id)) {
+          throw new ConflictException('部门层级存在循环引用，请联系管理员修复');
+        }
+        const nextAncestors = new Set(ancestors).add(department.id);
+        return {
+          ...department,
+          children: this.buildTree(all, department.id, nextAncestors),
+        };
+      });
   }
 
   async findOne(id: string) {
-    const dept = await this.prisma.department.findUnique({
+    const department = await this.prisma.department.findUnique({
       where: { id },
       include: {
         head: { select: { id: true, name: true } },
@@ -45,42 +50,202 @@ export class DepartmentsService {
         children: { select: { id: true, name: true, type: true, status: true } },
       },
     });
-    if (!dept) throw new NotFoundException('部门不存在');
-    return dept;
+    if (!department) throw new NotFoundException('部门不存在');
+    return department;
   }
 
-  async create(dto: CreateDepartmentDto) {
-    if (dto.type === DepartmentType.HQ) {
-      const existing = await this.prisma.department.findFirst({ where: { type: 'HQ' } });
-      if (existing) throw new ConflictException('总部已存在，只允许一个');
-    }
-    if (dto.type === DepartmentType.MARKET) {
-      const count = await this.prisma.department.count({ where: { type: 'MARKET', status: 'ACTIVE' } });
-      if (count >= 7) throw new BadRequestException('市场部最多7个');
-    }
-    return this.prisma.department.create({ data: dto });
-  }
+  async create(dto: CreateDepartmentDto, operatorId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      await this.validateHierarchy(tx, dto.type, dto.parentId ?? null);
+      if (dto.type === DepartmentType.HQ) {
+        const existing = await tx.department.findFirst({ where: { type: DepartmentType.HQ } });
+        if (existing) throw new ConflictException('总部已存在，只允许一个');
+      }
+      if (dto.type === DepartmentType.MARKET) {
+        const count = await tx.department.count({
+          where: { type: DepartmentType.MARKET, status: 'ACTIVE' },
+        });
+        if (count >= 7) throw new BadRequestException('市场部最多7个');
+      }
 
-  async update(id: string, dto: UpdateDepartmentDto) {
-    await this.findOne(id);
-    if (dto.type === DepartmentType.HQ) {
-      const existing = await this.prisma.department.findFirst({
-        where: { type: 'HQ', id: { not: id } },
+      const department = await tx.department.create({ data: dto });
+      await tx.auditLog.create({
+        data: {
+          action: 'DEPARTMENT_CREATE',
+          entityType: 'Department',
+          entityId: department.id,
+          operatorId,
+          after: this.auditSnapshot(department),
+        },
       });
-      if (existing) throw new ConflictException('总部已存在');
-    }
-    return this.prisma.department.update({ where: { id }, data: dto });
+      return department;
+    });
   }
 
-  async disable(id: string) {
-    await this.findOne(id);
-    const hasActiveMembers = await this.prisma.user.count({
-      where: { departmentId: id, status: 'ACTIVE' },
+  async update(id: string, dto: UpdateDepartmentDto, operatorId: string) {
+    const existing = await this.findOne(id);
+    const nextType = dto.type ?? existing.type;
+    const nextParentId = dto.parentId === undefined ? existing.parentId : dto.parentId;
+
+    return this.prisma.$transaction(async (tx) => {
+      await this.validateHierarchy(tx, nextType, nextParentId, id);
+      if (existing.type === DepartmentType.HQ && nextType !== DepartmentType.HQ) {
+        throw new BadRequestException('总部类型不能变更');
+      }
+      if (nextType === DepartmentType.HQ) {
+        const anotherHeadquarters = await tx.department.findFirst({
+          where: { type: DepartmentType.HQ, id: { not: id } },
+        });
+        if (anotherHeadquarters) throw new ConflictException('总部已存在');
+      }
+      if (nextType === DepartmentType.MARKET && existing.type !== DepartmentType.MARKET) {
+        const count = await tx.department.count({
+          where: { type: DepartmentType.MARKET, status: 'ACTIVE', id: { not: id } },
+        });
+        if (count >= 7) throw new BadRequestException('市场部最多7个');
+      }
+      if (nextType !== existing.type) {
+        await this.validateChildrenForType(tx, id, nextType);
+      }
+
+      if (dto.headId !== undefined && dto.headId !== existing.headId) {
+        if (dto.headId) {
+          const newHead = await tx.user.findUnique({ where: { id: dto.headId } });
+          if (!newHead || newHead.status !== 'ACTIVE') {
+            throw new BadRequestException('新负责人不存在或已禁用');
+          }
+          if (newHead.departmentId !== id) {
+            throw new BadRequestException('负责人必须属于当前部门');
+          }
+          if (newHead.role !== UserRole.HEAD) {
+            await tx.user.update({
+              where: { id: newHead.id },
+              data: { role: UserRole.HEAD, authVersion: { increment: 1 } },
+            });
+          }
+        }
+        if (existing.headId) {
+          await tx.user.update({
+            where: { id: existing.headId },
+            data: { role: UserRole.MEMBER, authVersion: { increment: 1 } },
+          });
+        }
+      }
+
+      const department = await tx.department.update({ where: { id }, data: dto });
+      await tx.auditLog.create({
+        data: {
+          action: 'DEPARTMENT_UPDATE',
+          entityType: 'Department',
+          entityId: id,
+          operatorId,
+          before: this.auditSnapshot(existing),
+          after: this.auditSnapshot(department),
+        },
+      });
+      return department;
     });
-    if (hasActiveMembers > 0) throw new BadRequestException('部门下有在职员工，无法停用');
-    return this.prisma.department.update({
-      where: { id },
-      data: { status: 'INACTIVE' },
+  }
+
+  async disable(id: string, operatorId: string) {
+    const existing = await this.findOne(id);
+    const [activeMembers, activeChildren] = await Promise.all([
+      this.prisma.user.count({ where: { departmentId: id, status: 'ACTIVE' } }),
+      this.prisma.department.count({ where: { parentId: id, status: 'ACTIVE' } }),
+    ]);
+    if (activeMembers > 0) throw new BadRequestException('部门下有在职员工，无法停用');
+    if (activeChildren > 0) throw new BadRequestException('部门下有启用的子部门，无法停用');
+
+    return this.prisma.$transaction(async (tx) => {
+      const department = await tx.department.update({
+        where: { id },
+        data: { status: 'INACTIVE' },
+      });
+      await tx.auditLog.create({
+        data: {
+          action: 'DEPARTMENT_DISABLE',
+          entityType: 'Department',
+          entityId: id,
+          operatorId,
+          before: this.auditSnapshot(existing),
+          after: this.auditSnapshot(department),
+        },
+      });
+      return department;
     });
+  }
+
+  private async validateHierarchy(
+    tx: Prisma.TransactionClient,
+    type: DepartmentType,
+    parentId: string | null,
+    currentId?: string,
+  ) {
+    if (type === DepartmentType.HQ) {
+      if (parentId) throw new BadRequestException('总部不能设置上级部门');
+      return;
+    }
+    if (!parentId) throw new BadRequestException('非总部部门必须设置上级部门');
+    if (parentId === currentId) throw new BadRequestException('部门不能将自身设为上级');
+
+    const parent = await tx.department.findUnique({ where: { id: parentId } });
+    if (!parent || parent.status !== 'ACTIVE') {
+      throw new BadRequestException('上级部门不存在或已停用');
+    }
+    const validParentTypes: Record<Exclude<DepartmentType, 'HQ'>, DepartmentType> = {
+      DIRECT: DepartmentType.HQ,
+      MARKET: DepartmentType.HQ,
+      DIVISION: DepartmentType.MARKET,
+    };
+    if (parent.type !== validParentTypes[type as Exclude<DepartmentType, 'HQ'>]) {
+      throw new BadRequestException('部门类型与上级部门层级不匹配');
+    }
+
+    let ancestor: typeof parent | null = parent;
+    let depth = 1;
+    while (ancestor?.parentId) {
+      if (ancestor.parentId === currentId) throw new BadRequestException('部门层级不能形成循环');
+      depth += 1;
+      if (depth > 2) throw new BadRequestException('部门层级最多三层');
+      ancestor = await tx.department.findUnique({ where: { id: ancestor.parentId } });
+    }
+  }
+
+  private async validateChildrenForType(
+    tx: Prisma.TransactionClient,
+    departmentId: string,
+    parentType: DepartmentType,
+  ) {
+    const children = await tx.department.findMany({
+      where: { parentId: departmentId },
+      select: { type: true },
+    });
+    const allowedChildTypes: Record<DepartmentType, DepartmentType[]> = {
+      HQ: [DepartmentType.DIRECT, DepartmentType.MARKET],
+      MARKET: [DepartmentType.DIVISION],
+      DIRECT: [],
+      DIVISION: [],
+    };
+    if (children.some((child) => !allowedChildTypes[parentType].includes(child.type))) {
+      throw new BadRequestException('变更部门类型后将与现有子部门层级冲突');
+    }
+  }
+
+  private auditSnapshot(department: {
+    name: string;
+    code?: string | null;
+    type: DepartmentType;
+    parentId: string | null;
+    headId: string | null;
+    status: string;
+  }): Prisma.InputJsonObject {
+    return {
+      name: department.name,
+      code: department.code ?? '',
+      type: department.type,
+      parentId: department.parentId ?? '',
+      headId: department.headId ?? '',
+      status: department.status,
+    };
   }
 }

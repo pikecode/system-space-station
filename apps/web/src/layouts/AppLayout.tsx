@@ -6,6 +6,7 @@ const menusByRole = {
   ADMIN: [
     { path: '/admin/departments', name: '部门管理' },
     { path: '/admin/users', name: '员工管理' },
+    { path: '/admin/admins', name: '系统管理员' },
     { path: '/admin/customers', name: '客户总览' },
     { path: '/admin/commissions', name: '分成总览' },
     { path: '/admin/config', name: '系统配置' },
@@ -13,7 +14,7 @@ const menusByRole = {
   HEAD: [
     { path: '/dept/customers', name: '部门客户' },
     { path: '/dept/approvals', name: '待审批' },
-    { path: '/my/commissions', name: '我的分成' },
+    { path: '/dept/commissions', name: '部门分成' },
   ],
   MEMBER: [
     { path: '/my/customers', name: '我的客户' },

@@ -8,12 +8,17 @@ export class UpdateDepartmentDto {
   name?: string;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  code?: string;
+
+  @IsOptional()
   @IsEnum(DepartmentType)
   type?: DepartmentType;
 
   @IsOptional()
   @IsString()
-  parentId?: string;
+  parentId?: string | null;
 
   @IsOptional()
   @IsString()

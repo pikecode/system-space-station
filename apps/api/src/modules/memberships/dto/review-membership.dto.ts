@@ -1,6 +1,6 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsDateString, IsOptional, IsString } from 'class-validator';
 
 export class ReviewMembershipDto {
   @IsOptional() @IsString() reviewNote?: string;
-  @IsOptional() @IsString() paidAt?: string;
+  @IsOptional() @IsDateString() paidAt?: string;
 }

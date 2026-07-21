@@ -14,6 +14,7 @@ import { UpdateDepartmentDto } from './dto/update-department.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
@@ -37,17 +38,17 @@ export class DepartmentsController {
   }
 
   @Post()
-  create(@Body() dto: CreateDepartmentDto) {
-    return this.deptService.create(dto);
+  create(@Body() dto: CreateDepartmentDto, @CurrentUser() operator: any) {
+    return this.deptService.create(dto, operator.id);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateDepartmentDto) {
-    return this.deptService.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: UpdateDepartmentDto, @CurrentUser() operator: any) {
+    return this.deptService.update(id, dto, operator.id);
   }
 
   @Delete(':id')
-  disable(@Param('id') id: string) {
-    return this.deptService.disable(id);
+  disable(@Param('id') id: string, @CurrentUser() operator: any) {
+    return this.deptService.disable(id, operator.id);
   }
 }

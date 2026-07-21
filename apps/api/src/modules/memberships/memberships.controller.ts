@@ -57,11 +57,15 @@ export class MembershipsController {
   }
 
   @Patch(':id/resubmit')
+  @UseGuards(RolesGuard)
+  @Roles('MEMBER')
   resubmitAlias(@Param('id') id: string, @Body() dto: CreateMembershipDto, @CurrentUser() user: any) {
     return this.membershipsService.resubmit(id, dto, user);
   }
 
   @Post(':id/refund')
+  @UseGuards(RolesGuard)
+  @Roles('MEMBER', 'HEAD', 'ADMIN')
   requestRefund(@Param('id') id: string, @Body() dto: RefundRequestDto, @CurrentUser() user: any) {
     return this.membershipsService.requestRefund(id, dto, user);
   }

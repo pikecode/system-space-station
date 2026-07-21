@@ -1,0 +1,12 @@
+[
+  {
+    "date": "2026-07-21",
+    "scope": "app",
+    "genre": "modern-minimal",
+    "macrostructure": "Workbench",
+    "theme": "custom OKLCH (cool neutral paper, teal accent)",
+    "theme_axes": "light / grotesk-sans / cool",
+    "enrichment": "none",
+    "brief": "Multi-page redesign — 客户资源管理系统 (Customer Resource Management System) — 11 pages across admin/dept/member sections, locked design system via design.md"
+  }
+]

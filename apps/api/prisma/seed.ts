@@ -69,12 +69,13 @@ async function main() {
   });
 
   // 6. 用户 - 系统管理员
-  const adminPwd = await bcrypt.hash('Admin123456', 10);
+  const adminPwd = await bcrypt.hash('Admin123456', 12);
   const admin = await prisma.user.upsert({
     where: { phone: '13800000000' },
-    update: {},
+    update: { username: 'admin' },
     create: {
       name: '系统管理员',
+      username: 'admin',
       phone: '13800000000',
       passwordHash: adminPwd,
       role: 'ADMIN',
@@ -83,13 +84,14 @@ async function main() {
   });
 
   // 7. 市场部负责人
-  const headPwd = await bcrypt.hash('Head123456', 10);
+  const headPwd = await bcrypt.hash('Head123456', 12);
   const marketHead = await prisma.user.upsert({
     where: { phone: '13800000001' },
-    update: {},
+    update: { employeeNo: 'MKT001' },
     create: {
       name: '王市场',
       phone: '13800000001',
+      employeeNo: 'MKT001',
       passwordHash: headPwd,
       role: 'HEAD',
       departmentId: market1.id,
@@ -100,13 +102,14 @@ async function main() {
   await prisma.department.update({ where: { id: market1.id }, data: { headId: marketHead.id } });
 
   // 8. 事业部负责人
-  const divHeadPwd = await bcrypt.hash('Head123456', 10);
+  const divHeadPwd = await bcrypt.hash('Head123456', 12);
   const divHead = await prisma.user.upsert({
     where: { phone: '13800000002' },
-    update: {},
+    update: { employeeNo: 'DIV001' },
     create: {
       name: '李事业',
       phone: '13800000002',
+      employeeNo: 'DIV001',
       passwordHash: divHeadPwd,
       role: 'HEAD',
       departmentId: division1.id,
@@ -117,13 +120,14 @@ async function main() {
   await prisma.department.update({ where: { id: division1.id }, data: { headId: divHead.id } });
 
   // 9. 普通成员
-  const memberPwd = await bcrypt.hash('Member123456', 10);
+  const memberPwd = await bcrypt.hash('Member123456', 12);
   await prisma.user.upsert({
     where: { phone: '13800000003' },
-    update: {},
+    update: { employeeNo: 'EMP001' },
     create: {
       name: '张销售',
       phone: '13800000003',
+      employeeNo: 'EMP001',
       passwordHash: memberPwd,
       role: 'MEMBER',
       departmentId: division1.id,
@@ -133,10 +137,12 @@ async function main() {
   });
 
   // 10. 分成配置
-  await prisma.commissionConfig.upsert({
+  const existingConfig = await prisma.commissionConfig.findUnique({
     where: { id: 'config-default' },
-    update: {},
-    create: {
+  });
+  if (!existingConfig) {
+    await prisma.commissionConfig.create({
+      data: {
       id: 'config-default',
       memberRatio: 40,
       deptHeadRatio: 20,
@@ -146,8 +152,9 @@ async function main() {
       effectiveFrom: new Date('2024-01-01'),
       remark: '默认配置',
       createdBy: admin.id,
-    },
-  });
+      },
+    });
+  }
 
   // 11. 初始结算周期（OPEN）
   const today = new Date();
@@ -181,7 +188,7 @@ async function main() {
 
   console.log('种子数据初始化完成');
   console.log('测试账号：');
-  console.log('  管理员：13800000000 / Admin123456');
+  console.log('  管理员：admin（或13800000000）/ Admin123456');
   console.log('  市场部负责人：13800000001 / Head123456');
   console.log('  事业部负责人：13800000002 / Head123456');
   console.log('  销售成员：13800000003 / Member123456');

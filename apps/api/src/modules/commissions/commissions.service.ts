@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -26,7 +31,7 @@ export class CommissionsService {
     const page = parseInt(query.page ?? '1', 10);
     const pageSize = Math.min(parseInt(query.pageSize ?? '20', 10), 100);
     const where: any = {
-      membership: { customer: { departmentId } },
+      departmentId,
     };
     const [total, data] = await this.prisma.$transaction([
       this.prisma.commissionRecord.count({ where }),
@@ -77,10 +82,13 @@ export class CommissionsService {
       if (!period) throw new NotFoundException('结算周期不存在');
       if (period.status !== 'PENDING_PAYMENT') throw new BadRequestException('只有待出账状态的周期可以结算');
 
-      await tx.settlementPeriod.update({
+      const transitioned = await tx.settlementPeriod.updateMany({
         where: { id: periodId, status: 'PENDING_PAYMENT' },
         data: { status: 'SETTLED', settledBy: operatorId, settledAt: new Date() },
       });
+      if (transitioned.count !== 1) {
+        throw new ConflictException('结算周期状态已变更，请刷新后重试');
+      }
 
       const updateResult = await tx.commissionRecord.updateMany({
         where: { periodId, status: 'PENDING_PAYMENT' },

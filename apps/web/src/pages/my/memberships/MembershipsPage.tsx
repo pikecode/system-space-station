@@ -1,13 +1,13 @@
 import { useRef, useState } from 'react';
 import { ProTable } from '@ant-design/pro-components';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
-import { Button, Drawer, Form, Select, InputNumber, DatePicker, Tag, App } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { App, Button, DatePicker, Drawer, Form, Input, InputNumber, Modal, Select, Space, Tag } from 'antd';
+import { EditOutlined, PlusOutlined, RollbackOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import dayjs from 'dayjs';
 import { membershipsApi } from '../../../services/memberships';
 import { customersApi } from '../../../services/customers';
 import { memberLevelsApi } from '../../../services/memberLevels';
-import dayjs from 'dayjs';
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING: '待审核',
@@ -17,6 +17,7 @@ const STATUS_LABELS: Record<string, string> = {
   REFUND_PENDING: '退款中',
   REFUNDED: '已退款',
 };
+
 const STATUS_COLORS: Record<string, string> = {
   PENDING: 'orange',
   APPROVED: 'green',
@@ -34,26 +35,25 @@ interface MembershipRecord {
   startDate: string;
   endDate: string;
   reviewNote?: string;
-  customer?: { name: string };
-  memberLevel?: { name: string };
+  customer?: { id: string; name: string };
+  memberLevel?: { id: string; name: string };
 }
 
-interface CustomerRecord {
-  id: string;
-  name: string;
-  phone: string;
-}
-
-interface MemberLevelRecord {
-  id: string;
-  name: string;
+interface MembershipFormValues {
+  customerId: string;
+  memberLevelId?: string;
+  fee: number;
+  dateRange: [dayjs.Dayjs, dayjs.Dayjs];
 }
 
 export default function MembershipsPage() {
   const { message } = App.useApp();
   const actionRef = useRef<ActionType>();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [form] = Form.useForm();
+  const [editingRecord, setEditingRecord] = useState<MembershipRecord | null>(null);
+  const [refundTarget, setRefundTarget] = useState<MembershipRecord | null>(null);
+  const [form] = Form.useForm<MembershipFormValues>();
+  const [refundForm] = Form.useForm<{ refundReason: string }>();
 
   const { data: customers } = useQuery({
     queryKey: ['my-customers'],
@@ -64,29 +64,65 @@ export default function MembershipsPage() {
     queryFn: () => memberLevelsApi.getAll(),
   });
 
-  const createMutation = useMutation({
-    mutationFn: (data: { customerId: string; memberLevelId?: string; fee: number; dateRange: [dayjs.Dayjs, dayjs.Dayjs] }) =>
-      membershipsApi.create({
-        customerId: data.customerId,
-        memberLevelId: data.memberLevelId,
-        fee: data.fee,
-        startDate: data.dateRange[0].format('YYYY-MM-DD'),
-        endDate: data.dateRange[1].format('YYYY-MM-DD'),
-      }),
+  const saveMutation = useMutation({
+    mutationFn: (values: MembershipFormValues) => {
+      const payload = {
+        customerId: values.customerId,
+        memberLevelId: values.memberLevelId,
+        fee: values.fee,
+        startDate: values.dateRange[0].format('YYYY-MM-DD'),
+        endDate: values.dateRange[1].format('YYYY-MM-DD'),
+      };
+      return editingRecord
+        ? membershipsApi.resubmit(editingRecord.id, payload)
+        : membershipsApi.create(payload);
+    },
     onSuccess: () => {
-      message.success('提交成功，等待负责人审批');
-      setDrawerOpen(false);
-      form.resetFields();
+      message.success(editingRecord ? '已重新提交' : '提交成功，等待负责人审批');
+      closeDrawer();
       actionRef.current?.reload();
     },
-    onError: (e: unknown) => {
-      const err = e as { response?: { data?: { message?: string } } };
-      message.error(err?.response?.data?.message ?? '提交失败');
-    },
+    onError: (error: unknown) => message.error(apiError(error, '提交失败')),
   });
 
-  const customersData: CustomerRecord[] = (customers as { data?: CustomerRecord[] } | undefined)?.data ?? [];
-  const levelsData: MemberLevelRecord[] = Array.isArray(levels) ? (levels as MemberLevelRecord[]) : [];
+  const refundMutation = useMutation({
+    mutationFn: (refundReason: string) =>
+      membershipsApi.requestRefund(refundTarget!.id, { refundReason }),
+    onSuccess: () => {
+      message.success('退款申请已提交');
+      setRefundTarget(null);
+      refundForm.resetFields();
+      actionRef.current?.reload();
+    },
+    onError: (error: unknown) => message.error(apiError(error, '退款申请失败')),
+  });
+
+  const customerList =
+    (customers as { data?: Array<{ id: string; name: string; phone: string }> } | undefined)?.data ?? [];
+  const levelList = Array.isArray(levels) ? (levels as Array<{ id: string; name: string }>) : [];
+
+  const openCreate = () => {
+    setEditingRecord(null);
+    form.resetFields();
+    setDrawerOpen(true);
+  };
+
+  const openResubmit = (record: MembershipRecord) => {
+    setEditingRecord(record);
+    form.setFieldsValue({
+      customerId: record.customer?.id ?? '',
+      memberLevelId: record.memberLevel?.id,
+      fee: Number(record.fee),
+      dateRange: [dayjs(record.startDate), dayjs(record.endDate)],
+    });
+    setDrawerOpen(true);
+  };
+
+  const closeDrawer = () => {
+    setDrawerOpen(false);
+    setEditingRecord(null);
+    form.resetFields();
+  };
 
   const columns: ProColumns<MembershipRecord>[] = [
     { title: '会员编号', dataIndex: 'memberNo', width: 140 },
@@ -96,22 +132,48 @@ export default function MembershipsPage() {
       title: '会员费',
       dataIndex: 'fee',
       width: 100,
-      render: (_, r) => `¥${Number(r.fee).toLocaleString()}`,
+      render: (_, record) => `¥${Number(record.fee).toLocaleString()}`,
     },
     {
       title: '有效期',
       width: 200,
-      render: (_, r) => `${r.startDate?.slice(0, 10)} ~ ${r.endDate?.slice(0, 10)}`,
+      render: (_, record) =>
+        `${record.startDate?.slice(0, 10)} ~ ${record.endDate?.slice(0, 10)}`,
     },
     {
       title: '状态',
       dataIndex: 'status',
       width: 90,
-      render: (_, r) => (
-        <Tag color={STATUS_COLORS[r.status]}>{STATUS_LABELS[r.status]}</Tag>
+      render: (_, record) => (
+        <Tag color={STATUS_COLORS[record.status]}>{STATUS_LABELS[record.status]}</Tag>
       ),
     },
-    { title: '审批备注', dataIndex: 'reviewNote', width: 150 },
+    { title: '审批备注', dataIndex: 'reviewNote', width: 150, search: false },
+    {
+      title: '操作',
+      width: 180,
+      fixed: 'right',
+      search: false,
+      render: (_, record) => (
+        <Space>
+          {record.status === 'REJECTED' && (
+            <Button size="small" icon={<EditOutlined />} onClick={() => openResubmit(record)}>
+              修改重提
+            </Button>
+          )}
+          {record.status === 'APPROVED' && (
+            <Button
+              size="small"
+              danger
+              icon={<RollbackOutlined />}
+              onClick={() => setRefundTarget(record)}
+            >
+              申请退款
+            </Button>
+          )}
+        </Space>
+      ),
+    },
   ];
 
   return (
@@ -121,75 +183,85 @@ export default function MembershipsPage() {
         rowKey="id"
         columns={columns}
         request={async (params) => {
-          const res = (await membershipsApi.getAll({
+          const response = (await membershipsApi.getAll({
             page: params.current,
             pageSize: params.pageSize,
           })) as unknown as { data: MembershipRecord[]; total: number };
-          return { data: res.data, total: res.total, success: true };
+          return { data: response.data, total: response.total, success: true };
         }}
         toolbar={{
           actions: [
-            <Button
-              key="add"
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => setDrawerOpen(true)}
-            >
+            <Button key="add" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
               提交会员申请
             </Button>,
           ],
         }}
+        scroll={{ x: 950 }}
       />
+
       <Drawer
-        title="提交会员申请"
+        title={editingRecord ? '修改并重新提交' : '提交会员申请'}
         open={drawerOpen}
-        onClose={() => {
-          setDrawerOpen(false);
-          form.resetFields();
-        }}
+        onClose={closeDrawer}
         width={480}
-        footer={
-          <Button
-            type="primary"
-            loading={createMutation.isPending}
-            onClick={() => form.submit()}
-          >
-            提交
+        footer={(
+          <Button type="primary" loading={saveMutation.isPending} onClick={() => form.submit()}>
+            {editingRecord ? '重新提交' : '提交'}
           </Button>
-        }
+        )}
       >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={(v) => createMutation.mutate(v)}
-        >
+        <Form form={form} layout="vertical" onFinish={(values) => saveMutation.mutate(values)}>
           <Form.Item name="customerId" label="选择客户" rules={[{ required: true }]}>
             <Select
+              disabled={!!editingRecord}
               showSearch
               optionFilterProp="label"
-              options={customersData.map((c) => ({
-                value: c.id,
-                label: `${c.name} (${c.phone})`,
+              options={customerList.map((customer) => ({
+                value: customer.id,
+                label: `${customer.name} (${customer.phone})`,
               }))}
             />
           </Form.Item>
           <Form.Item name="memberLevelId" label="会员等级">
             <Select
               allowClear
-              options={levelsData.map((l) => ({ value: l.id, label: l.name }))}
+              options={levelList.map((level) => ({ value: level.id, label: level.name }))}
             />
           </Form.Item>
           <Form.Item name="fee" label="会员费（元）" rules={[{ required: true }]}>
             <InputNumber min={0.01} precision={2} style={{ width: '100%' }} prefix="¥" />
           </Form.Item>
           <Form.Item name="dateRange" label="有效期" rules={[{ required: true }]}>
-            <DatePicker.RangePicker
-              style={{ width: '100%' }}
-              disabledDate={(d) => d.isBefore(dayjs(), 'day')}
-            />
+            <DatePicker.RangePicker style={{ width: '100%' }} />
           </Form.Item>
         </Form>
       </Drawer>
+
+      <Modal
+        title={`申请全额退款：${refundTarget?.customer?.name ?? ''}`}
+        open={!!refundTarget}
+        confirmLoading={refundMutation.isPending}
+        onCancel={() => {
+          setRefundTarget(null);
+          refundForm.resetFields();
+        }}
+        onOk={() => refundForm.submit()}
+      >
+        <Form
+          form={refundForm}
+          layout="vertical"
+          onFinish={(values) => refundMutation.mutate(values.refundReason)}
+        >
+          <Form.Item name="refundReason" label="退款原因" rules={[{ required: true }]}>
+            <Input.TextArea rows={3} maxLength={500} showCount />
+          </Form.Item>
+        </Form>
+      </Modal>
     </>
   );
+}
+
+function apiError(error: unknown, fallback: string) {
+  const responseError = error as { response?: { data?: { message?: string } } };
+  return responseError.response?.data?.message ?? fallback;
 }

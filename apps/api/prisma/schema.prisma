@@ -106,6 +106,7 @@ enum SchedulerStatus {
 model Department {
   id            String         @id @default(cuid())
   name          String
+  code          String?        @unique
   parentId      String?
   parent        Department?    @relation("DepartmentHierarchy", fields: [parentId], references: [id])
   children      Department[]   @relation("DepartmentHierarchy")
@@ -123,6 +124,7 @@ model Department {
   updatedAt     DateTime       @updatedAt
   users         User[]         @relation("DepartmentUsers")
   customers     Customer[]
+  commissionRecords CommissionRecord[] @relation("CommissionDepartment")
 
   @@index([parentId])
   @@index([type])
@@ -141,7 +143,20 @@ model Position {
 model User {
   id                      String       @id @default(cuid())
   name                    String
+  username                String?      @unique
   phone                   String       @unique
+  employeeNo              String?      @unique
+  gender                  Gender?
+  birthDate               DateTime?
+  alternatePhone          String?
+  wechat                  String?
+  province                String?
+  city                    String?
+  district                String?
+  addressDetail           String?
+  idCardEncrypted         String?
+  idCardHash              String?      @unique
+  idCardMasked            String?
   email                   String?
   avatar                  String?
   positionId              String?
@@ -259,6 +274,8 @@ model CommissionRecord {
   businessKey      String            @unique
   membershipId     String
   membership       Membership        @relation(fields: [membershipId], references: [id])
+  departmentId     String?
+  department       Department?       @relation("CommissionDepartment", fields: [departmentId], references: [id])
   entryType        CommissionEntry   @default(EARNING)
   receiverUserId   String?
   receiverUser     User?             @relation(fields: [receiverUserId], references: [id])
@@ -276,6 +293,7 @@ model CommissionRecord {
   settledAt        DateTime?
 
   @@index([membershipId])
+  @@index([departmentId])
   @@index([status, periodId])
 }
 

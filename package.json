@@ -8,10 +8,15 @@
     "build:api": "pnpm --filter api build",
     "build:web": "pnpm --filter web build",
     "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
     "type-check": "pnpm -r type-check"
   },
   "devDependencies": {
-    "concurrently": "^9.0.0"
+    "@typescript-eslint/eslint-plugin": "^8.64.0",
+    "@typescript-eslint/parser": "^8.64.0",
+    "concurrently": "^9.0.0",
+    "eslint": "^8.57.1",
+    "vitest": "^2.1.9"
   },
   "engines": {
     "node": ">=20.0.0",
@@ -28,4 +33,3 @@
     ]
   }
 }
-

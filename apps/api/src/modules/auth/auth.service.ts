@@ -12,11 +12,19 @@ export class AuthService {
   ) {}
 
   async login(dto: LoginDto) {
-    const user = await this.prisma.user.findUnique({
-      where: { phone: dto.phone },
+    const account = dto.account?.trim() || dto.phone;
+    if (!account) throw new UnauthorizedException('账号或密码错误');
+    const user = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          { phone: account },
+          { username: account.toLowerCase() },
+        ],
+      },
       select: {
         id: true,
         name: true,
+        username: true,
         phone: true,
         role: true,
         departmentId: true,
@@ -26,11 +34,11 @@ export class AuthService {
         passwordHash: true,
       },
     });
-    if (!user) throw new UnauthorizedException('手机号或密码错误');
+    if (!user) throw new UnauthorizedException('账号或密码错误');
     if (user.status === 'INACTIVE') throw new UnauthorizedException('账号已禁用');
 
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
-    if (!valid) throw new UnauthorizedException('手机号或密码错误');
+    if (!valid) throw new UnauthorizedException('账号或密码错误');
 
     const payload = {
       sub: user.id,
@@ -58,6 +66,7 @@ export class AuthService {
       select: {
         id: true,
         name: true,
+        username: true,
         phone: true,
         role: true,
         departmentId: true,

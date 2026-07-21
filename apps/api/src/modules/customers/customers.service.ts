@@ -117,9 +117,22 @@ export class CustomersService {
     if (newUser.departmentId !== customer.departmentId) {
       throw new BadRequestException('目标维护人不在同一部门');
     }
-    return this.prisma.customer.update({
-      where: { id },
-      data: { assignedTo: dto.newAssignedTo },
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.customer.update({
+        where: { id },
+        data: { assignedTo: dto.newAssignedTo },
+      });
+      await tx.auditLog.create({
+        data: {
+          action: 'CUSTOMER_TRANSFER',
+          entityType: 'Customer',
+          entityId: id,
+          operatorId: currentUser.id,
+          before: { assignedTo: customer.assignedTo, departmentId: customer.departmentId },
+          after: { assignedTo: dto.newAssignedTo, departmentId: customer.departmentId },
+        },
+      });
+      return updated;
     });
   }
 

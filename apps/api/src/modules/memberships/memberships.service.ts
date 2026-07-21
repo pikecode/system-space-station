@@ -12,13 +12,18 @@ import { QueryMembershipDto } from './dto/query-membership.dto';
 import { ReviewMembershipDto } from './dto/review-membership.dto';
 import { RefundRequestDto } from './dto/refund-request.dto';
 
+const MEMBER_NO_LOCK_KEY = 2_607_202;
+
 @Injectable()
 export class MembershipsService {
   constructor(private prisma: PrismaService) {}
 
-  private async generateMemberNo(): Promise<string> {
+  private async generateMemberNo(tx: Prisma.TransactionClient): Promise<string> {
+    await tx.$queryRaw(
+      Prisma.sql`SELECT pg_advisory_xact_lock(${MEMBER_NO_LOCK_KEY})`,
+    );
     const prefix = `M${new Date().toISOString().slice(0, 7).replace('-', '')}`;
-    const count = await this.prisma.membership.count({
+    const count = await tx.membership.count({
       where: { memberNo: { startsWith: prefix } },
     });
     return `${prefix}${String(count + 1).padStart(5, '0')}`;
@@ -32,7 +37,7 @@ export class MembershipsService {
     if (query.customerId) where.customerId = query.customerId;
 
     if (currentUser.role === 'MEMBER') {
-      where.submittedBy = currentUser.id;
+      where.customer = { assignedTo: currentUser.id };
     } else if (currentUser.role === 'HEAD') {
       where.customer = { departmentId: currentUser.departmentId };
     }
@@ -58,7 +63,9 @@ export class MembershipsService {
     if (currentUser.role !== 'HEAD' && currentUser.role !== 'ADMIN') {
       throw new ForbiddenException('无权访问');
     }
-    const where: Prisma.MembershipWhereInput = { status: 'PENDING' };
+    const where: Prisma.MembershipWhereInput = {
+      status: { in: ['PENDING', 'REFUND_PENDING'] },
+    };
     if (currentUser.role === 'HEAD') {
       where.customer = { departmentId: currentUser.departmentId };
     }
@@ -76,30 +83,46 @@ export class MembershipsService {
   async create(dto: CreateMembershipDto, currentUser: any) {
     const customer = await this.prisma.customer.findUnique({ where: { id: dto.customerId } });
     if (!customer) throw new NotFoundException('客户不存在');
+    if (customer.status !== 'ACTIVE') throw new BadRequestException('客户已停用');
     if (currentUser.role === 'MEMBER' && customer.assignedTo !== currentUser.id) {
       throw new ForbiddenException('只能为名下客户提交会员申请');
     }
-    const memberNo = await this.generateMemberNo();
-    return this.prisma.membership.create({
-      data: {
-        memberNo,
-        customerId: dto.customerId,
-        memberLevelId: dto.memberLevelId,
-        fee: new Prisma.Decimal(dto.fee),
-        startDate: new Date(dto.startDate),
-        endDate: new Date(dto.endDate),
-        ...(dto.paidAt ? { paidAt: new Date(dto.paidAt) } : {}),
-        status: 'PENDING',
-        submittedBy: currentUser.id,
-      },
+    if (currentUser.role === 'HEAD' && customer.departmentId !== currentUser.departmentId) {
+      throw new ForbiddenException('只能为本部门客户提交会员申请');
+    }
+    await this.validateMembershipInput(dto);
+    return this.prisma.$transaction(async (tx) => {
+      const memberNo = await this.generateMemberNo(tx);
+      return tx.membership.create({
+        data: {
+          memberNo,
+          customerId: dto.customerId,
+          memberLevelId: dto.memberLevelId,
+          fee: new Prisma.Decimal(dto.fee),
+          startDate: new Date(dto.startDate),
+          endDate: new Date(dto.endDate),
+          status: 'PENDING',
+          submittedBy: currentUser.id,
+        },
+      });
     });
   }
 
   async resubmit(id: string, dto: CreateMembershipDto, currentUser: any) {
-    const membership = await this.prisma.membership.findUnique({ where: { id } });
+    const membership = await this.prisma.membership.findUnique({
+      where: { id },
+      include: { customer: { select: { assignedTo: true } } },
+    });
     if (!membership) throw new NotFoundException('会员申请不存在');
     if (membership.status !== 'REJECTED') throw new BadRequestException('只有已拒绝的申请可以重新提交');
     if (membership.submittedBy !== currentUser.id) throw new ForbiddenException('无权操作');
+    if (membership.customer.assignedTo !== currentUser.id) {
+      throw new ForbiddenException('客户已转移，无法重新提交申请');
+    }
+    if (dto.customerId !== membership.customerId) {
+      throw new BadRequestException('重新提交时不能变更客户');
+    }
+    await this.validateMembershipInput(dto);
     return this.prisma.membership.update({
       where: { id },
       data: {
@@ -107,7 +130,7 @@ export class MembershipsService {
         startDate: new Date(dto.startDate),
         endDate: new Date(dto.endDate),
         memberLevelId: dto.memberLevelId,
-        ...(dto.paidAt ? { paidAt: new Date(dto.paidAt) } : {}),
+        paidAt: null,
         status: 'PENDING',
         reviewedBy: null,
         reviewedAt: null,
@@ -117,6 +140,8 @@ export class MembershipsService {
   }
 
   async approve(id: string, dto: ReviewMembershipDto, currentUser: any) {
+    if (!dto.paidAt) throw new BadRequestException('审批通过时必须填写实际收款时间');
+    const paidAt = new Date(dto.paidAt);
     return this.prisma.$transaction(async (tx) => {
       const membership = await tx.membership.findUnique({
         where: { id },
@@ -128,15 +153,12 @@ export class MembershipsService {
         throw new ForbiddenException('无权审批');
       }
 
-      await tx.membership.update({
-        where: { id, status: 'PENDING' },
-        data: {
-          status: 'APPROVED',
-          reviewedBy: currentUser.id,
-          reviewedAt: new Date(),
-          reviewNote: dto.reviewNote,
-          ...(dto.paidAt ? { paidAt: new Date(dto.paidAt) } : {}),
-        },
+      await this.transitionStatus(tx, id, 'PENDING', {
+        status: 'APPROVED',
+        reviewedBy: currentUser.id,
+        reviewedAt: new Date(),
+        reviewNote: dto.reviewNote,
+        paidAt,
       });
 
       const config = await tx.commissionConfig.findFirst({
@@ -182,6 +204,7 @@ export class MembershipsService {
           data: {
             businessKey: `earn:${id}:${c.role}`,
             membershipId: id,
+            departmentId: userDept?.id ?? membership.customer.departmentId,
             entryType: 'EARNING',
             receiverUserId: c.userId,
             receiverRole: c.role as any,
@@ -205,6 +228,7 @@ export class MembershipsService {
   }
 
   async reject(id: string, dto: ReviewMembershipDto, currentUser: any) {
+    if (!dto.reviewNote?.trim()) throw new BadRequestException('拒绝原因不能为空');
     const membership = await this.prisma.membership.findUnique({
       where: { id },
       include: { customer: { select: { departmentId: true } } },
@@ -214,41 +238,67 @@ export class MembershipsService {
     if (currentUser.role === 'HEAD' && membership.customer.departmentId !== currentUser.departmentId) {
       throw new ForbiddenException('无权操作');
     }
-    return this.prisma.membership.update({
-      where: { id },
-      data: {
+    return this.prisma.$transaction(async (tx) => {
+      await this.transitionStatus(tx, id, 'PENDING', {
         status: 'REJECTED',
         reviewedBy: currentUser.id,
         reviewedAt: new Date(),
         reviewNote: dto.reviewNote,
-      },
+      });
+      await tx.auditLog.create({
+        data: {
+          action: 'MEMBERSHIP_REJECT',
+          entityType: 'Membership',
+          entityId: id,
+          operatorId: currentUser.id,
+          after: { status: 'REJECTED', reviewNote: dto.reviewNote },
+        },
+      });
+      return tx.membership.findUnique({ where: { id } });
     });
   }
 
   async requestRefund(id: string, dto: RefundRequestDto, currentUser: any) {
-    const membership = await this.prisma.membership.findUnique({ where: { id } });
+    const membership = await this.prisma.membership.findUnique({
+      where: { id },
+      include: { customer: true },
+    });
     if (!membership) throw new NotFoundException('会员申请不存在');
     if (membership.status !== 'APPROVED') throw new BadRequestException('只有有效会员才能申请退款');
-    return this.prisma.membership.update({
-      where: { id },
-      data: { status: 'REFUND_PENDING', refundReason: dto.refundReason },
+    this.assertCustomerScope(membership.customer, currentUser);
+    return this.prisma.$transaction(async (tx) => {
+      await this.transitionStatus(tx, id, 'APPROVED', {
+        status: 'REFUND_PENDING',
+        refundReason: dto.refundReason,
+      });
+      await tx.auditLog.create({
+        data: {
+          action: 'REFUND_REQUEST',
+          entityType: 'Membership',
+          entityId: id,
+          operatorId: currentUser.id,
+          after: { status: 'REFUND_PENDING', refundReason: dto.refundReason },
+        },
+      });
+      return tx.membership.findUnique({ where: { id } });
     });
   }
 
   async approveRefund(id: string, currentUser: any) {
     return this.prisma.$transaction(async (tx) => {
-      const membership = await tx.membership.findUnique({ where: { id } });
+      const membership = await tx.membership.findUnique({
+        where: { id },
+        include: { customer: true },
+      });
       if (!membership) throw new NotFoundException('会员申请不存在');
       if (membership.status !== 'REFUND_PENDING') throw new ConflictException('申请状态已变更');
+      this.assertCustomerScope(membership.customer, currentUser);
 
-      await tx.membership.update({
-        where: { id },
-        data: {
-          status: 'REFUNDED',
-          refundReviewedBy: currentUser.id,
-          refundReviewedAt: new Date(),
-          refundAt: new Date(),
-        },
+      await this.transitionStatus(tx, id, 'REFUND_PENDING', {
+        status: 'REFUNDED',
+        refundReviewedBy: currentUser.id,
+        refundReviewedAt: new Date(),
+        refundAt: new Date(),
       });
 
       const originals = await tx.commissionRecord.findMany({
@@ -260,6 +310,7 @@ export class MembershipsService {
           data: {
             businessKey: `refund:${id}:${orig.receiverRole}`,
             membershipId: id,
+            departmentId: orig.departmentId,
             entryType: 'REVERSAL',
             receiverUserId: orig.receiverUserId,
             receiverRole: orig.receiverRole,
@@ -284,16 +335,65 @@ export class MembershipsService {
   }
 
   async rejectRefund(id: string, dto: ReviewMembershipDto, currentUser: any) {
-    const membership = await this.prisma.membership.findUnique({ where: { id } });
+    const membership = await this.prisma.membership.findUnique({
+      where: { id },
+      include: { customer: true },
+    });
     if (!membership) throw new NotFoundException('会员申请不存在');
     if (membership.status !== 'REFUND_PENDING') throw new ConflictException('申请状态已变更');
-    return this.prisma.membership.update({
-      where: { id },
-      data: {
+    this.assertCustomerScope(membership.customer, currentUser);
+    if (!dto.reviewNote?.trim()) throw new BadRequestException('拒绝原因不能为空');
+    return this.prisma.$transaction(async (tx) => {
+      await this.transitionStatus(tx, id, 'REFUND_PENDING', {
         status: 'APPROVED',
         refundReviewedBy: currentUser.id,
         refundReviewedAt: new Date(),
-      },
+        reviewNote: dto.reviewNote,
+      });
+      await tx.auditLog.create({
+        data: {
+          action: 'REFUND_REJECT',
+          entityType: 'Membership',
+          entityId: id,
+          operatorId: currentUser.id,
+          after: { status: 'APPROVED', reviewNote: dto.reviewNote },
+        },
+      });
+      return tx.membership.findUnique({ where: { id } });
     });
+  }
+
+  private async transitionStatus(
+    tx: Prisma.TransactionClient,
+    id: string,
+    expectedStatus: 'PENDING' | 'APPROVED' | 'REFUND_PENDING',
+    data: Prisma.MembershipUncheckedUpdateManyInput,
+  ) {
+    const result = await tx.membership.updateMany({
+      where: { id, status: expectedStatus },
+      data,
+    });
+    if (result.count !== 1) {
+      throw new ConflictException('申请状态已变更，请刷新后重试');
+    }
+  }
+
+  private assertCustomerScope(customer: { assignedTo: string; departmentId: string }, currentUser: any) {
+    if (currentUser.role === 'ADMIN') return;
+    if (currentUser.role === 'HEAD' && customer.departmentId === currentUser.departmentId) return;
+    if (currentUser.role === 'MEMBER' && customer.assignedTo === currentUser.id) return;
+    throw new ForbiddenException('无权操作该客户的会员记录');
+  }
+
+  private async validateMembershipInput(dto: CreateMembershipDto) {
+    const startDate = new Date(dto.startDate);
+    const endDate = new Date(dto.endDate);
+    if (endDate <= startDate) throw new BadRequestException('会员结束日期必须晚于开始日期');
+    if (dto.memberLevelId) {
+      const level = await this.prisma.memberLevel.findUnique({ where: { id: dto.memberLevelId } });
+      if (!level || level.status !== 'ACTIVE') {
+        throw new BadRequestException('会员等级不存在或已停用');
+      }
+    }
   }
 }

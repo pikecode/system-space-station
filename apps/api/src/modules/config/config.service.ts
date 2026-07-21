@@ -25,17 +25,36 @@ export class ConfigService {
     if (Math.abs(sum - 100) > 0.001) {
       throw new BadRequestException(`四项比例之和必须等于100，当前为${sum}`);
     }
-    return this.prisma.commissionConfig.create({
-      data: {
-        memberRatio: new Prisma.Decimal(dto.memberRatio),
-        deptHeadRatio: new Prisma.Decimal(dto.deptHeadRatio),
-        marketHeadRatio: new Prisma.Decimal(dto.marketHeadRatio),
-        companyRatio: new Prisma.Decimal(dto.companyRatio),
-        settlementDays: dto.settlementDays,
-        effectiveFrom: new Date(dto.effectiveFrom),
-        remark: dto.remark,
-        createdBy: operatorId,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const config = await tx.commissionConfig.create({
+        data: {
+          memberRatio: new Prisma.Decimal(dto.memberRatio),
+          deptHeadRatio: new Prisma.Decimal(dto.deptHeadRatio),
+          marketHeadRatio: new Prisma.Decimal(dto.marketHeadRatio),
+          companyRatio: new Prisma.Decimal(dto.companyRatio),
+          settlementDays: dto.settlementDays,
+          effectiveFrom: new Date(dto.effectiveFrom),
+          remark: dto.remark,
+          createdBy: operatorId,
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          action: 'CONFIG_UPDATE',
+          entityType: 'CommissionConfig',
+          entityId: config.id,
+          operatorId,
+          after: {
+            memberRatio: config.memberRatio.toString(),
+            deptHeadRatio: config.deptHeadRatio.toString(),
+            marketHeadRatio: config.marketHeadRatio.toString(),
+            companyRatio: config.companyRatio.toString(),
+            settlementDays: config.settlementDays,
+            effectiveFrom: config.effectiveFrom.toISOString(),
+          },
+        },
+      });
+      return config;
     });
   }
 }

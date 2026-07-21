@@ -6,6 +6,7 @@ import { useAuthStore } from '../store/auth';
 const LoginPage = lazy(() => import('../pages/login/LoginPage'));
 const DepartmentsPage = lazy(() => import('../pages/admin/departments/DepartmentsPage'));
 const UsersPage = lazy(() => import('../pages/admin/users/UsersPage'));
+const AdminsPage = lazy(() => import('../pages/admin/admins/AdminsPage'));
 const AdminCustomersPage = lazy(() => import('../pages/admin/customers/AdminCustomersPage'));
 const AdminCommissionsPage = lazy(() => import('../pages/admin/commissions/AdminCommissionsPage'));
 const ConfigPage = lazy(() => import('../pages/admin/config/ConfigPage'));
@@ -24,6 +25,19 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user);
   if (user?.role !== 'ADMIN') return <Navigate to="/my/customers" replace />;
   return <>{children}</>;
+}
+
+function RequireHead({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user);
+  if (user?.role !== 'HEAD') return <Navigate to="/my/customers" replace />;
+  return <>{children}</>;
+}
+
+function RoleHomeRedirect() {
+  const role = useAuthStore((s) => s.user?.role);
+  if (role === 'ADMIN') return <Navigate to="/admin/departments" replace />;
+  if (role === 'HEAD') return <Navigate to="/dept/customers" replace />;
+  return <Navigate to="/my/customers" replace />;
 }
 
 const Fallback = <div style={{ padding: 24 }}>加载中…</div>;
@@ -45,7 +59,7 @@ export const router = createBrowserRouter([
       </RequireAuth>
     ),
     children: [
-      { index: true, element: <Navigate to="/dashboard" replace /> },
+      { index: true, element: <RoleHomeRedirect /> },
       {
         path: 'dashboard',
         element: <div>Dashboard（待实现）</div>,
@@ -66,6 +80,16 @@ export const router = createBrowserRouter([
           <RequireAdmin>
             <Suspense fallback={Fallback}>
               <UsersPage />
+            </Suspense>
+          </RequireAdmin>
+        ),
+      },
+      {
+        path: 'admin/admins',
+        element: (
+          <RequireAdmin>
+            <Suspense fallback={Fallback}>
+              <AdminsPage />
             </Suspense>
           </RequireAdmin>
         ),
@@ -101,6 +125,16 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: 'dept/customers',
+        element: (
+          <RequireHead>
+            <Suspense fallback={Fallback}>
+              <CustomersPage />
+            </Suspense>
+          </RequireHead>
+        ),
+      },
+      {
         path: 'my/customers',
         element: (
           <Suspense fallback={Fallback}>
@@ -127,9 +161,21 @@ export const router = createBrowserRouter([
       {
         path: 'dept/approvals',
         element: (
-          <Suspense fallback={Fallback}>
-            <ApprovalsPage />
-          </Suspense>
+          <RequireHead>
+            <Suspense fallback={Fallback}>
+              <ApprovalsPage />
+            </Suspense>
+          </RequireHead>
+        ),
+      },
+      {
+        path: 'dept/commissions',
+        element: (
+          <RequireHead>
+            <Suspense fallback={Fallback}>
+              <CommissionsPage scope="department" />
+            </Suspense>
+          </RequireHead>
         ),
       },
     ],
