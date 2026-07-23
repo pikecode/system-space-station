@@ -196,10 +196,9 @@ body {
     min-height: 40px !important;
   }
 
-  /* Table — tighter cells */
+  /* 表格间距由 ProTable 密度控制，移动端仅调整字号 */
   .ant-table-thead > tr > th,
   .ant-table-tbody > tr > td {
-    padding: 6px var(--space-sm) !important;
     font-size: 0.8125rem;
   }
 

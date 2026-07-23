@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, UserRole, UserStatus } from '@prisma/client';
+import { DepartmentType, Prisma, UserRole, UserStatus, UserType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -18,6 +18,10 @@ const safeUserSelect = {
   username: true,
   phone: true,
   employeeNo: true,
+  userType: true,
+  hasLicense: true,
+  licenseNo: true,
+  shareCode: true,
   gender: true,
   birthDate: true,
   alternatePhone: true,
@@ -98,6 +102,9 @@ export class UsersService {
   }
 
   async create(dto: CreateUserDto, operatorId: string) {
+    const userType = dto.userType ?? UserType.EMPLOYEE;
+    const isPartner = userType === UserType.PARTNER;
+
     if (dto.role !== UserRole.ADMIN && !dto.departmentId) {
       throw new BadRequestException('员工必须指定所属部门');
     }
@@ -107,8 +114,11 @@ export class UsersService {
     if (dto.role !== UserRole.ADMIN && dto.username) {
       throw new BadRequestException('只有系统管理员可以设置用户名');
     }
-    if (dto.role !== UserRole.ADMIN && !dto.employeeNo) {
+    if (!isPartner && dto.role !== UserRole.ADMIN && !dto.employeeNo) {
       throw new BadRequestException('员工必须填写工号');
+    }
+    if (!isPartner && !dto.password) {
+      throw new BadRequestException('员工必须设置密码');
     }
 
     const protectedIdentityCard = dto.idCardNo
@@ -121,14 +131,22 @@ export class UsersService {
       idCardHash: protectedIdentityCard?.hash,
     });
 
-    const passwordHash = await bcrypt.hash(dto.password, 12);
+    const passwordHash = isPartner ? null : await bcrypt.hash(dto.password!, 12);
+
     return this.prisma.$transaction(async (tx) => {
+      let department = null;
       if (dto.departmentId) {
-        const department = await tx.department.findUnique({ where: { id: dto.departmentId } });
+        department = await tx.department.findUnique({ where: { id: dto.departmentId } });
         if (!department || department.status !== 'ACTIVE') {
           throw new NotFoundException('所属部门不存在或已停用');
         }
+        await this.validateDepartmentCapacity(tx, dto.departmentId, department.type);
       }
+
+      // 营销中心成员（MARKET/DIVISION部门）自动生成分享码
+      const needsShareCode = department &&
+        (department.type === DepartmentType.MARKET || department.type === DepartmentType.DIVISION);
+      const shareCode = needsShareCode ? await this.generateShareCode(tx) : undefined;
 
       const user = await tx.user.create({
         data: {
@@ -136,6 +154,10 @@ export class UsersService {
           username: dto.username,
           phone: dto.phone,
           employeeNo: dto.employeeNo,
+          userType,
+          hasLicense: dto.hasLicense ?? false,
+          licenseNo: dto.licenseNo,
+          shareCode,
           gender: dto.gender,
           birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
           alternatePhone: dto.alternatePhone,
@@ -428,6 +450,62 @@ export class UsersService {
       throw new ConflictException('该工号已被使用');
     }
     throw new ConflictException('该身份证号码已被使用');
+  }
+
+  async removeFromDepartment(id: string, operatorId: string) {
+    const user = await this.findOne(id);
+    if (!user.departmentId) throw new BadRequestException('该用户不属于任何部门');
+    if (user.headOf) throw new BadRequestException('部门负责人须先交接再移出');
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.user.update({
+        where: { id },
+        data: { departmentId: null, role: UserRole.MEMBER, authVersion: { increment: 1 } },
+        select: safeUserSelect,
+      });
+      await tx.auditLog.create({
+        data: {
+          action: 'USER_REMOVE_DEPARTMENT',
+          entityType: 'User',
+          entityId: id,
+          operatorId,
+          before: this.userAuditSnapshot(user),
+          after: this.userAuditSnapshot(updated),
+        },
+      });
+      return updated;
+    });
+  }
+
+  private async validateDepartmentCapacity(
+    tx: Prisma.TransactionClient,
+    departmentId: string,
+    deptType: string,
+  ) {
+    const limits: Partial<Record<string, number>> = {
+      MARKET: 3,
+      DIVISION: 7,
+    };
+    const limit = limits[deptType];
+    if (!limit) return;
+
+    const count = await tx.user.count({ where: { departmentId, status: 'ACTIVE' } });
+    if (count >= limit) {
+      const label = deptType === 'MARKET' ? '市场部（1+2模式，上限3人）' : '事业部（1+6模式，上限7人）';
+      throw new BadRequestException(`${label}已满员，无法继续加入`);
+    }
+  }
+
+  private async generateShareCode(tx: Prisma.TransactionClient): Promise<string> {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    for (let i = 0; i < 10; i++) {
+      const code = Array.from({ length: 6 }, () =>
+        chars[Math.floor(Math.random() * chars.length)],
+      ).join('');
+      const exists = await tx.user.findUnique({ where: { shareCode: code } });
+      if (!exists) return code;
+    }
+    throw new BadRequestException('无法生成唯一分享码，请重试');
   }
 
   private userAuditSnapshot(user: SafeUser): Prisma.InputJsonObject {

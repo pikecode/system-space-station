@@ -1,28 +1,35 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import {
   Table, Button, Drawer, Form, Input, Select, Space, Tag, App,
-  Cascader, Modal, Tooltip,
+  Cascader, Modal, Tooltip, Segmented, Checkbox,
 } from 'antd';
+import { TableOutlined, ApartmentOutlined, TeamOutlined } from '@ant-design/icons';
 import { ProTable } from '@ant-design/pro-components';
-import type { ProColumns } from '@ant-design/pro-components';
+import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import {
   PlusOutlined, EditOutlined, PlusCircleOutlined, StopOutlined, UserOutlined,
+  RightOutlined, DownOutlined,
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ColumnsType } from 'antd/es/table';
 import { departmentsApi } from '../../../services/departments';
 import { usersApi } from '../../../services/users';
 import chinaRegions from '../../../utils/chinaRegions';
+import DeptMindMap from './DeptMindMap';
 
 const DEPT_TYPE_LABELS: Record<string, string> = {
-  HQ: '总部',
+  GOVERNANCE: '治理层',
+  HQ: '总经办',
+  CENTER: '中心',
   DIRECT: '直属部门',
   MARKET: '市场部',
   DIVISION: '事业部',
 };
 
 const DEPT_TYPE_COLORS: Record<string, string> = {
+  GOVERNANCE: 'magenta',
   HQ: 'red',
+  CENTER: 'purple',
   DIRECT: 'blue',
   MARKET: 'green',
   DIVISION: 'orange',
@@ -45,6 +52,21 @@ interface DeptNode {
   title: string;
   children: DeptNode[];
 }
+
+interface MemberRow {
+  id: string;
+  name: string;
+  phone: string;
+  employeeNo?: string;
+  userType: string;
+  hasLicense: boolean;
+  shareCode?: string;
+  role: string;
+  status: string;
+  departmentId?: string;
+}
+
+const DEPT_CAPACITY: Record<string, number> = { MARKET: 3, DIVISION: 7 };
 
 interface UserItem {
   id: string;
@@ -69,27 +91,90 @@ function buildTreeData(list: DeptNode[]): DeptNode[] {
   return roots;
 }
 
+type ViewMode = 'table' | 'chart';
+
 export default function DepartmentsPage() {
   const { message, modal } = App.useApp();
-  const qc = useQueryClient();
+  const queryClient = useQueryClient();
+  const actionRef = useRef<ActionType>();
+  const [departments, setDepartments] = useState<DeptNode[]>([]);
+  const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
+  const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<DeptNode | null>(null);
   const [parentContext, setParentContext] = useState<DeptNode | null>(null);
   const [headPickerOpen, setHeadPickerOpen] = useState(false);
   const [headSearch, setHeadSearch] = useState('');
+  // 人员管理
+  const [memberDept, setMemberDept] = useState<DeptNode | null>(null);
+  const [addMemberOpen, setAddMemberOpen] = useState(false);
+  const [addMemberForm] = Form.useForm();
+  const watchedAddUserType = Form.useWatch('userType', addMemberForm);
+  // 选择已有人员
+  const [selectUserOpen, setSelectUserOpen] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
   const [form] = Form.useForm();
   const watchedType = Form.useWatch('type', form);
-
-  const { data = [], isLoading } = useQuery<DeptNode[]>({
-    queryKey: ['departments'],
-    queryFn: () => departmentsApi.getAll() as unknown as Promise<DeptNode[]>,
-  });
 
   const { data: deptUsers = [], isLoading: usersLoading } = useQuery<UserItem[]>({
     queryKey: ['dept-users', editTarget?.id],
     queryFn: () =>
       usersApi.getAll({ departmentId: editTarget?.id, status: 'ACTIVE' }) as unknown as Promise<UserItem[]>,
     enabled: !!editTarget?.id && headPickerOpen,
+  });
+
+  // 当前部门人员列表
+  const { data: members = [], isLoading: membersLoading, refetch: refetchMembers } = useQuery<MemberRow[]>({
+    queryKey: ['dept-members', memberDept?.id],
+    queryFn: () => usersApi.getAll({ departmentId: memberDept?.id }) as unknown as Promise<MemberRow[]>,
+    enabled: !!memberDept?.id,
+  });
+
+  // 全部用户（用于人数统计 + 选择已有人员）
+  const { data: allUsers = [], refetch: refetchAllUsers } = useQuery<MemberRow[]>({
+    queryKey: ['all-users-for-assign'],
+    queryFn: () => usersApi.getAll({ status: 'ACTIVE' }) as unknown as Promise<MemberRow[]>,
+  });
+
+  const memberCountMap = useMemo<Record<string, number>>(() => {
+    const map: Record<string, number> = {};
+    allUsers.forEach((u) => {
+      if (u.departmentId) map[u.departmentId] = (map[u.departmentId] ?? 0) + 1;
+    });
+    return map;
+  }, [allUsers]);
+
+  const addMemberMutation = useMutation({
+    mutationFn: (data: unknown) => usersApi.create(data),
+    onSuccess: () => {
+      message.success('人员已添加');
+      setAddMemberOpen(false);
+      addMemberForm.resetFields();
+      refetchMembers();
+      refetchAllUsers();
+      queryClient.invalidateQueries({ queryKey: ['dept-members'] });
+    },
+    onError: (e: unknown) => {
+      const err = e as { response?: { data?: { message?: string } } };
+      message.error(err?.response?.data?.message ?? '添加失败');
+    },
+  });
+
+  const transferMutation = useMutation({
+    mutationFn: ({ userId, deptId }: { userId: string; deptId: string }) =>
+      usersApi.transfer(userId, { newDepartmentId: deptId, newRole: 'MEMBER' }),
+    onSuccess: () => {
+      message.success('人员已加入该部门');
+      setSelectUserOpen(false);
+      setUserSearch('');
+      refetchMembers();
+      refetchAllUsers();
+      queryClient.invalidateQueries({ queryKey: ['dept-members'] });
+    },
+    onError: (e: unknown) => {
+      const err = e as { response?: { data?: { message?: string } } };
+      message.error(err?.response?.data?.message ?? '操作失败');
+    },
   });
 
   const createMutation = useMutation({
@@ -99,7 +184,7 @@ export default function DepartmentsPage() {
         : departmentsApi.create(formData),
     onSuccess: () => {
       message.success(editTarget ? '更新成功' : '创建成功');
-      qc.invalidateQueries({ queryKey: ['departments'] });
+      actionRef.current?.reload();
       setDrawerOpen(false);
       form.resetFields();
       setEditTarget(null);
@@ -114,7 +199,7 @@ export default function DepartmentsPage() {
     mutationFn: (id: string) => departmentsApi.disable(id),
     onSuccess: () => {
       message.success('已停用');
-      qc.invalidateQueries({ queryKey: ['departments'] });
+      actionRef.current?.reload();
     },
     onError: (e: unknown) => {
       const err = e as { response?: { data?: { message?: string } } };
@@ -122,32 +207,35 @@ export default function DepartmentsPage() {
     },
   });
 
-  const treeData = buildTreeData(data);
-
-  const VALID_PARENT_TYPE: Record<string, string> = {
-    DIRECT: 'HQ',
-    MARKET: 'HQ',
-    DIVISION: 'MARKET',
+  const VALID_PARENT_TYPE: Record<string, string[]> = {
+    GOVERNANCE: ['GOVERNANCE'],
+    HQ: ['GOVERNANCE'],
+    CENTER: ['HQ'],
+    DIRECT: ['HQ', 'CENTER'],
+    MARKET: ['CENTER'],
+    DIVISION: ['MARKET'],
   };
 
   const ALLOWED_CHILD_TYPES: Record<string, string[]> = {
-    HQ: ['DIRECT', 'MARKET'],
+    GOVERNANCE: ['GOVERNANCE', 'HQ'],
+    HQ: ['CENTER', 'DIRECT'],
+    CENTER: ['DIRECT', 'MARKET'],
     MARKET: ['DIVISION'],
     DIRECT: [],
     DIVISION: [],
   };
 
-  const hqExists = data.some((d) => d.type === 'HQ');
+  const hqExists = departments.some((d) => d.type === 'HQ');
   const isEditingHQ = editTarget?.type === 'HQ';
-  const needsParent = watchedType && watchedType !== 'HQ';
+  const needsParent = watchedType && watchedType !== 'HQ' && watchedType !== 'GOVERNANCE';
 
   const parentOptions = useMemo(() => {
-    if (!watchedType || watchedType === 'HQ') return [];
-    const validType = VALID_PARENT_TYPE[watchedType];
-    return data
-      .filter((d) => d.type === validType && d.id !== editTarget?.id)
-      .map((d) => ({ value: d.id, label: d.name }));
-  }, [watchedType, data, editTarget]);
+    if (!watchedType || watchedType === 'HQ' || watchedType === 'GOVERNANCE') return [];
+    const validTypes = VALID_PARENT_TYPE[watchedType] ?? [];
+    return departments
+      .filter((d) => validTypes.includes(d.type) && d.id !== editTarget?.id)
+      .map((d) => ({ value: d.id, label: `${d.name}（${DEPT_TYPE_LABELS[d.type]}）` }));
+  }, [watchedType, departments, editTarget]);
 
   const typeOptions = useMemo(() => {
     const baseOptions = Object.entries(DEPT_TYPE_LABELS).map(([v, l]) => ({
@@ -235,7 +323,40 @@ export default function DepartmentsPage() {
       title: '部门名称',
       dataIndex: 'name',
       key: 'name',
-      width: 240,
+      width: 260,
+      render: (_, record) => {
+        const isMarketCenter = record.name === '营销中心';
+        const isMarket = record.type === 'MARKET';
+        const isDivision = record.type === 'DIVISION';
+        return (
+          <Space size={6}>
+            {isMarketCenter && (
+              <span style={{
+                display: 'inline-block', width: 3, height: 14,
+                background: '#52c41a', borderRadius: 2, verticalAlign: 'middle',
+              }} />
+            )}
+            {isMarket && (
+              <span style={{
+                display: 'inline-block', width: 6, height: 6,
+                background: '#52c41a', borderRadius: '50%', verticalAlign: 'middle',
+              }} />
+            )}
+            {isDivision && (
+              <span style={{
+                display: 'inline-block', width: 6, height: 6,
+                background: '#fa8c16', borderRadius: '50%', verticalAlign: 'middle',
+              }} />
+            )}
+            <span style={{
+              fontWeight: isMarketCenter || isMarket ? 600 : 400,
+              color: isMarketCenter ? '#237804' : isMarket ? '#389e0d' : isDivision ? '#ad4e00' : '#1d2129',
+            }}>
+              {record.name}
+            </span>
+          </Space>
+        );
+      },
     },
     {
       title: '部门短码',
@@ -252,6 +373,33 @@ export default function DepartmentsPage() {
       render: (_, record) => (
         <Tag color={DEPT_TYPE_COLORS[record.type]}>{DEPT_TYPE_LABELS[record.type]}</Tag>
       ),
+    },
+    {
+      title: '人数',
+      key: 'memberCount',
+      width: 90,
+      render: (_, record) => {
+        const count = memberCountMap[record.id] ?? 0;
+        const cap = DEPT_CAPACITY[record.type];
+        return (
+          <Button
+            type="link"
+            size="small"
+            style={{ padding: 0 }}
+            onClick={() => setMemberDept(record)}
+          >
+            {cap ? (
+              <span style={{ color: count >= cap ? '#f5222d' : count > 0 ? '#1677ff' : '#86909c' }}>
+                {count}/{cap}人
+              </span>
+            ) : count > 0 ? (
+              <span style={{ color: '#1677ff' }}>{count}人</span>
+            ) : (
+              <span style={{ color: '#86909c' }}>暂无</span>
+            )}
+          </Button>
+        );
+      },
     },
     {
       title: '负责人',
@@ -282,18 +430,21 @@ export default function DepartmentsPage() {
       key: 'action',
       width: 100,
       render: (_, record) => {
-        const canAddChild = ALLOWED_CHILD_TYPES[record.type]?.length > 0;
+        const canAddChild = record.type === 'MARKET'; // 只有市场部可以创建事业部
         return (
           <Space size={4}>
-            <Tooltip title="编辑">
+            <Tooltip title="人员管理" getPopupContainer={() => document.body}>
+              <Button size="small" icon={<TeamOutlined />} onClick={() => setMemberDept(record)} />
+            </Tooltip>
+            <Tooltip title="编辑部门" getPopupContainer={() => document.body}>
               <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(record)} />
             </Tooltip>
             {canAddChild && (
-              <Tooltip title="添加子部门">
+              <Tooltip title="添加事业部" getPopupContainer={() => document.body}>
                 <Button size="small" icon={<PlusCircleOutlined />} onClick={() => openCreate(record)} />
               </Tooltip>
             )}
-            <Tooltip title="停用">
+            <Tooltip title="停用部门" getPopupContainer={() => document.body}>
               <Button size="small" danger icon={<StopOutlined />} onClick={() => confirmDisable(record)} />
             </Tooltip>
           </Space>
@@ -305,28 +456,80 @@ export default function DepartmentsPage() {
   return (
     <>
       <ProTable<DeptNode>
+        actionRef={actionRef}
         rowKey="id"
         columns={columns}
-        dataSource={treeData}
-        loading={isLoading}
+        request={async () => {
+          const response = await departmentsApi.getAll() as unknown as DeptNode[];
+          const list = Array.isArray(response) ? response : [];
+          setDepartments(list);
+          setExpandedKeys(list.map((d) => d.id));
+          return { data: buildTreeData(list), success: true, total: list.length };
+        }}
         search={false}
         pagination={false}
         headerTitle="部门管理"
         toolbar={{
           actions: [
+            <Segmented
+              key="view"
+              value={viewMode}
+              onChange={(v) => setViewMode(v as ViewMode)}
+              options={[
+                { value: 'table', icon: <TableOutlined /> },
+                { value: 'chart', icon: <ApartmentOutlined /> },
+              ]}
+              style={{ marginRight: 8 }}
+            />,
             <Button key="add" type="primary" icon={<PlusOutlined />} onClick={() => openCreate()}>
               新建部门
             </Button>,
           ],
         }}
+        tableRender={viewMode === 'chart' ? () => (
+          <div style={{ position: 'relative', height: 'calc(100vh - 220px)', minHeight: 500 }}>
+            <Button
+              size="small"
+              icon={<TableOutlined />}
+              onClick={() => setViewMode('table')}
+              style={{
+                position: 'absolute', top: 12, right: 12, zIndex: 10,
+                background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(4px)',
+              }}
+            >
+              返回列表
+            </Button>
+            <DeptMindMap roots={buildTreeData(departments)} />
+          </div>
+        ) : undefined}
         scroll={{ x: 1200 }}
+        onRow={(record) => ({
+          style: {
+            background:
+              record.name === '营销中心' ? '#f6ffed' :
+              record.type === 'MARKET'   ? '#f6ffed' :
+              record.type === 'DIVISION' ? '#fff9f0' : undefined,
+          },
+        })}
         expandable={{
-          defaultExpandAllRows: true,
-          indentSize: 24,
+          expandedRowKeys: expandedKeys,
+          onExpandedRowsChange: (keys) => setExpandedKeys(keys as string[]),
+          indentSize: 20,
           expandIcon: ({ expanded, onExpand, record }) => {
             if (!record.children || record.children.length === 0) {
-              return <span style={{ marginRight: 8, display: 'inline-block', width: 16 }} />;
+              return <span style={{ display: 'inline-block', width: 20, marginRight: 4 }} />;
             }
+            return (
+              <Button
+                type="text"
+                size="small"
+                icon={expanded
+                  ? <DownOutlined style={{ fontSize: 10, color: '#86909c' }} />
+                  : <RightOutlined style={{ fontSize: 10, color: '#86909c' }} />}
+                onClick={(e) => onExpand(record, e)}
+                style={{ padding: 0, width: 20, height: 20, marginRight: 4, verticalAlign: 'middle' }}
+              />
+            );
             return (
               <Button
                 type="text"
@@ -393,9 +596,15 @@ export default function DepartmentsPage() {
         }
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
-          <Form.Item name="name" label="部门名称" rules={[{ required: true, message: '请输入部门名称' }]}>
-            <Input />
-          </Form.Item>
+          {editTarget ? (
+            <Form.Item label="部门名称">
+              <Input readOnly value={editTarget.name} style={{ background: '#fafafa', color: '#666' }} />
+            </Form.Item>
+          ) : (
+            <Form.Item name="name" label="部门名称" rules={[{ required: true, message: '请输入部门名称' }]}>
+              <Input />
+            </Form.Item>
+          )}
           <Form.Item name="code" label="部门短码">
             <Input placeholder="例如 MARKET-01" maxLength={30} />
           </Form.Item>
@@ -411,7 +620,7 @@ export default function DepartmentsPage() {
               onChange={() => form.setFieldValue('parentId', undefined)}
             />
           </Form.Item>
-          {parentContext ? (
+          {!editTarget && parentContext ? (
             <Form.Item label="上级部门">
               <Input
                 readOnly
@@ -422,13 +631,17 @@ export default function DepartmentsPage() {
                 <Input type="hidden" />
               </Form.Item>
             </Form.Item>
-          ) : needsParent ? (
+          ) : !editTarget && needsParent ? (
             <Form.Item
               name="parentId"
               label="上级部门"
               rules={[{ required: true, message: '请选择上级部门' }]}
               extra={
-                watchedType === 'DIVISION' ? '事业部的上级必须是市场部' : '直属部门和市场部的上级必须是总部'
+                watchedType === 'DIVISION' ? '事业部的上级必须是市场部' :
+                watchedType === 'MARKET' ? '市场部的上级必须是中心（如营销中心）' :
+                watchedType === 'CENTER' ? '中心的上级必须是总经办' :
+                watchedType === 'HQ' ? '总经办的上级必须是治理层（如董事会）' :
+                '直属部门的上级可以是总经办或各中心'
               }
             >
               <Select
@@ -475,6 +688,211 @@ export default function DepartmentsPage() {
           </Form.Item>
         </Form>
       </Drawer>
+
+      {/* ── 人员管理 Drawer ─────────────────────────────── */}
+      <Drawer
+        title={
+          <Space>
+            <TeamOutlined />
+            {memberDept?.name}的成员
+            {memberDept && DEPT_CAPACITY[memberDept.type] && (
+              <Tag color={members.length >= DEPT_CAPACITY[memberDept.type]! ? 'red' : 'blue'}>
+                {members.length}/{DEPT_CAPACITY[memberDept.type]}人
+              </Tag>
+            )}
+          </Space>
+        }
+        open={!!memberDept}
+        onClose={() => setMemberDept(null)}
+        width={560}
+        footer={
+          <Space>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => {
+                addMemberForm.resetFields();
+                addMemberForm.setFieldsValue({
+                  departmentId: memberDept?.id,
+                  userType: memberDept?.type === 'DIVISION' ? 'PARTNER' : 'EMPLOYEE',
+                  role: 'MEMBER',
+                });
+                setAddMemberOpen(true);
+              }}
+            >
+              新增人员
+            </Button>
+            <Button icon={<UserOutlined />} onClick={() => setSelectUserOpen(true)}>
+              选择已有人员
+            </Button>
+          </Space>
+        }
+      >
+        <Table<MemberRow>
+          dataSource={members}
+          loading={membersLoading}
+          rowKey="id"
+          size="small"
+          pagination={false}
+          columns={[
+            { title: '姓名', dataIndex: 'name', width: 90 },
+            { title: '手机号', dataIndex: 'phone', width: 120 },
+            {
+              title: '类型',
+              dataIndex: 'userType',
+              width: 80,
+              render: (t) => <Tag color={t === 'PARTNER' ? 'orange' : 'default'}>{t === 'PARTNER' ? '合伙人' : '员工'}</Tag>,
+            },
+            {
+              title: '资格证',
+              dataIndex: 'hasLicense',
+              width: 70,
+              render: (v) => v ? <Tag color="gold">持证</Tag> : '-',
+            },
+            {
+              title: '分享码',
+              dataIndex: 'shareCode',
+              width: 90,
+              render: (v) => v ? <span style={{ fontFamily: 'monospace', letterSpacing: 1 }}>{v}</span> : '-',
+            },
+            {
+              title: '角色',
+              dataIndex: 'role',
+              width: 80,
+              render: (r) => <Tag color={r === 'HEAD' ? 'blue' : 'default'}>{r === 'HEAD' ? '负责人' : '成员'}</Tag>,
+            },
+            {
+              title: '操作',
+              width: 80,
+              render: (_, member) => (
+                <Tooltip title="移出部门">
+                  <Button
+                    size="small"
+                    danger
+                    onClick={() => {
+                      modal.confirm({
+                        title: `将「${member.name}」移出该部门？`,
+                        content: '移出后该人员仍保留账号，可重新分配到其他部门。',
+                        okText: '确认移出',
+                        okType: 'danger',
+                        onOk: () => usersApi.removeFromDepartment(member.id)
+                          .then(() => { message.success('已移出'); refetchMembers(); refetchAllUsers(); })
+                          .catch((e: any) => message.error(e?.response?.data?.message ?? '操作失败')),
+                      });
+                    }}
+                  >
+                    移出
+                  </Button>
+                </Tooltip>
+              ),
+            },
+          ] as ColumnsType<MemberRow>}
+          locale={{ emptyText: '该部门暂无成员' }}
+        />
+      </Drawer>
+
+      {/* ── 新增人员表单 ────────────────────────────────── */}
+      <Modal
+        title={`向「${memberDept?.name}」新增人员`}
+        open={addMemberOpen}
+        onCancel={() => setAddMemberOpen(false)}
+        onOk={() => addMemberForm.submit()}
+        confirmLoading={addMemberMutation.isPending}
+        width={480}
+      >
+        <Form
+          form={addMemberForm}
+          layout="vertical"
+          onFinish={(values) => {
+            const isPartner = values.userType === 'PARTNER';
+            addMemberMutation.mutate({
+              ...values,
+              password: isPartner ? undefined : values.phone,
+            });
+          }}
+        >
+          <Form.Item name="userType" label="人员类型" rules={[{ required: true }]}>
+            <Select options={[
+              { value: 'EMPLOYEE', label: '员工（公司正式）' },
+              { value: 'PARTNER', label: '合伙人（事业部）' },
+            ]} />
+          </Form.Item>
+          <Form.Item name="name" label="姓名" rules={[{ required: true }]}>
+            <Input maxLength={50} />
+          </Form.Item>
+          <Form.Item name="phone" label="手机号"
+            rules={[{ required: true }, { pattern: /^1\d{10}$/, message: '请输入正确的手机号' }]}>
+            <Input maxLength={11} />
+          </Form.Item>
+          {watchedAddUserType !== 'PARTNER' && (
+            <Form.Item name="employeeNo" label="工号" rules={[{ required: true, message: '请输入工号' }]}>
+              <Input maxLength={32} />
+            </Form.Item>
+          )}
+          {(memberDept?.type === 'MARKET' || memberDept?.type === 'DIVISION') && (
+            <Form.Item name="hasLicense" valuePropName="checked" label=" ">
+              <Checkbox>持有资格证（负责人必须持证）</Checkbox>
+            </Form.Item>
+          )}
+          <Form.Item name="role" label="角色" rules={[{ required: true }]}>
+            <Select options={[
+              { value: 'HEAD', label: '部门负责人' },
+              { value: 'MEMBER', label: '普通成员' },
+            ]} />
+          </Form.Item>
+          <Form.Item name="departmentId" hidden><Input /></Form.Item>
+        </Form>
+      </Modal>
+
+      {/* ── 选择已有人员 ────────────────────────────────── */}
+      <Modal
+        title={`选择人员加入「${memberDept?.name}」`}
+        open={selectUserOpen}
+        onCancel={() => { setSelectUserOpen(false); setUserSearch(''); }}
+        footer={null}
+        width={520}
+      >
+        <Input.Search
+          placeholder="搜索姓名或手机号"
+          value={userSearch}
+          onChange={(e) => setUserSearch(e.target.value)}
+          style={{ marginBottom: 12 }}
+          allowClear
+        />
+        <Table<MemberRow>
+          dataSource={allUsers.filter(
+            (u) => u.departmentId !== memberDept?.id &&
+              (u.name.includes(userSearch) || u.phone.includes(userSearch)),
+          )}
+          rowKey="id"
+          size="small"
+          pagination={{ pageSize: 8 }}
+          scroll={{ y: 280 }}
+          columns={[
+            { title: '姓名', dataIndex: 'name', width: 90 },
+            { title: '手机号', dataIndex: 'phone', width: 120 },
+            {
+              title: '类型',
+              dataIndex: 'userType',
+              width: 70,
+              render: (t) => <Tag color={t === 'PARTNER' ? 'orange' : 'default'}>{t === 'PARTNER' ? '合伙人' : '员工'}</Tag>,
+            },
+            {
+              title: '操作', width: 70,
+              render: (_, u) => (
+                <Button
+                  type="link" size="small"
+                  loading={transferMutation.isPending}
+                  onClick={() => transferMutation.mutate({ userId: u.id, deptId: memberDept!.id })}
+                >
+                  加入
+                </Button>
+              ),
+            },
+          ] as ColumnsType<MemberRow>}
+          locale={{ emptyText: '无可选人员' }}
+        />
+      </Modal>
     </>
   );
 }

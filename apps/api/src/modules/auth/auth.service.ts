@@ -38,6 +38,7 @@ export class AuthService {
     });
     if (!user) throw new UnauthorizedException('账号或密码错误');
     if (user.status === 'INACTIVE') throw new UnauthorizedException('账号已禁用');
+    if (!user.passwordHash) throw new UnauthorizedException('该账号不支持系统登录');
 
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!valid) throw new UnauthorizedException('账号或密码错误');
@@ -126,6 +127,7 @@ export class AuthService {
     });
     if (!user) throw new UnauthorizedException('账号或密码错误');
     if (user.status === 'INACTIVE') throw new UnauthorizedException('账号已禁用');
+    if (!user.passwordHash) throw new UnauthorizedException('该账号不支持系统登录');
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) throw new UnauthorizedException('账号或密码错误');
     await this.prisma.user.update({ where: { id: user.id }, data: { wechatOpenId: openid } });

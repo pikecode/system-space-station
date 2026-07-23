@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ProTable } from '@ant-design/pro-components';
-import type { ProColumns } from '@ant-design/pro-components';
+import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import { Button, Form, InputNumber, DatePicker, Input, Card, Row, Col, App, Drawer, Statistic } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { configApi } from '../../../services/config';
 import dayjs from 'dayjs';
 
@@ -24,18 +24,10 @@ interface CurrentConfig extends ConfigVersion {
 
 export default function ConfigPage() {
   const { message } = App.useApp();
-  const qc = useQueryClient();
+  const actionRef = useRef<ActionType>();
+  const [current, setCurrent] = useState<CurrentConfig>();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [form] = Form.useForm();
-
-  const { data: current } = useQuery({
-    queryKey: ['config-current'],
-    queryFn: () => configApi.getCurrent(),
-  });
-  const { data: versions } = useQuery({
-    queryKey: ['config-versions'],
-    queryFn: () => configApi.getVersions(),
-  });
 
   const createMutation = useMutation({
     mutationFn: (data: { memberRatio: number; deptHeadRatio: number; marketHeadRatio: number; companyRatio: number; settlementDays: number; effectiveFrom: dayjs.Dayjs; remark?: string }) =>
@@ -47,19 +39,13 @@ export default function ConfigPage() {
       message.success('配置已保存');
       setDrawerOpen(false);
       form.resetFields();
-      qc.invalidateQueries({ queryKey: ['config-current'] });
-      qc.invalidateQueries({ queryKey: ['config-versions'] });
+      actionRef.current?.reload();
     },
     onError: (e: unknown) => {
       const err = e as { response?: { data?: { message?: string } } };
       message.error(err?.response?.data?.message ?? '保存失败');
     },
   });
-
-  const curr = current as CurrentConfig | undefined;
-  const versionList: ConfigVersion[] = Array.isArray(versions)
-    ? (versions as ConfigVersion[])
-    : [];
 
   const columns: ProColumns<ConfigVersion>[] = [
     {
@@ -98,34 +84,45 @@ export default function ConfigPage() {
 
   return (
     <>
-      {curr && (
+      {current && (
         /* Statistic replaces custom divs: consistent title/value hierarchy,
            gutter bumped to 24 so numbers breathe, responsive cols for mobile. */
         <Card title="当前生效配置" style={{ marginBottom: 'var(--space-md)' }}>
           <Row gutter={[24, 16]}>
             <Col xs={12} sm={8} md={5}>
-              <Statistic title="维护人" value={curr.memberRatio} suffix="%" />
+              <Statistic title="维护人" value={current.memberRatio} suffix="%" />
             </Col>
             <Col xs={12} sm={8} md={5}>
-              <Statistic title="事业部负责人" value={curr.deptHeadRatio} suffix="%" />
+              <Statistic title="事业部负责人" value={current.deptHeadRatio} suffix="%" />
             </Col>
             <Col xs={12} sm={8} md={5}>
-              <Statistic title="市场部负责人" value={curr.marketHeadRatio} suffix="%" />
+              <Statistic title="市场部负责人" value={current.marketHeadRatio} suffix="%" />
             </Col>
             <Col xs={12} sm={8} md={4}>
-              <Statistic title="公司" value={curr.companyRatio} suffix="%" />
+              <Statistic title="公司" value={current.companyRatio} suffix="%" />
             </Col>
             <Col xs={12} sm={8} md={5}>
-              <Statistic title="结算周期" value={curr.settlementDays} suffix="天" />
+              <Statistic title="结算周期" value={current.settlementDays} suffix="天" />
             </Col>
           </Row>
         </Card>
       )}
 
       <ProTable<ConfigVersion>
+        actionRef={actionRef}
         rowKey="id"
         columns={columns}
-        dataSource={versionList}
+        request={async () => {
+          const [versionsResponse, currentResponse] = await Promise.all([
+            configApi.getVersions(),
+            configApi.getCurrent(),
+          ]);
+          const versions = Array.isArray(versionsResponse)
+            ? versionsResponse as ConfigVersion[]
+            : [];
+          setCurrent(currentResponse as unknown as CurrentConfig);
+          return { data: versions, success: true, total: versions.length };
+        }}
         search={false}
         pagination={false}
         headerTitle="配置历史"

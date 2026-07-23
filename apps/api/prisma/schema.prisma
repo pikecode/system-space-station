@@ -7,8 +7,15 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserType {
+  EMPLOYEE
+  PARTNER
+}
+
 enum DepartmentType {
+  GOVERNANCE
   HQ
+  CENTER
   DIRECT
   MARKET
   DIVISION
@@ -83,6 +90,7 @@ enum CommissionRole {
   DEPT_HEAD
   MARKET_HEAD
   COMPANY
+  REFERRAL
 }
 
 enum CommissionStatus {
@@ -146,6 +154,10 @@ model User {
   username                String?      @unique
   phone                   String       @unique
   employeeNo              String?      @unique
+  userType                UserType     @default(EMPLOYEE)
+  hasLicense              Boolean      @default(false)
+  licenseNo               String?
+  shareCode               String?      @unique
   gender                  Gender?
   birthDate               DateTime?
   alternatePhone          String?
@@ -162,7 +174,7 @@ model User {
   avatar                  String?
   positionId              String?
   position                Position?    @relation(fields: [positionId], references: [id])
-  passwordHash            String
+  passwordHash            String?
   role                    UserRole     @default(MEMBER)
   departmentId            String?
   department              Department?  @relation("DepartmentUsers", fields: [departmentId], references: [id])
@@ -174,6 +186,7 @@ model User {
   updatedAt               DateTime     @updatedAt
   customers               Customer[]   @relation("AssignedCustomers")
   createdCustomers        Customer[]   @relation("CreatedCustomers")
+  referredCustomers       Customer[]   @relation("ReferredCustomers")
   submittedMemberships    Membership[] @relation("SubmittedMemberships")
   reviewedMemberships     Membership[] @relation("ReviewedMemberships")
   refundReviewedMemberships Membership[] @relation("RefundReviewedMemberships")
@@ -211,6 +224,8 @@ model Customer {
   assignedUser User           @relation("AssignedCustomers", fields: [assignedTo], references: [id])
   createdBy    String
   creator      User           @relation("CreatedCustomers", fields: [createdBy], references: [id])
+  referredBy   String?
+  referrer     User?          @relation("ReferredCustomers", fields: [referredBy], references: [id])
   departmentId String
   department   Department     @relation(fields: [departmentId], references: [id])
   status       CustomerStatus @default(ACTIVE)
@@ -261,6 +276,7 @@ model CommissionConfig {
   deptHeadRatio   Decimal  @db.Decimal(5, 2)
   marketHeadRatio Decimal  @db.Decimal(5, 2)
   companyRatio    Decimal  @db.Decimal(5, 2)
+  referralRatio   Decimal  @default(30) @db.Decimal(5, 2)
   settlementDays  Int      @default(15)
   effectiveFrom   DateTime
   remark          String?

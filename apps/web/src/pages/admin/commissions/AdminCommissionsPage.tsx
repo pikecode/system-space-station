@@ -1,37 +1,38 @@
+import { useRef, useState } from 'react';
 import { ProTable } from '@ant-design/pro-components';
-import type { ProColumns } from '@ant-design/pro-components';
+import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import { Button, Tag, Card, Row, Col, Statistic, App } from 'antd';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { commissionsApi } from '../../../services/commissions';
 
 const PERIOD_STATUS_LABELS: Record<string, string> = { OPEN: '进行中', PENDING_PAYMENT: '待出账', SETTLED: '已结算' };
 const PERIOD_STATUS_COLORS: Record<string, string> = { OPEN: 'blue', PENDING_PAYMENT: 'orange', SETTLED: 'green' };
 
+interface CommissionOverviewRecord {
+  status: string;
+  amount: string | number;
+}
+
 export default function AdminCommissionsPage() {
   const { message, modal } = App.useApp();
-  const qc = useQueryClient();
-
-  const { data: periods = [] } = useQuery({
-    queryKey: ['periods'],
-    queryFn: () => commissionsApi.getPeriods({}),
-  });
-
-  const { data: overview } = useQuery({
-    queryKey: ['commissions-overview'],
-    queryFn: () => commissionsApi.getOverview({ pageSize: '100' }),
-  });
+  const actionRef = useRef<ActionType>();
+  const [overviewData, setOverviewData] = useState<CommissionOverviewRecord[]>([]);
 
   const settleMutation = useMutation({
     mutationFn: (periodId: string) => commissionsApi.settle(periodId),
-    onSuccess: () => { message.success('结算成功'); qc.invalidateQueries({ queryKey: ['periods'] }); },
+    onSuccess: () => {
+      message.success('结算成功');
+      actionRef.current?.reload();
+    },
     onError: (e: any) => message.error(e?.response?.data?.message ?? '结算失败'),
   });
 
-  const periodList = Array.isArray(periods) ? periods : [];
-  const overviewData = (overview as any)?.data ?? [];
-
-  const totalPending = overviewData.filter((r: any) => r.status === 'PENDING_PAYMENT').reduce((s: number, r: any) => s + Number(r.amount), 0);
-  const totalSettled = overviewData.filter((r: any) => r.status === 'SETTLED').reduce((s: number, r: any) => s + Number(r.amount), 0);
+  const totalPending = overviewData
+    .filter((record) => record.status === 'PENDING_PAYMENT')
+    .reduce((sum, record) => sum + Number(record.amount), 0);
+  const totalSettled = overviewData
+    .filter((record) => record.status === 'SETTLED')
+    .reduce((sum, record) => sum + Number(record.amount), 0);
 
   const periodColumns: ProColumns[] = [
     { title: '开始日期', dataIndex: 'startDate', width: 110, render: (_, r) => r.startDate?.slice(0, 10) },
@@ -66,9 +67,21 @@ export default function AdminCommissionsPage() {
         <Col span={6}><Card><Statistic title="已结算" value={totalSettled} prefix="¥" precision={2} valueStyle={{ color: '#52c41a' }} /></Card></Col>
       </Row>
       <ProTable
+        actionRef={actionRef}
         rowKey="id"
         columns={periodColumns}
-        dataSource={periodList}
+        request={async () => {
+          const [periodsResponse, overviewResponse] = await Promise.all([
+            commissionsApi.getPeriods({}),
+            commissionsApi.getOverview({ pageSize: '100' }),
+          ]);
+          const periods = Array.isArray(periodsResponse) ? periodsResponse : [];
+          const overview = (overviewResponse as unknown as {
+            data?: CommissionOverviewRecord[];
+          })?.data ?? [];
+          setOverviewData(overview);
+          return { data: periods, success: true, total: periods.length };
+        }}
         search={false}
         pagination={false}
         headerTitle="结算周期"

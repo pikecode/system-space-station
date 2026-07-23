@@ -4,6 +4,7 @@ import {
   IsEmail,
   IsEnum,
   IsOptional,
+  IsBoolean,
   Matches,
   MaxLength,
   MinLength,
@@ -11,11 +12,24 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
-import { Gender, UserRole } from '@prisma/client';
+import { Gender, UserRole, UserType } from '@prisma/client';
 
 export class CreateUserDto {
   @IsString()
   name: string;
+
+  @IsEnum(UserType)
+  @IsOptional()
+  userType?: UserType;
+
+  @IsBoolean()
+  @IsOptional()
+  hasLicense?: boolean;
+
+  @IsString()
+  @MaxLength(50)
+  @IsOptional()
+  licenseNo?: string;
 
   @Transform(({ value }) => typeof value === 'string' ? value.trim().toLowerCase() : value)
   @IsString()
@@ -30,7 +44,8 @@ export class CreateUserDto {
 
   @IsString()
   @MinLength(8)
-  password: string;
+  @IsOptional()
+  password?: string;
 
   @IsEnum(UserRole)
   role: UserRole;

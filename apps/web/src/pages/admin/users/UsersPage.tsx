@@ -6,6 +6,7 @@ import {
   App,
   Button,
   Cascader,
+  Checkbox,
   Col,
   DatePicker,
   Drawer,
@@ -45,11 +46,26 @@ const ROLE_COLORS: Record<string, string> = {
   MEMBER: 'default',
 };
 
+const USER_TYPE_LABELS: Record<string, string> = {
+  EMPLOYEE: '员工',
+  PARTNER: '合伙人',
+};
+
+// 市场部和事业部有人数上限
+const DEPT_CAPACITY: Record<string, number> = {
+  MARKET: 3,
+  DIVISION: 7,
+};
+
 interface UserRow {
   id: string;
   name: string;
   phone: string;
   employeeNo?: string;
+  userType: string;
+  hasLicense: boolean;
+  licenseNo?: string;
+  shareCode?: string;
   gender?: string;
   birthDate?: string;
   alternatePhone?: string;
@@ -64,7 +80,7 @@ interface UserRow {
   departmentId?: string;
   role: string;
   status: string;
-  department?: { id: string; name: string };
+  department?: { id: string; name: string; type: string };
   position?: { id: string; name: string };
   headOf?: { id: string; name: string };
 }
@@ -107,6 +123,7 @@ export default function UsersPage() {
   const [transferForm] = Form.useForm();
   const [disableForm] = Form.useForm();
   const watchedRole = Form.useWatch('role', form);
+  const watchedUserType = Form.useWatch('userType', form);
 
   const { data: departments = [] } = useQuery<OptionItem[]>({
     queryKey: ['departments'],
@@ -228,36 +245,64 @@ export default function UsersPage() {
   };
 
   const columns: ProColumns<UserRow>[] = [
-    { title: '工号', dataIndex: 'employeeNo', width: 100, fixed: 'left' },
+    { title: '工号', dataIndex: 'employeeNo', width: 90, fixed: 'left', render: (_, r) => r.employeeNo ?? '-' },
     { title: '姓名', dataIndex: 'name', width: 90 },
     { title: '手机号', dataIndex: 'phone', width: 120, responsive: ['md'] },
     {
-      title: '性别',
-      dataIndex: 'gender',
+      title: '类型',
+      dataIndex: 'userType',
+      width: 80,
+      search: false,
+      render: (_, r) => (
+        <Tag color={r.userType === 'PARTNER' ? 'orange' : 'default'}>
+          {USER_TYPE_LABELS[r.userType] ?? r.userType}
+        </Tag>
+      ),
+    },
+    {
+      title: '资格证',
+      dataIndex: 'hasLicense',
       width: 70,
       search: false,
-      responsive: ['lg'],
-      render: (_, record) => ({ MALE: '男', FEMALE: '女', UNKNOWN: '未知' }[record.gender ?? ''] ?? '-'),
+      render: (_, r) => r.hasLicense ? <Tag color="gold">持证</Tag> : '-',
     },
     {
       title: '角色',
       dataIndex: 'role',
-      width: 110,
-      valueEnum: {
-        HEAD: { text: '部门负责人' },
-        MEMBER: { text: '部门成员' },
-      },
-      render: (_, record) => (
-        <Tag color={ROLE_COLORS[record.role]}>{ROLE_LABELS[record.role]}</Tag>
-      ),
+      width: 100,
+      valueEnum: { HEAD: { text: '部门负责人' }, MEMBER: { text: '部门成员' } },
+      render: (_, r) => <Tag color={ROLE_COLORS[r.role]}>{ROLE_LABELS[r.role]}</Tag>,
     },
     {
       title: '所属部门',
       dataIndex: 'departmentId',
-      width: 110,
+      width: 130,
       responsive: ['md'],
       valueEnum: Object.fromEntries(departments.map((d) => [d.id, { text: d.name }])),
-      render: (_, record) => record.department?.name ?? '-',
+      render: (_, r) => {
+        const deptType = r.department?.type ?? '';
+        const cap = DEPT_CAPACITY[deptType];
+        return (
+          <Space size={4}>
+            <span>{r.department?.name ?? '-'}</span>
+            {cap && (
+              <Tag style={{ fontSize: 10, padding: '0 4px' }} color="processing">
+                {cap}人上限
+              </Tag>
+            )}
+          </Space>
+        );
+      },
+    },
+    {
+      title: '分享码',
+      dataIndex: 'shareCode',
+      width: 90,
+      search: false,
+      responsive: ['lg'],
+      render: (_, r) => r.shareCode
+        ? <span style={{ fontFamily: 'monospace', letterSpacing: 1 }}>{r.shareCode}</span>
+        : '-',
     },
     { title: '岗位', dataIndex: ['position', 'name'], width: 90, search: false, responsive: ['lg'] },
     {
@@ -268,9 +313,9 @@ export default function UsersPage() {
         ACTIVE: { text: '在职', status: 'Success' },
         INACTIVE: { text: '离职', status: 'Default' },
       },
-      render: (_, record) => (
-        <Tag color={record.status === 'ACTIVE' ? 'green' : 'default'}>
-          {record.status === 'ACTIVE' ? '在职' : '离职'}
+      render: (_, r) => (
+        <Tag color={r.status === 'ACTIVE' ? 'green' : 'default'}>
+          {r.status === 'ACTIVE' ? '在职' : '离职'}
         </Tag>
       ),
     },
@@ -280,27 +325,16 @@ export default function UsersPage() {
       search: false,
       render: (_, record) => (
         <Space size={4}>
-          <Tooltip title="编辑员工">
-            <Button
-              aria-label="编辑员工"
-              size="small"
-              icon={<EditOutlined />}
-              onClick={() => openEdit(record)}
-            />
+          <Tooltip title="编辑">
+            <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(record)} />
           </Tooltip>
           {record.role !== 'ADMIN' && (
-            <Tooltip title="员工调岗">
-              <Button
-                aria-label="员工调岗"
-                size="small"
-                icon={<SwapOutlined />}
-                onClick={() => openTransfer(record)}
-              />
+            <Tooltip title="调岗">
+              <Button size="small" icon={<SwapOutlined />} onClick={() => openTransfer(record)} />
             </Tooltip>
           )}
-          <Tooltip title={record.status === 'ACTIVE' ? '禁用员工' : '启用员工'}>
+          <Tooltip title={record.status === 'ACTIVE' ? '禁用' : '启用'}>
             <Button
-              aria-label={record.status === 'ACTIVE' ? '禁用员工' : '启用员工'}
               size="small"
               danger={record.status === 'ACTIVE'}
               icon={record.status === 'ACTIVE' ? <StopOutlined /> : <CheckCircleOutlined />}
@@ -370,6 +404,7 @@ export default function UsersPage() {
           onFinish={(values) => {
             const { address, ...rest } = values;
             const [province, city, district] = (address as string[]) ?? [];
+            const isPartner = values.userType === 'PARTNER';
             const normalized = {
               ...rest,
               province: province || undefined,
@@ -378,19 +413,38 @@ export default function UsersPage() {
               birthDate: values.birthDate?.format('YYYY-MM-DD'),
               idCardNo: values.idCardNo || undefined,
             };
+            // 合伙人无需密码，员工默认使用手机号作为密码
             const payload = editTarget
               ? normalized
-              : { ...normalized, password: values.phone };
+              : { ...normalized, password: isPartner ? undefined : values.phone };
             saveMutation.mutate(payload);
           }}
         >
           <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="employeeNo" label="工号" rules={[{ required: true, message: '请输入工号' }]}>
-                <Input maxLength={32} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
+            {/* 类型切换 */}
+            {!editTarget && (
+              <Col span={12}>
+                <Form.Item name="userType" label="人员类型" initialValue="EMPLOYEE" rules={[{ required: true }]}>
+                  <Select options={[
+                    { value: 'EMPLOYEE', label: '员工（公司正式）' },
+                    { value: 'PARTNER', label: '合伙人（事业部）' },
+                  ]} />
+                </Form.Item>
+              </Col>
+            )}
+            {/* 工号：员工必填，合伙人不需要 */}
+            {watchedUserType !== 'PARTNER' && (
+              <Col span={12}>
+                <Form.Item
+                  name="employeeNo"
+                  label="工号"
+                  rules={[{ required: watchedUserType !== 'PARTNER', message: '请输入工号' }]}
+                >
+                  <Input maxLength={32} />
+                </Form.Item>
+              </Col>
+            )}
+            <Col span={watchedUserType === 'PARTNER' ? 12 : 12}>
               <Form.Item name="name" label="姓名" rules={[{ required: true }]}>
                 <Input maxLength={50} />
               </Form.Item>
@@ -399,68 +453,69 @@ export default function UsersPage() {
               <Form.Item
                 name="phone"
                 label="手机号"
-                rules={[
-                  { required: true },
-                  { pattern: /^1\d{10}$/, message: '请输入正确的手机号' },
-                ]}
+                rules={[{ required: true }, { pattern: /^1\d{10}$/, message: '请输入正确的手机号' }]}
               >
                 <Input maxLength={11} />
               </Form.Item>
             </Col>
+            {/* 资格证 */}
             <Col span={12}>
-              <Form.Item name="alternatePhone" label="备用电话" rules={[
-                { pattern: /^1\d{10}$/, message: '请输入正确的备用电话' },
-              ]}>
-                <Input maxLength={11} />
+              <Form.Item name="hasLicense" valuePropName="checked" label="持有资格证">
+                <Checkbox>是（负责人必须持证）</Checkbox>
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="gender" label="性别">
-                <Select options={[
-                  { value: 'MALE', label: '男' },
-                  { value: 'FEMALE', label: '女' },
-                  { value: 'UNKNOWN', label: '未知' },
-                ]} />
+              <Form.Item name="licenseNo" label="证件编号">
+                <Input maxLength={50} placeholder="可选，填写证件号" />
               </Form.Item>
             </Col>
-            <Col span={12}>
-              <Form.Item name="birthDate" label="出生日期">
-                <DatePicker style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="wechat" label="微信号">
-                <Input maxLength={64} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="email" label="邮箱" rules={[{ type: 'email', message: '请输入正确的邮箱' }]}>
-                <Input maxLength={100} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="positionId" label="岗位">
-                <Select
-                  allowClear
-                  options={positions.map((item) => ({ value: item.id, label: item.name }))}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="idCardNo"
-                label="身份证号码"
-                rules={[{ pattern: /^\d{17}[\dXx]$/, message: '身份证号码格式不正确' }]}
-              >
-                <Input
-                  maxLength={18}
-                  autoComplete="off"
-                  placeholder={editTarget?.idCardMasked
-                    ? `已保存 ${editTarget.idCardMasked}，留空不修改`
-                    : '请输入18位身份证号码'}
-                />
-              </Form.Item>
-            </Col>
+            {/* 员工专属字段 */}
+            {watchedUserType !== 'PARTNER' && (
+              <>
+                <Col span={12}>
+                  <Form.Item name="alternatePhone" label="备用电话"
+                    rules={[{ pattern: /^1\d{10}$/, message: '请输入正确的备用电话' }]}>
+                    <Input maxLength={11} />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item name="gender" label="性别">
+                    <Select options={[
+                      { value: 'MALE', label: '男' },
+                      { value: 'FEMALE', label: '女' },
+                      { value: 'UNKNOWN', label: '未知' },
+                    ]} />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item name="birthDate" label="出生日期">
+                    <DatePicker style={{ width: '100%' }} />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item name="wechat" label="微信号">
+                    <Input maxLength={64} />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item name="email" label="邮箱" rules={[{ type: 'email', message: '请输入正确的邮箱' }]}>
+                    <Input maxLength={100} />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item name="positionId" label="岗位">
+                    <Select allowClear options={positions.map((item) => ({ value: item.id, label: item.name }))} />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item name="idCardNo" label="身份证号码"
+                    rules={[{ pattern: /^\d{17}[\dXx]$/, message: '身份证号码格式不正确' }]}>
+                    <Input maxLength={18} autoComplete="off"
+                      placeholder={editTarget?.idCardMasked ? `已保存 ${editTarget.idCardMasked}，留空不修改` : '请输入18位身份证号码'} />
+                  </Form.Item>
+                </Col>
+              </>
+            )}
             {!editTarget && (
               <>
                 <Col span={12}>
@@ -475,39 +530,37 @@ export default function UsersPage() {
                   <Form.Item
                     name="departmentId"
                     label="部门"
-                    rules={[{ required: !!watchedRole, message: '员工必须选择部门' }]}
+                    rules={[{ required: !!watchedRole, message: '请选择部门' }]}
                   >
                     <TreeSelect
-                      allowClear
-                      placeholder="请选择部门"
+                      allowClear placeholder="请选择部门"
                       treeData={buildDeptTree(departments)}
-                      treeDefaultExpandAll
-                      showSearch
-                      treeNodeFilterProp="title"
+                      treeDefaultExpandAll showSearch treeNodeFilterProp="title"
                     />
                   </Form.Item>
                 </Col>
               </>
             )}
-            {editTarget && (
+            {editTarget && watchedUserType !== 'PARTNER' && (
               <Col span={12}>
-                <Form.Item
-                  name="newPassword"
-                  label="修改密码（不填则不修改）"
-                  rules={[{ min: 8, message: '密码至少8位' }]}
-                >
+                <Form.Item name="newPassword" label="修改密码（不填则不修改）"
+                  rules={[{ min: 8, message: '密码至少8位' }]}>
                   <Input.Password />
+                </Form.Item>
+              </Col>
+            )}
+            {/* 分享码只读展示 */}
+            {editTarget?.shareCode && (
+              <Col span={12}>
+                <Form.Item label="分享码">
+                  <Input readOnly value={editTarget.shareCode}
+                    style={{ fontFamily: 'monospace', letterSpacing: 2, background: '#fafafa' }} />
                 </Form.Item>
               </Col>
             )}
             <Col span={12}>
               <Form.Item name="address" label="省市区">
-                <Cascader
-                  options={chinaRegions}
-                  placeholder="请选择省/市/区"
-                  showSearch
-                  expandTrigger="hover"
-                />
+                <Cascader options={chinaRegions} placeholder="请选择省/市/区" showSearch expandTrigger="hover" />
               </Form.Item>
             </Col>
             <Col span={12}>

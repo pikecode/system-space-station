@@ -8,5 +8,6 @@ export const usersApi = {
   create: (data: unknown) => request.post('/users', data),
   update: (id: string, data: unknown) => request.patch(`/users/${id}`, data),
   transfer: (id: string, data: unknown) => request.patch(`/users/${id}/transfer`, data),
+  removeFromDepartment: (id: string) => request.patch(`/users/${id}/remove-department`),
   setStatus: (id: string, data: unknown) => request.patch(`/users/${id}/status`, data),
 };

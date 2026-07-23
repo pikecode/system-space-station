@@ -86,6 +86,11 @@ export class UsersController {
     return this.usersService.transfer(id, dto, operator.id);
   }
 
+  @Patch(':id/remove-department')
+  removeFromDepartment(@Param('id') id: string, @CurrentUser() operator: any) {
+    return this.usersService.removeFromDepartment(id, operator.id);
+  }
+
   @Patch(':id/status')
   setStatus(@Param('id') id: string, @Body() dto: SetStatusDto, @CurrentUser() operator: any) {
     return this.usersService.setStatus(id, dto.status, dto.successorId, operator.id);

@@ -10,17 +10,20 @@
     "lint": "eslint src --ext .ts,.tsx"
   },
   "dependencies": {
+    "@ant-design/graphs": "^1.4.2",
+    "@ant-design/icons": "^5.5.0",
+    "@ant-design/pro-components": "^2.8.10",
+    "@tanstack/react-query": "^5.62.0",
+    "antd": "^5.22.0",
+    "axios": "^1.7.0",
+    "dayjs": "^1.11.0",
+    "echarts": "^6.1.0",
+    "echarts-for-react": "^3.0.6",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.0",
-    "antd": "^5.22.0",
-    "@ant-design/pro-components": "^2.8.0",
-    "@ant-design/icons": "^5.5.0",
-    "axios": "^1.7.0",
-    "@tanstack/react-query": "^5.62.0",
-    "zustand": "^5.0.0",
-    "dayjs": "^1.11.0",
-    "shared": "workspace:*"
+    "shared": "workspace:*",
+    "zustand": "^5.0.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.0",

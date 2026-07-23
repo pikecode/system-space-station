@@ -61,12 +61,6 @@ export class DepartmentsService {
         const existing = await tx.department.findFirst({ where: { type: DepartmentType.HQ } });
         if (existing) throw new ConflictException('总部已存在，只允许一个');
       }
-      if (dto.type === DepartmentType.MARKET) {
-        const count = await tx.department.count({
-          where: { type: DepartmentType.MARKET, status: 'ACTIVE' },
-        });
-        if (count >= 7) throw new BadRequestException('市场部最多7个');
-      }
 
       const department = await tx.department.create({ data: dto });
       await tx.auditLog.create({
@@ -97,12 +91,6 @@ export class DepartmentsService {
           where: { type: DepartmentType.HQ, id: { not: id } },
         });
         if (anotherHeadquarters) throw new ConflictException('总部已存在');
-      }
-      if (nextType === DepartmentType.MARKET && existing.type !== DepartmentType.MARKET) {
-        const count = await tx.department.count({
-          where: { type: DepartmentType.MARKET, status: 'ACTIVE', id: { not: id } },
-        });
-        if (count >= 7) throw new BadRequestException('市场部最多7个');
       }
       if (nextType !== existing.type) {
         await this.validateChildrenForType(tx, id, nextType);
@@ -181,8 +169,22 @@ export class DepartmentsService {
     parentId: string | null,
     currentId?: string,
   ) {
+    if (type === DepartmentType.GOVERNANCE) {
+      if (parentId === currentId) throw new BadRequestException('部门不能将自身设为上级');
+      if (parentId) {
+        const parent = await tx.department.findUnique({ where: { id: parentId } });
+        if (!parent || parent.status !== 'ACTIVE') throw new BadRequestException('上级部门不存在或已停用');
+        if (parent.type !== DepartmentType.GOVERNANCE) throw new BadRequestException('治理层的上级必须也是治理层');
+      }
+      return;
+    }
     if (type === DepartmentType.HQ) {
-      if (parentId) throw new BadRequestException('总部不能设置上级部门');
+      if (parentId) {
+        if (parentId === currentId) throw new BadRequestException('部门不能将自身设为上级');
+        const parent = await tx.department.findUnique({ where: { id: parentId } });
+        if (!parent || parent.status !== 'ACTIVE') throw new BadRequestException('上级部门不存在或已停用');
+        if (parent.type !== DepartmentType.GOVERNANCE) throw new BadRequestException('总经办的上级必须是治理层');
+      }
       return;
     }
     if (!parentId) throw new BadRequestException('非总部部门必须设置上级部门');
@@ -192,12 +194,13 @@ export class DepartmentsService {
     if (!parent || parent.status !== 'ACTIVE') {
       throw new BadRequestException('上级部门不存在或已停用');
     }
-    const validParentTypes: Record<Exclude<DepartmentType, 'HQ'>, DepartmentType> = {
-      DIRECT: DepartmentType.HQ,
-      MARKET: DepartmentType.HQ,
-      DIVISION: DepartmentType.MARKET,
+    const validParentTypes: Record<Exclude<DepartmentType, 'HQ' | 'GOVERNANCE'>, DepartmentType[]> = {
+      CENTER: [DepartmentType.HQ],
+      DIRECT: [DepartmentType.HQ, DepartmentType.CENTER],
+      MARKET: [DepartmentType.CENTER],
+      DIVISION: [DepartmentType.MARKET],
     };
-    if (parent.type !== validParentTypes[type as Exclude<DepartmentType, 'HQ'>]) {
+    if (!validParentTypes[type as Exclude<DepartmentType, 'HQ' | 'GOVERNANCE'>].includes(parent.type)) {
       throw new BadRequestException('部门类型与上级部门层级不匹配');
     }
 
@@ -206,7 +209,7 @@ export class DepartmentsService {
     while (ancestor?.parentId) {
       if (ancestor.parentId === currentId) throw new BadRequestException('部门层级不能形成循环');
       depth += 1;
-      if (depth > 2) throw new BadRequestException('部门层级最多三层');
+      if (depth > 4) throw new BadRequestException('部门层级最多五层');
       ancestor = await tx.department.findUnique({ where: { id: ancestor.parentId } });
     }
   }
@@ -221,7 +224,9 @@ export class DepartmentsService {
       select: { type: true },
     });
     const allowedChildTypes: Record<DepartmentType, DepartmentType[]> = {
-      HQ: [DepartmentType.DIRECT, DepartmentType.MARKET],
+      GOVERNANCE: [DepartmentType.GOVERNANCE, DepartmentType.HQ],
+      HQ: [DepartmentType.CENTER, DepartmentType.DIRECT],
+      CENTER: [DepartmentType.DIRECT, DepartmentType.MARKET],
       MARKET: [DepartmentType.DIVISION],
       DIRECT: [],
       DIVISION: [],

@@ -29,7 +29,7 @@ createRoot(document.getElementById('root')!).render(
                Drawer/Modal backgrounds to become indistinguishable from the
                page background — users clicked buttons and saw nothing open. */
             colorBgBase:         '#ffffff',
-            colorBgLayout:       '#f5f7fa',  /* page-level background only */
+            colorBgLayout:       '#f5f7fa',
             colorTextBase:       '#1d2129',
             colorBorder:         '#e5e8ef',
             colorTextSecondary:  '#86909c',

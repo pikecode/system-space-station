@@ -1,7 +1,7 @@
+import { useState } from 'react';
 import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns } from '@ant-design/pro-components';
 import { Tag, Statistic, Row, Col, Card } from 'antd';
-import { useQuery } from '@tanstack/react-query';
 import { commissionsApi } from '../../../services/commissions';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -36,16 +36,7 @@ interface CommissionRecord {
 }
 
 export default function CommissionsPage({ scope = 'my' }: { scope?: 'my' | 'department' }) {
-  const { data } = useQuery({
-    queryKey: [`${scope}-commissions`],
-    queryFn: () =>
-      scope === 'department'
-        ? commissionsApi.getDepartment({ pageSize: 100 })
-        : commissionsApi.getMy({ pageSize: 100 }),
-  });
-
-  const list: CommissionRecord[] =
-    (data as { data?: CommissionRecord[] } | undefined)?.data ?? [];
+  const [list, setList] = useState<CommissionRecord[]>([]);
 
   const totalPending = list
     .filter((r) => r.status === 'PENDING')
@@ -139,7 +130,15 @@ export default function CommissionsPage({ scope = 'my' }: { scope?: 'my' | 'depa
       <ProTable<CommissionRecord>
         rowKey="id"
         columns={columns}
-        dataSource={list}
+        params={{ scope }}
+        request={async () => {
+          const response = scope === 'department'
+            ? await commissionsApi.getDepartment({ page: 1, pageSize: 100 })
+            : await commissionsApi.getMy({ page: 1, pageSize: 100 });
+          const records = (response as unknown as { data?: CommissionRecord[] })?.data ?? [];
+          setList(records);
+          return { data: records, success: true, total: records.length };
+        }}
         headerTitle={scope === 'department' ? '部门分成明细' : '个人分成明细'}
         search={false}
         pagination={{ pageSize: 20 }}

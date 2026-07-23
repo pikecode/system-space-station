@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ProTable } from '@ant-design/pro-components';
-import type { ProColumns } from '@ant-design/pro-components';
+import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import { App, Button, DatePicker, Descriptions, Form, Input, Modal, Space, Tag } from 'antd';
 import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { membershipsApi } from '../../../services/memberships';
 
@@ -29,14 +29,11 @@ interface ReviewFormValues {
 export default function ApprovalsPage() {
   const { message } = App.useApp();
   const queryClient = useQueryClient();
+  const actionRef = useRef<ActionType>();
+  const [pendingCount, setPendingCount] = useState(0);
   const [selected, setSelected] = useState<MembershipPending | null>(null);
   const [action, setAction] = useState<ApprovalAction | null>(null);
   const [form] = Form.useForm<ReviewFormValues>();
-
-  const { data: pending, isLoading, refetch } = useQuery({
-    queryKey: ['memberships-pending'],
-    queryFn: () => membershipsApi.getPending(),
-  });
 
   const mutation = useMutation({
     mutationFn: async ({ record, currentAction, values }: {
@@ -61,7 +58,7 @@ export default function ApprovalsPage() {
     onSuccess: () => {
       message.success('审批操作已完成');
       closeModal();
-      refetch();
+      actionRef.current?.reload();
       queryClient.invalidateQueries({ queryKey: ['memberships'] });
       queryClient.invalidateQueries({ queryKey: ['department-commissions'] });
     },
@@ -70,8 +67,6 @@ export default function ApprovalsPage() {
       message.error(responseError.response?.data?.message ?? '操作失败');
     },
   });
-
-  const list: MembershipPending[] = Array.isArray(pending) ? pending as MembershipPending[] : [];
 
   const openAction = (record: MembershipPending, nextAction: ApprovalAction) => {
     setSelected(record);
@@ -160,13 +155,20 @@ export default function ApprovalsPage() {
   return (
     <>
       <ProTable<MembershipPending>
+        actionRef={actionRef}
         rowKey="id"
         columns={columns}
-        dataSource={list}
-        loading={isLoading}
+        request={async () => {
+          const response = await membershipsApi.getPending();
+          const list = Array.isArray(response)
+            ? response as MembershipPending[]
+            : [];
+          setPendingCount(list.length);
+          return { data: list, success: true, total: list.length };
+        }}
         search={false}
         pagination={false}
-        headerTitle={`待审批 ${list.length} 条`}
+        headerTitle={`待审批 ${pendingCount} 条`}
         scroll={{ x: 'max-content' }}
       />
 
