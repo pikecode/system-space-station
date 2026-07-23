@@ -41,8 +41,7 @@ interface DeptNode {
   code?: string;
   type: string;
   parentId?: string;
-  headId?: string;
-  head?: { id: string; name: string };
+
   province?: string;
   city?: string;
   district?: string;
@@ -67,13 +66,6 @@ interface MemberRow {
 }
 
 const DEPT_CAPACITY: Record<string, number> = { MARKET: 3, DIVISION: 7 };
-
-interface UserItem {
-  id: string;
-  name: string;
-  phone: string;
-  role: string;
-}
 
 function buildTreeData(list: DeptNode[]): DeptNode[] {
   const map: Record<string, DeptNode> = {};
@@ -103,8 +95,6 @@ export default function DepartmentsPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<DeptNode | null>(null);
   const [parentContext, setParentContext] = useState<DeptNode | null>(null);
-  const [headPickerOpen, setHeadPickerOpen] = useState(false);
-  const [headSearch, setHeadSearch] = useState('');
   // 人员管理
   const [memberDept, setMemberDept] = useState<DeptNode | null>(null);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
@@ -115,13 +105,6 @@ export default function DepartmentsPage() {
   const [userSearch, setUserSearch] = useState('');
   const [form] = Form.useForm();
   const watchedType = Form.useWatch('type', form);
-
-  const { data: deptUsers = [], isLoading: usersLoading } = useQuery<UserItem[]>({
-    queryKey: ['dept-users', editTarget?.id],
-    queryFn: () =>
-      usersApi.getAll({ departmentId: editTarget?.id, status: 'ACTIVE' }) as unknown as Promise<UserItem[]>,
-    enabled: !!editTarget?.id && headPickerOpen,
-  });
 
   // 当前部门人员列表
   const { data: members = [], isLoading: membersLoading, refetch: refetchMembers } = useQuery<MemberRow[]>({
@@ -140,6 +123,17 @@ export default function DepartmentsPage() {
     const map: Record<string, number> = {};
     allUsers.forEach((u) => {
       if (u.departmentId) map[u.departmentId] = (map[u.departmentId] ?? 0) + 1;
+    });
+    return map;
+  }, [allUsers]);
+
+  const membersByDept = useMemo<Record<string, Array<{ name: string; role: string; userType: string }>>>(() => {
+    const map: Record<string, Array<{ name: string; role: string; userType: string }>> = {};
+    allUsers.forEach((u) => {
+      if (u.departmentId) {
+        if (!map[u.departmentId]) map[u.departmentId] = [];
+        map[u.departmentId].push({ name: u.name, role: u.role, userType: u.userType });
+      }
     });
     return map;
   }, [allUsers]);
@@ -252,10 +246,6 @@ export default function DepartmentsPage() {
     return baseOptions;
   }, [hqExists, isEditingHQ, parentContext]);
 
-  const filteredUsers = deptUsers.filter((u) =>
-    u.name.includes(headSearch) || u.phone.includes(headSearch),
-  );
-
   const openCreate = (parent?: DeptNode) => {
     setEditTarget(null);
     setParentContext(parent ?? null);
@@ -294,29 +284,6 @@ export default function DepartmentsPage() {
       onOk: () => disableMutation.mutate(record.id),
     });
   };
-
-  const headPickerColumns: ColumnsType<UserItem> = [
-    { title: '姓名', dataIndex: 'name', key: 'name' },
-    { title: '手机号', dataIndex: 'phone', key: 'phone' },
-    {
-      title: '操作',
-      key: 'action',
-      width: 80,
-      render: (_, user) => (
-        <Button
-          type="link"
-          size="small"
-          onClick={() => {
-            form.setFieldsValue({ headId: user.id, headName: user.name });
-            setHeadPickerOpen(false);
-            setHeadSearch('');
-          }}
-        >
-          选择
-        </Button>
-      ),
-    },
-  ];
 
   const columns: ProColumns<DeptNode>[] = [
     {
@@ -400,13 +367,6 @@ export default function DepartmentsPage() {
           </Button>
         );
       },
-    },
-    {
-      title: '负责人',
-      dataIndex: 'head',
-      key: 'head',
-      width: 100,
-      render: (_, record) => record.head?.name || '-',
     },
     {
       title: '地址',
@@ -499,7 +459,7 @@ export default function DepartmentsPage() {
             >
               返回列表
             </Button>
-            <DeptMindMap roots={buildTreeData(departments)} />
+            <DeptMindMap roots={buildTreeData(departments)} memberCountMap={memberCountMap} membersByDept={membersByDept} />
           </div>
         ) : undefined}
         scroll={{ x: 1200 }}
@@ -543,33 +503,6 @@ export default function DepartmentsPage() {
           },
         }}
       />
-
-      {/* 负责人选择弹窗 */}
-      <Modal
-        title="选择负责人"
-        open={headPickerOpen}
-        onCancel={() => { setHeadPickerOpen(false); setHeadSearch(''); }}
-        footer={null}
-        width={520}
-      >
-        <Input.Search
-          placeholder="搜索姓名或手机号"
-          value={headSearch}
-          onChange={(e) => setHeadSearch(e.target.value)}
-          style={{ marginBottom: 12 }}
-          allowClear
-        />
-        <Table<UserItem>
-          columns={headPickerColumns}
-          dataSource={filteredUsers}
-          rowKey="id"
-          loading={usersLoading}
-          size="small"
-          pagination={false}
-          scroll={{ y: 360 }}
-          locale={{ emptyText: '该部门暂无员工' }}
-        />
-      </Modal>
 
       <Drawer
         title={
@@ -651,27 +584,6 @@ export default function DepartmentsPage() {
               />
             </Form.Item>
           ) : null}
-          {editTarget && (
-            <Form.Item label="负责人">
-              <Space>
-                <Form.Item name="headName" noStyle>
-                  <Input
-                    readOnly
-                    placeholder="未设置"
-                    prefix={<UserOutlined />}
-                    style={{ width: 200 }}
-                  />
-                </Form.Item>
-                <Form.Item name="headId" noStyle>
-                  <Input type="hidden" />
-                </Form.Item>
-                <Button onClick={() => setHeadPickerOpen(true)}>选择</Button>
-                <Button onClick={() => form.setFieldsValue({ headId: null, headName: '' })}>
-                  清除
-                </Button>
-              </Space>
-            </Form.Item>
-          )}
           <Form.Item name="description" label="部门说明">
             <Input.TextArea rows={2} />
           </Form.Item>
@@ -825,7 +737,7 @@ export default function DepartmentsPage() {
             <Input maxLength={11} />
           </Form.Item>
           {watchedAddUserType !== 'PARTNER' && (
-            <Form.Item name="employeeNo" label="工号" rules={[{ required: true, message: '请输入工号' }]}>
+            <Form.Item name="employeeNo" label="工号">
               <Input maxLength={32} />
             </Form.Item>
           )}
