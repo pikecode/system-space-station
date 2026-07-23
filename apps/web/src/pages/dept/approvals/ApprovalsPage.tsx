@@ -1,11 +1,11 @@
 import { useRef, useState } from 'react';
-import { ProTable } from '@ant-design/pro-components';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import { App, Button, DatePicker, Descriptions, Form, Input, Modal, Space, Tag } from 'antd';
 import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { membershipsApi } from '../../../services/memberships';
+import ProTable from '../../../components/BusinessProTable';
 
 type ApprovalAction = 'approve' | 'reject' | 'refundApprove' | 'refundReject';
 

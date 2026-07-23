@@ -1,7 +1,7 @@
-import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns } from '@ant-design/pro-components';
 import { Tag } from 'antd';
 import { customersApi } from '../../../services/customers';
+import ProTable from '../../../components/BusinessProTable';
 
 const SOURCE_LABELS: Record<string, string> = {
   REFERRAL: '转介绍',

@@ -1,5 +1,4 @@
 import { useRef, useState } from 'react';
-import { ProTable } from '@ant-design/pro-components';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import { App, Button, DatePicker, Drawer, Form, Input, InputNumber, Modal, Select, Space, Tag, Tooltip } from 'antd';
 import { EditOutlined, PlusOutlined, RollbackOutlined } from '@ant-design/icons';
@@ -8,6 +7,7 @@ import dayjs from 'dayjs';
 import { membershipsApi } from '../../../services/memberships';
 import { customersApi } from '../../../services/customers';
 import { memberLevelsApi } from '../../../services/memberLevels';
+import ProTable from '../../../components/BusinessProTable';
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING: '待审核',

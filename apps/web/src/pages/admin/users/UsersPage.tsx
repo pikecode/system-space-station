@@ -1,5 +1,4 @@
 import { useRef, useState } from 'react';
-import { ProTable } from '@ant-design/pro-components';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import {
   Alert,
@@ -20,6 +19,7 @@ import {
   Tooltip,
   TreeSelect,
 } from 'antd';
+import ProTable from '../../../components/BusinessProTable';
 import chinaRegions from '../../../utils/chinaRegions';
 import dayjs from 'dayjs';
 import {

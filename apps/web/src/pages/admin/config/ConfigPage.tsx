@@ -1,11 +1,11 @@
 import { useRef, useState } from 'react';
-import { ProTable } from '@ant-design/pro-components';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import { Button, Form, InputNumber, DatePicker, Input, Card, Row, Col, App, Drawer, Statistic } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useMutation } from '@tanstack/react-query';
 import { configApi } from '../../../services/config';
 import dayjs from 'dayjs';
+import ProTable from '../../../components/BusinessProTable';
 
 interface ConfigVersion {
   id: string;

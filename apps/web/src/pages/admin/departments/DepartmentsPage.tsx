@@ -4,7 +4,6 @@ import {
   Cascader, Modal, Tooltip, Segmented, Checkbox,
 } from 'antd';
 import { TableOutlined, ApartmentOutlined, TeamOutlined } from '@ant-design/icons';
-import { ProTable } from '@ant-design/pro-components';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import {
   PlusOutlined, EditOutlined, PlusCircleOutlined, StopOutlined, UserOutlined,
@@ -16,6 +15,7 @@ import { departmentsApi } from '../../../services/departments';
 import { usersApi } from '../../../services/users';
 import chinaRegions from '../../../utils/chinaRegions';
 import DeptMindMap from './DeptMindMap';
+import ProTable from '../../../components/BusinessProTable';
 
 const DEPT_TYPE_LABELS: Record<string, string> = {
   GOVERNANCE: '治理层',

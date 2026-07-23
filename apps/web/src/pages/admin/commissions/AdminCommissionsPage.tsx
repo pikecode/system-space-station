@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react';
-import { ProTable } from '@ant-design/pro-components';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import { Button, Tag, Card, Row, Col, Statistic, App } from 'antd';
 import { useMutation } from '@tanstack/react-query';
 import { commissionsApi } from '../../../services/commissions';
+import ProTable from '../../../components/BusinessProTable';
 
 const PERIOD_STATUS_LABELS: Record<string, string> = { OPEN: '进行中', PENDING_PAYMENT: '待出账', SETTLED: '已结算' };
 const PERIOD_STATUS_COLORS: Record<string, string> = { OPEN: 'blue', PENDING_PAYMENT: 'orange', SETTLED: 'green' };

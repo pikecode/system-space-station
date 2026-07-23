@@ -1,5 +1,4 @@
 import { useRef, useState } from 'react';
-import { ProTable } from '@ant-design/pro-components';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import { App, Button, Drawer, Form, Input, Space, Tag, Tooltip } from 'antd';
 import {
@@ -11,6 +10,7 @@ import {
 } from '@ant-design/icons';
 import { useMutation } from '@tanstack/react-query';
 import { usersApi } from '../../../services/users';
+import ProTable from '../../../components/BusinessProTable';
 
 interface AdminRow {
   id: string;

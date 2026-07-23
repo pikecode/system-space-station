@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns } from '@ant-design/pro-components';
 import { Tag, Statistic, Row, Col, Card } from 'antd';
 import { commissionsApi } from '../../../services/commissions';
+import ProTable from '../../../components/BusinessProTable';
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING: '待结算',

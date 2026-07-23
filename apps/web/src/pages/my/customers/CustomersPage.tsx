@@ -1,5 +1,4 @@
 import { useRef, useState } from 'react';
-import { ProTable } from '@ant-design/pro-components';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import { Button, Drawer, Form, Input, Modal, Select, Space, Tag, App, Tooltip } from 'antd';
 import { EditOutlined, PlusOutlined, SwapOutlined } from '@ant-design/icons';
@@ -7,6 +6,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { customersApi } from '../../../services/customers';
 import { usersApi } from '../../../services/users';
 import { useAuthStore } from '../../../store/auth';
+import ProTable from '../../../components/BusinessProTable';
 
 const SOURCE_LABELS: Record<string, string> = {
   REFERRAL: '转介绍',
