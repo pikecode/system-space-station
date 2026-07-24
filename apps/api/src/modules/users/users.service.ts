@@ -62,11 +62,13 @@ export class UsersService {
     username?: string;
     name?: string;
     phone?: string;
+    userType?: string;
   }) {
     const where: Prisma.UserWhereInput = {};
     if (query.departmentId) where.departmentId = query.departmentId;
     if (query.role) where.role = query.role as UserRole;
     if (query.status) where.status = query.status as UserStatus;
+    if (query.userType) where.userType = query.userType as UserType;
     if (query.employeeNo) where.employeeNo = { contains: query.employeeNo, mode: 'insensitive' };
     if (query.username) where.username = { contains: query.username, mode: 'insensitive' };
     if (query.name) where.name = { contains: query.name, mode: 'insensitive' };

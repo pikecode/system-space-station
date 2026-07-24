@@ -21,6 +21,7 @@ createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <ConfigProvider
         locale={zhCN}
+        getPopupContainer={() => document.body}
         theme={{
           token: {
             colorPrimary:        '#1677ff',

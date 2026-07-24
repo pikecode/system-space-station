@@ -99,17 +99,6 @@ body {
   background: var(--color-paper);
 }
 
-/* Reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
 /* ── Global focus ring ─────────────────────────────────────────────────────
    Ant Design suppresses the default outline. We reinstate a consistent ring
    using the design system accent so keyboard navigation is always visible.   */
@@ -139,6 +128,30 @@ body {
 .ant-pro-table-list-toolbar-title {
   letter-spacing: var(--tracking-display);
   font-weight: 600;
+}
+
+/* ProTable 原生工具栏图标默认只有 16px 命中宽度。
+   扩到 32px，避免点击设置/密度等工具时命中到空白区域。 */
+.ant-pro-table-list-toolbar-setting-item {
+  width: 32px !important;
+  height: 32px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer;
+}
+
+.ant-pro-table-list-toolbar-setting-item > span,
+.ant-pro-table-list-toolbar-setting-item .anticon {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ant-pro-table-column-setting-overlay {
+  z-index: var(--z-popover) !important;
 }
 
 /* ProLayout sidebar title */

@@ -43,15 +43,10 @@ export class UsersController {
     @Query('username') username?: string,
     @Query('name') name?: string,
     @Query('phone') phone?: string,
+    @Query('userType') userType?: string,
   ) {
     return this.usersService.findAll({
-      departmentId,
-      role,
-      status,
-      employeeNo,
-      username,
-      name,
-      phone,
+      departmentId, role, status, employeeNo, username, name, phone, userType,
     });
   }
 

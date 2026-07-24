@@ -14,6 +14,7 @@ import {
   Modal,
   Row,
   Select,
+  Segmented,
   Space,
   Tag,
   Tooltip,
@@ -23,11 +24,11 @@ import ProTable from '../../../components/BusinessProTable';
 import chinaRegions from '../../../utils/chinaRegions';
 import dayjs from 'dayjs';
 import {
-  CheckCircleOutlined,
-  EditOutlined,
   PlusOutlined,
   StopOutlined,
   SwapOutlined,
+  CheckCircleOutlined,
+  EditOutlined,
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usersApi } from '../../../services/users';
@@ -46,12 +47,6 @@ const ROLE_COLORS: Record<string, string> = {
   MEMBER: 'default',
 };
 
-const USER_TYPE_LABELS: Record<string, string> = {
-  EMPLOYEE: '员工',
-  PARTNER: '合伙人',
-};
-
-// 市场部和事业部有人数上限
 const DEPT_CAPACITY: Record<string, number> = {
   MARKET: 3,
   DIVISION: 7,
@@ -115,6 +110,7 @@ export default function UsersPage() {
   const { message, modal } = App.useApp();
   const queryClient = useQueryClient();
   const actionRef = useRef<ActionType>();
+  const [activeTab, setActiveTab] = useState<'EMPLOYEE' | 'PARTNER'>('EMPLOYEE');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<UserRow | null>(null);
   const [transferTarget, setTransferTarget] = useState<UserRow | null>(null);
@@ -185,6 +181,7 @@ export default function UsersPage() {
     setEditTarget(record);
     form.resetFields();
     form.setFieldsValue({
+      userType: record.userType,
       name: record.name,
       phone: record.phone,
       employeeNo: record.employeeNo,
@@ -204,6 +201,16 @@ export default function UsersPage() {
     setDrawerOpen(false);
     setEditTarget(null);
     form.resetFields();
+  };
+
+  const openCreate = () => {
+    setEditTarget(null);
+    form.resetFields();
+    form.setFieldsValue({
+      userType: activeTab,
+      gender: activeTab === 'EMPLOYEE' ? 'UNKNOWN' : undefined,
+    });
+    setDrawerOpen(true);
   };
 
   const openTransfer = (record: UserRow) => {
@@ -228,7 +235,7 @@ export default function UsersPage() {
     }
     if (record.status === 'INACTIVE') {
       modal.confirm({
-        title: '确认启用该员工？',
+        title: '确认启用？',
         onOk: () => statusMutation.mutate({ id: record.id, status: 'ACTIVE' }),
       });
       return;
@@ -239,26 +246,95 @@ export default function UsersPage() {
       return;
     }
     modal.confirm({
-      title: '确认禁用该员工？',
+      title: '确认禁用？',
       onOk: () => statusMutation.mutate({ id: record.id, status: 'INACTIVE' }),
     });
   };
 
-  const columns: ProColumns<UserRow>[] = [
+  const deptColumn: ProColumns<UserRow> = {
+    title: '所属部门',
+    dataIndex: 'departmentId',
+    width: 130,
+    responsive: ['md'],
+    valueEnum: Object.fromEntries(departments.map((d) => [d.id, { text: d.name }])),
+    render: (_, r) => {
+      const cap = DEPT_CAPACITY[r.department?.type ?? ''];
+      return (
+        <Space size={4}>
+          <span>{r.department?.name ?? '-'}</span>
+          {cap && (
+            <Tag style={{ fontSize: 10, padding: '0 4px' }} color="processing">
+              {cap}人上限
+            </Tag>
+          )}
+        </Space>
+      );
+    },
+  };
+
+  const roleColumn: ProColumns<UserRow> = {
+    title: '角色',
+    dataIndex: 'role',
+    width: 100,
+    valueEnum: { HEAD: { text: '部门负责人' }, MEMBER: { text: '部门成员' } },
+    render: (_, r) => <Tag color={ROLE_COLORS[r.role]}>{ROLE_LABELS[r.role]}</Tag>,
+  };
+
+  const statusColumn: ProColumns<UserRow> = {
+    title: '状态',
+    dataIndex: 'status',
+    width: 70,
+    valueEnum: {
+      ACTIVE: { text: '在职', status: 'Success' },
+      INACTIVE: { text: '离职', status: 'Default' },
+    },
+    render: (_, r) => (
+      <Tag color={r.status === 'ACTIVE' ? 'green' : 'default'}>
+        {r.status === 'ACTIVE' ? '在职' : '离职'}
+      </Tag>
+    ),
+  };
+
+  const actionColumn: ProColumns<UserRow> = {
+    title: '操作',
+    width: 100,
+    search: false,
+    render: (_, record) => (
+      <Space size={4}>
+        <Tooltip title="编辑">
+          <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(record)} />
+        </Tooltip>
+        {record.role !== 'ADMIN' && (
+          <Tooltip title="调岗">
+            <Button size="small" icon={<SwapOutlined />} onClick={() => openTransfer(record)} />
+          </Tooltip>
+        )}
+        <Tooltip title={record.status === 'ACTIVE' ? '禁用' : '启用'}>
+          <Button
+            size="small"
+            danger={record.status === 'ACTIVE'}
+            icon={record.status === 'ACTIVE' ? <StopOutlined /> : <CheckCircleOutlined />}
+            onClick={() => changeStatus(record)}
+          />
+        </Tooltip>
+      </Space>
+    ),
+  };
+
+  const employeeColumns: ProColumns<UserRow>[] = [
     { title: '工号', dataIndex: 'employeeNo', width: 90, fixed: 'left', render: (_, r) => r.employeeNo ?? '-' },
     { title: '姓名', dataIndex: 'name', width: 90 },
     { title: '手机号', dataIndex: 'phone', width: 120, responsive: ['md'] },
-    {
-      title: '类型',
-      dataIndex: 'userType',
-      width: 80,
-      search: false,
-      render: (_, r) => (
-        <Tag color={r.userType === 'PARTNER' ? 'orange' : 'default'}>
-          {USER_TYPE_LABELS[r.userType] ?? r.userType}
-        </Tag>
-      ),
-    },
+    roleColumn,
+    deptColumn,
+    { title: '岗位', dataIndex: ['position', 'name'], width: 90, search: false, responsive: ['lg'] },
+    statusColumn,
+    actionColumn,
+  ];
+
+  const partnerColumns: ProColumns<UserRow>[] = [
+    { title: '姓名', dataIndex: 'name', width: 90 },
+    { title: '手机号', dataIndex: 'phone', width: 120, responsive: ['md'] },
     {
       title: '资格证',
       dataIndex: 'hasLicense',
@@ -266,92 +342,29 @@ export default function UsersPage() {
       search: false,
       render: (_, r) => r.hasLicense ? <Tag color="gold">持证</Tag> : '-',
     },
-    {
-      title: '角色',
-      dataIndex: 'role',
-      width: 100,
-      valueEnum: { HEAD: { text: '部门负责人' }, MEMBER: { text: '部门成员' } },
-      render: (_, r) => <Tag color={ROLE_COLORS[r.role]}>{ROLE_LABELS[r.role]}</Tag>,
-    },
-    {
-      title: '所属部门',
-      dataIndex: 'departmentId',
-      width: 130,
-      responsive: ['md'],
-      valueEnum: Object.fromEntries(departments.map((d) => [d.id, { text: d.name }])),
-      render: (_, r) => {
-        const deptType = r.department?.type ?? '';
-        const cap = DEPT_CAPACITY[deptType];
-        return (
-          <Space size={4}>
-            <span>{r.department?.name ?? '-'}</span>
-            {cap && (
-              <Tag style={{ fontSize: 10, padding: '0 4px' }} color="processing">
-                {cap}人上限
-              </Tag>
-            )}
-          </Space>
-        );
-      },
-    },
+    roleColumn,
+    deptColumn,
     {
       title: '分享码',
       dataIndex: 'shareCode',
-      width: 90,
+      width: 100,
       search: false,
-      responsive: ['lg'],
       render: (_, r) => r.shareCode
         ? <span style={{ fontFamily: 'monospace', letterSpacing: 1 }}>{r.shareCode}</span>
         : '-',
     },
-    { title: '岗位', dataIndex: ['position', 'name'], width: 90, search: false, responsive: ['lg'] },
-    {
-      title: '状态',
-      dataIndex: 'status',
-      width: 70,
-      valueEnum: {
-        ACTIVE: { text: '在职', status: 'Success' },
-        INACTIVE: { text: '离职', status: 'Default' },
-      },
-      render: (_, r) => (
-        <Tag color={r.status === 'ACTIVE' ? 'green' : 'default'}>
-          {r.status === 'ACTIVE' ? '在职' : '离职'}
-        </Tag>
-      ),
-    },
-    {
-      title: '操作',
-      width: 100,
-      search: false,
-      render: (_, record) => (
-        <Space size={4}>
-          <Tooltip title="编辑">
-            <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(record)} />
-          </Tooltip>
-          {record.role !== 'ADMIN' && (
-            <Tooltip title="调岗">
-              <Button size="small" icon={<SwapOutlined />} onClick={() => openTransfer(record)} />
-            </Tooltip>
-          )}
-          <Tooltip title={record.status === 'ACTIVE' ? '禁用' : '启用'}>
-            <Button
-              size="small"
-              danger={record.status === 'ACTIVE'}
-              icon={record.status === 'ACTIVE' ? <StopOutlined /> : <CheckCircleOutlined />}
-              onClick={() => changeStatus(record)}
-            />
-          </Tooltip>
-        </Space>
-      ),
-    },
+    statusColumn,
+    actionColumn,
   ];
+
+  const isPartnerForm = watchedUserType === 'PARTNER';
 
   return (
     <>
       <ProTable<UserRow>
         actionRef={actionRef}
         rowKey="id"
-        columns={columns}
+        columns={activeTab === 'EMPLOYEE' ? employeeColumns : partnerColumns}
         scroll={{ x: 'max-content' }}
         request={async (params) => {
           const response = await usersApi.getAll({
@@ -361,32 +374,44 @@ export default function UsersPage() {
             departmentId: params.departmentId,
             role: params.role && params.role !== 'ADMIN' ? params.role : undefined,
             status: params.status,
+            userType: activeTab,
           }) as unknown as UserRow[];
-          // 员工管理只展示 HEAD / MEMBER，不含系统管理员
-          const employees = response.filter((u) => u.role !== 'ADMIN');
-          return { data: employees, success: true, total: employees.length };
+          const users = response.filter((u) => u.role !== 'ADMIN');
+          return { data: users, success: true, total: users.length };
         }}
+        headerTitle="人员管理"
         toolbar={{
           actions: [
+            <Segmented
+              key="tab"
+              value={activeTab}
+              onChange={(v) => {
+                setActiveTab(v as 'EMPLOYEE' | 'PARTNER');
+                setTimeout(() => actionRef.current?.reload(), 0);
+              }}
+              options={[
+                { value: 'EMPLOYEE', label: '员工' },
+                { value: 'PARTNER', label: '合伙人' },
+              ]}
+            />,
             <Button
               key="add"
               type="primary"
               icon={<PlusOutlined />}
-              onClick={() => {
-                setEditTarget(null);
-                form.resetFields();
-                form.setFieldValue('gender', 'UNKNOWN');
-                setDrawerOpen(true);
-              }}
+              onClick={openCreate}
             >
-              新建员工
+              {activeTab === 'EMPLOYEE' ? '新建员工' : '新建合伙人'}
             </Button>,
           ],
         }}
       />
 
       <Drawer
-        title={editTarget ? '编辑员工' : '新建员工'}
+        title={
+          editTarget
+            ? `编辑${editTarget.userType === 'PARTNER' ? '合伙人' : '员工'}`
+            : activeTab === 'EMPLOYEE' ? '新建员工' : '新建合伙人'
+        }
         open={drawerOpen}
         onClose={closeDrawer}
         width={680}
@@ -413,38 +438,35 @@ export default function UsersPage() {
               birthDate: values.birthDate?.format('YYYY-MM-DD'),
               idCardNo: values.idCardNo || undefined,
             };
-            // 合伙人无需密码，员工默认使用手机号作为密码
             const payload = editTarget
               ? normalized
               : { ...normalized, password: isPartner ? undefined : values.phone };
             saveMutation.mutate(payload);
           }}
         >
-          <Row gutter={16}>
-            {/* 类型切换 */}
-            {!editTarget && (
-              <Col span={12}>
-                <Form.Item name="userType" label="人员类型" initialValue="EMPLOYEE" rules={[{ required: true }]}>
-                  <Select options={[
-                    { value: 'EMPLOYEE', label: '员工（公司正式）' },
-                    { value: 'PARTNER', label: '合伙人（事业部）' },
-                  ]} />
-                </Form.Item>
+          {/* 隐藏字段保持 userType 值 */}
+          <Form.Item name="userType" hidden><Input /></Form.Item>
+
+          {/* 编辑时展示类型标签 */}
+          {editTarget && (
+            <Row gutter={16} style={{ marginBottom: 8 }}>
+              <Col span={24}>
+                <Tag color={editTarget.userType === 'PARTNER' ? 'orange' : 'default'} style={{ marginBottom: 16 }}>
+                  {editTarget.userType === 'PARTNER' ? '合伙人' : '员工'}
+                </Tag>
               </Col>
-            )}
-            {/* 工号：员工必填，合伙人不需要 */}
-            {watchedUserType !== 'PARTNER' && (
+            </Row>
+          )}
+
+          <Row gutter={16}>
+            {!isPartnerForm && (
               <Col span={12}>
-                <Form.Item
-                  name="employeeNo"
-                  label="工号"
-                  rules={[{ required: watchedUserType !== 'PARTNER', message: '请输入工号' }]}
-                >
+                <Form.Item name="employeeNo" label="工号">
                   <Input maxLength={32} />
                 </Form.Item>
               </Col>
             )}
-            <Col span={watchedUserType === 'PARTNER' ? 12 : 12}>
+            <Col span={12}>
               <Form.Item name="name" label="姓名" rules={[{ required: true }]}>
                 <Input maxLength={50} />
               </Form.Item>
@@ -458,7 +480,6 @@ export default function UsersPage() {
                 <Input maxLength={11} />
               </Form.Item>
             </Col>
-            {/* 资格证 */}
             <Col span={12}>
               <Form.Item name="hasLicense" valuePropName="checked" label="持有资格证">
                 <Checkbox>是（负责人必须持证）</Checkbox>
@@ -466,11 +487,10 @@ export default function UsersPage() {
             </Col>
             <Col span={12}>
               <Form.Item name="licenseNo" label="证件编号">
-                <Input maxLength={50} placeholder="可选，填写证件号" />
+                <Input maxLength={50} placeholder="可选" />
               </Form.Item>
             </Col>
-            {/* 员工专属字段 */}
-            {watchedUserType !== 'PARTNER' && (
+            {!isPartnerForm && (
               <>
                 <Col span={12}>
                   <Form.Item name="alternatePhone" label="备用电话"
@@ -541,7 +561,7 @@ export default function UsersPage() {
                 </Col>
               </>
             )}
-            {editTarget && watchedUserType !== 'PARTNER' && (
+            {editTarget && !isPartnerForm && (
               <Col span={12}>
                 <Form.Item name="newPassword" label="修改密码（不填则不修改）"
                   rules={[{ min: 8, message: '密码至少8位' }]}>
@@ -549,7 +569,6 @@ export default function UsersPage() {
                 </Form.Item>
               </Col>
             )}
-            {/* 分享码只读展示 */}
             {editTarget?.shareCode && (
               <Col span={12}>
                 <Form.Item label="分享码">
@@ -573,7 +592,7 @@ export default function UsersPage() {
       </Drawer>
 
       <Modal
-        title={`员工调岗：${transferTarget?.name ?? ''}`}
+        title={`调岗：${transferTarget?.name ?? ''}`}
         open={!!transferTarget}
         confirmLoading={transferMutation.isPending}
         onCancel={() => {
