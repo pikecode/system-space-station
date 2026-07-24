@@ -171,6 +171,35 @@ export default function DepartmentsPage() {
     },
   });
 
+  const setRoleMutation = useMutation({
+    mutationFn: ({ userId, role, successorId }: { userId: string; role: string; successorId?: string }) =>
+      usersApi.transfer(userId, { newDepartmentId: memberDept!.id, newRole: role, ...(successorId ? { successorId } : {}) }),
+    onSuccess: () => {
+      refetchMembers();
+      refetchAllUsers();
+      queryClient.invalidateQueries({ queryKey: ['dept-members'] });
+    },
+    onError: (e: unknown) => {
+      const err = e as { response?: { data?: { message?: string } } };
+      message.error(err?.response?.data?.message ?? '操作失败');
+    },
+  });
+
+  const handleSetHead = (member: MemberRow) => {
+    const currentHead = members.find((m) => m.role === 'HEAD');
+    if (currentHead) {
+      modal.confirm({
+        title: `将「${member.name}」设为负责人`,
+        content: `「${currentHead.name}」将变为普通成员，确认替换吗？`,
+        okText: '确认',
+        cancelText: '取消',
+        onOk: () => setRoleMutation.mutate({ userId: currentHead.id, role: 'MEMBER', successorId: member.id }),
+      });
+    } else {
+      setRoleMutation.mutate({ userId: member.id, role: 'HEAD' });
+    }
+  };
+
   const createMutation = useMutation({
     mutationFn: (formData: unknown) =>
       editTarget
@@ -616,7 +645,7 @@ export default function DepartmentsPage() {
         }
         open={!!memberDept}
         onClose={() => setMemberDept(null)}
-        width={560}
+        width={720}
         footer={
           <Space>
             <Button
@@ -655,18 +684,20 @@ export default function DepartmentsPage() {
               width: 80,
               render: (t) => <Tag color={t === 'PARTNER' ? 'orange' : 'default'}>{t === 'PARTNER' ? '合伙人' : '员工'}</Tag>,
             },
-            {
-              title: '资格证',
-              dataIndex: 'hasLicense',
-              width: 70,
-              render: (v) => v ? <Tag color="gold">持证</Tag> : '-',
-            },
-            {
-              title: '分享码',
-              dataIndex: 'shareCode',
-              width: 90,
-              render: (v) => v ? <span style={{ fontFamily: 'monospace', letterSpacing: 1 }}>{v}</span> : '-',
-            },
+            ...(memberDept?.type === 'MARKET' || memberDept?.type === 'DIVISION' ? [
+              {
+                title: '资格证',
+                dataIndex: 'hasLicense',
+                width: 70,
+                render: (v: boolean) => v ? <Tag color="gold">持证</Tag> : '-',
+              },
+              {
+                title: '分享码',
+                dataIndex: 'shareCode',
+                width: 90,
+                render: (v: string) => v ? <span style={{ fontFamily: 'monospace', letterSpacing: 1 }}>{v}</span> : '-',
+              },
+            ] : []),
             {
               title: '角色',
               dataIndex: 'role',
@@ -675,27 +706,41 @@ export default function DepartmentsPage() {
             },
             {
               title: '操作',
-              width: 80,
+              width: 120,
               render: (_, member) => (
-                <Tooltip title="移出部门">
-                  <Button
-                    size="small"
-                    danger
-                    onClick={() => {
-                      modal.confirm({
-                        title: `将「${member.name}」移出该部门？`,
-                        content: '移出后该人员仍保留账号，可重新分配到其他部门。',
-                        okText: '确认移出',
-                        okType: 'danger',
-                        onOk: () => usersApi.removeFromDepartment(member.id)
-                          .then(() => { message.success('已移出'); refetchMembers(); refetchAllUsers(); })
-                          .catch((e: any) => message.error(e?.response?.data?.message ?? '操作失败')),
-                      });
-                    }}
-                  >
-                    移出
-                  </Button>
-                </Tooltip>
+                <Space size={4}>
+                  {member.role !== 'HEAD' && (
+                    <Tooltip title="设为负责人">
+                      <Button
+                        size="small"
+                        type="link"
+                        loading={setRoleMutation.isPending}
+                        onClick={() => handleSetHead(member)}
+                      >
+                        设负责人
+                      </Button>
+                    </Tooltip>
+                  )}
+                  <Tooltip title="移出部门">
+                    <Button
+                      size="small"
+                      danger
+                      onClick={() => {
+                        modal.confirm({
+                          title: `将「${member.name}」移出该部门？`,
+                          content: '移出后该人员仍保留账号，可重新分配到其他部门。',
+                          okText: '确认移出',
+                          okType: 'danger',
+                          onOk: () => usersApi.removeFromDepartment(member.id)
+                            .then(() => { message.success('已移出'); refetchMembers(); refetchAllUsers(); })
+                            .catch((e: any) => message.error(e?.response?.data?.message ?? '操作失败')),
+                        });
+                      }}
+                    >
+                      移出
+                    </Button>
+                  </Tooltip>
+                </Space>
               ),
             },
           ] as ColumnsType<MemberRow>}

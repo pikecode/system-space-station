@@ -114,9 +114,6 @@ export class UsersService {
     if (dto.role !== UserRole.ADMIN && dto.username) {
       throw new BadRequestException('只有系统管理员可以设置用户名');
     }
-    if (!isPartner && dto.role !== UserRole.ADMIN && !dto.employeeNo) {
-      throw new BadRequestException('员工必须填写工号');
-    }
     if (!isPartner && !dto.password) {
       throw new BadRequestException('员工必须设置密码');
     }
