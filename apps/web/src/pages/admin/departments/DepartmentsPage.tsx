@@ -41,7 +41,7 @@ interface DeptNode {
   code?: string;
   type: string;
   parentId?: string;
-
+  head?: { id: string; name: string };
   province?: string;
   city?: string;
   district?: string;
@@ -407,12 +407,10 @@ export default function DepartmentsPage() {
       },
     },
     {
-      title: '说明',
-      dataIndex: 'description',
-      key: 'description',
-      width: 180,
-      ellipsis: true,
-      render: (desc) => desc || '-',
+      title: '负责人',
+      key: 'head',
+      width: 100,
+      render: (_, record) => record.head?.name || '-',
     },
     {
       title: '操作',
