@@ -31,18 +31,20 @@ export default function CustomersPage() {
 
   return (
     <View className='page'>
-      <View style={{ background: '#fff', padding: '20rpx 32rpx', display: 'flex', gap: '16rpx' }}>
-        <View style={{ flex: 1, background: '#f5f6f8', borderRadius: '10rpx', padding: '16rpx 24rpx', display: 'flex', alignItems: 'center' }}>
+      <View style={{ background: 'var(--color-surface)', padding: 'var(--space-sm) var(--space-md)', display: 'flex', gap: 'var(--space-xs)', boxShadow: 'var(--shadow-card)' }}>
+        <View style={{ flex: 1, background: 'var(--color-bg)', borderRadius: 'var(--radius-lg)', padding: '16rpx 24rpx', display: 'flex', alignItems: 'center', gap: '12rpx' }}>
+          <Text style={{ fontSize: '28rpx', color: 'var(--color-text-3)' }}>🔍</Text>
           <Input
-            style={{ flex: 1, fontSize: '28rpx' }}
+            style={{ flex: 1, fontSize: '28rpx', color: 'var(--color-text-1)' }}
             placeholder='搜索客户姓名'
+            placeholderStyle='color: #9ea5b0'
             value={search}
             onInput={(e) => setSearch(e.detail.value)}
             onConfirm={() => load(search)}
           />
         </View>
         <View
-          style={{ background: '#00a3a3', color: '#fff', borderRadius: '10rpx', padding: '16rpx 28rpx', fontSize: '28rpx', display: 'flex', alignItems: 'center' }}
+          style={{ background: 'linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%)', color: '#fff', borderRadius: 'var(--radius-md)', padding: '0 28rpx', fontSize: '28rpx', fontWeight: '600', display: 'flex', alignItems: 'center' }}
           onClick={() => Taro.navigateTo({ url: '/pages/customers/detail?mode=create' })}
         >
           新增
@@ -52,31 +54,43 @@ export default function CustomersPage() {
       {loading ? (
         <View className='loading'>加载中…</View>
       ) : list.length === 0 ? (
-        <View className='empty'>暂无客户</View>
+        <View className='empty'>
+          <Text>暂无客户记录</Text>
+          <Text style={{ fontSize: '24rpx' }}>点击右上角新增第一位客户</Text>
+        </View>
       ) : (
         <ScrollView scrollY style={{ height: 'calc(100vh - 120rpx)' }}>
-          {list.map((item) => (
-            <View
-              key={item.id}
-              className='card'
-              style={{ margin: '16rpx 24rpx', cursor: 'pointer' }}
-              onClick={() => Taro.navigateTo({ url: `/pages/customers/detail?id=${item.id}` })}
-            >
-              <View style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12rpx' }}>
-                <Text style={{ fontSize: '32rpx', fontWeight: '600' }}>{item.name}</Text>
-                <Text className={`tag ${item.customerType === 'COMPANY' ? 'tag--pending' : ''}`}>
-                  {item.customerType === 'INDIVIDUAL' ? '个人' : '企业'}
-                </Text>
+          <View style={{ padding: 'var(--space-sm) var(--space-md)', display: 'flex', flexDirection: 'column', gap: 'var(--space-xs)' }}>
+            {list.map((item) => (
+              <View
+                key={item.id}
+                className='card'
+                style={{ margin: 0, display: 'flex', alignItems: 'flex-start', gap: 'var(--space-sm)', cursor: 'pointer' }}
+                onClick={() => Taro.navigateTo({ url: `/pages/customers/detail?id=${item.id}` })}
+              >
+                <View className='avatar'>
+                  <Text style={{ color: '#fff', fontSize: '28rpx', fontWeight: '700' }}>
+                    {item.name?.[0] ?? '?'}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8rpx' }}>
+                    <Text style={{ fontSize: '32rpx', fontWeight: '700', color: 'var(--color-text-1)' }}>{item.name}</Text>
+                    <Text className={`tag ${item.customerType === 'COMPANY' ? 'tag--pending' : ''}`}>
+                      {item.customerType === 'INDIVIDUAL' ? '个人' : '企业'}
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: '26rpx', color: 'var(--color-text-2)', display: 'block', marginBottom: '12rpx' }}>{item.phone}</Text>
+                  <View style={{ display: 'flex', gap: '8rpx', flexWrap: 'wrap' }}>
+                    <Text className='tag'>{SOURCE_LABELS[item.source] ?? item.source}</Text>
+                    {item.tags?.split(',').filter(Boolean).map((t) => (
+                      <Text key={t} className='tag'>{t.trim()}</Text>
+                    ))}
+                  </View>
+                </View>
               </View>
-              <Text style={{ fontSize: '26rpx', color: '#888', display: 'block' }}>{item.phone}</Text>
-              <View style={{ marginTop: '12rpx', display: 'flex', gap: '12rpx' }}>
-                <Text className='tag'>{SOURCE_LABELS[item.source] ?? item.source}</Text>
-                {item.tags?.split(',').map((t) => (
-                  <Text key={t} className='tag'>{t}</Text>
-                ))}
-              </View>
-            </View>
-          ))}
+            ))}
+          </View>
         </ScrollView>
       )}
     </View>
