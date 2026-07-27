@@ -247,17 +247,43 @@ export default function CustomerDetailPage() {
           </View>
         ) : (
           <View style={{ paddingBottom: '120rpx' }}>
-            {/* 头部 */}
-            <View className='card' style={{ margin: '24rpx 24rpx 0' }}>
-              <View style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8rpx' }}>
-                <Text style={{ fontSize: '36rpx', fontWeight: '700' }}>{customer?.name}</Text>
-                <Text className='tag'>{customer?.customerType === 'INDIVIDUAL' ? '个人' : '企业'}</Text>
-              </View>
-              {customer?.registrationSource && (
-                <Text style={{ fontSize: '22rpx', color: '#bbb' }}>
-                  {REG_SOURCE_LABELS[customer.registrationSource] ?? customer.registrationSource}
+            {/* Hero Banner */}
+            <View style={{
+              background: 'linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%)',
+              borderRadius: '0 0 32rpx 32rpx',
+              padding: '32rpx 32rpx 40rpx',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '24rpx',
+            }}>
+              <View style={{
+                width: '120rpx', height: '120rpx', borderRadius: '999rpx',
+                background: 'rgba(255,255,255,0.2)',
+                border: '4rpx solid rgba(255,255,255,0.4)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                <Text style={{ color: '#fff', fontSize: '48rpx', fontWeight: '800' }}>
+                  {customer?.name?.[0] ?? '?'}
                 </Text>
-              )}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: '40rpx', fontWeight: '800', color: '#fff', display: 'block' }}>
+                  {customer?.name}
+                </Text>
+                <View style={{ display: 'flex', alignItems: 'center', gap: '12rpx', marginTop: '12rpx' }}>
+                  <View style={{ background: 'rgba(255,255,255,0.2)', borderRadius: '999rpx', padding: '4rpx 16rpx' }}>
+                    <Text style={{ color: '#fff', fontSize: '22rpx', fontWeight: '500' }}>
+                      {customer?.customerType === 'INDIVIDUAL' ? '个人客户' : '企业客户'}
+                    </Text>
+                  </View>
+                  {customer?.registrationSource && (
+                    <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: '22rpx' }}>
+                      {REG_SOURCE_LABELS[customer.registrationSource] ?? customer.registrationSource}
+                    </Text>
+                  )}
+                </View>
+              </View>
             </View>
 
             {/* 基本信息 */}
@@ -326,14 +352,16 @@ export default function CustomerDetailPage() {
         )}
       </ScrollView>
 
-      <View style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#fff', padding: '24rpx 32rpx', borderTop: '1rpx solid #f0f1f3', display: 'flex', gap: '16rpx' }}>
+      <View style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--color-surface)', padding: 'var(--space-sm) var(--space-md)', borderTop: '1rpx solid var(--color-divider)', display: 'flex', gap: 'var(--space-xs)' }}>
         {editing ? (
-          <View style={{ display: 'flex', flex: 1, gap: '16rpx' }}>
-            {!isCreate && <Button style={{ flex: 1, background: '#f5f6f8', color: '#666', borderRadius: '12rpx' }} onClick={() => setEditing(false)}>取消</Button>}
-            <Button style={{ flex: 2, background: '#00a3a3', color: '#fff', borderRadius: '12rpx' }} loading={saving} onClick={handleSave}>保存</Button>
+          <View style={{ display: 'flex', flex: 1, gap: 'var(--space-xs)' }}>
+            {!isCreate && (
+              <Button style={{ flex: 1, background: 'var(--color-surface-2)', color: 'var(--color-text-2)', borderRadius: 'var(--radius-md)', height: '96rpx', fontSize: '30rpx', fontWeight: '600' }} onClick={() => setEditing(false)}>取消</Button>
+            )}
+            <Button style={{ flex: 2, background: 'linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%)', color: '#fff', borderRadius: 'var(--radius-md)', height: '96rpx', fontSize: '30rpx', fontWeight: '600' }} loading={saving} onClick={handleSave}>保存</Button>
           </View>
         ) : (
-          <Button style={{ flex: 1, background: '#00a3a3', color: '#fff', borderRadius: '12rpx' }} onClick={() => setEditing(true)}>编辑</Button>
+          <Button style={{ flex: 1, background: 'linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%)', color: '#fff', borderRadius: 'var(--radius-md)', height: '96rpx', fontSize: '30rpx', fontWeight: '600' }} onClick={() => setEditing(true)}>编辑</Button>
         )}
       </View>
     </View>
