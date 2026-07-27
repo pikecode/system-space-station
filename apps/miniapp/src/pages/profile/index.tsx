@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import Taro from '@tarojs/taro';
+import Taro, { useShareAppMessage } from '@tarojs/taro';
 import { View, Text, Button } from '@tarojs/components';
 import { useAuthStore } from '../../store/auth';
 
@@ -9,6 +8,21 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default function ProfilePage() {
   const { user, logout } = useAuthStore();
+
+  // 配置分享卡片，携带分享码
+  useShareAppMessage(() => ({
+    title: `${user?.name ?? ''} 邀请您登记信息`,
+    path: `/pages/register/index?shareCode=${user?.shareCode ?? ''}`,
+  }));
+
+  const handleCopyCode = () => {
+    if (!user?.shareCode) return;
+    Taro.setClipboardData({ data: user.shareCode });
+  };
+
+  const handleShare = () => {
+    Taro.showShareMenu({ withShareTicket: false });
+  };
 
   const handleLogout = () => {
     Taro.showModal({
@@ -25,6 +39,7 @@ export default function ProfilePage() {
 
   return (
     <View className='page'>
+      {/* 用户信息 */}
       <View className='card' style={{ margin: '24rpx', display: 'flex', alignItems: 'center', gap: '24rpx' }}>
         <View style={{ width: '100rpx', height: '100rpx', borderRadius: '50rpx', background: '#00a3a3', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ color: '#fff', fontSize: '40rpx', fontWeight: '700' }}>
@@ -39,6 +54,34 @@ export default function ProfilePage() {
         </View>
       </View>
 
+      {/* 分享邀请（仅有分享码的用户显示） */}
+      {user?.shareCode && (
+        <>
+          <View className='section-title'>邀请客户</View>
+          <View style={{ background: '#fff', borderRadius: '16rpx', margin: '0 24rpx', padding: '28rpx 32rpx' }}>
+            <View style={{ display: 'flex', alignItems: 'center', marginBottom: '24rpx' }}>
+              <Text style={{ fontSize: '28rpx', color: '#666', flex: 1 }}>我的分享码</Text>
+              <Text style={{ fontSize: '32rpx', fontWeight: '700', color: '#00a3a3', letterSpacing: '4rpx', marginRight: '16rpx' }}>
+                {user.shareCode}
+              </Text>
+              <Text
+                style={{ fontSize: '24rpx', color: '#00a3a3', border: '1rpx solid #00a3a3', padding: '4rpx 16rpx', borderRadius: '8rpx' }}
+                onClick={handleCopyCode}
+              >
+                复制
+              </Text>
+            </View>
+            <Button
+              style={{ background: '#00a3a3', color: '#fff', borderRadius: '12rpx', fontSize: '30rpx' }}
+              openType='share'
+            >
+              分享给客户
+            </Button>
+          </View>
+        </>
+      )}
+
+      {/* 功能 */}
       <View className='section-title'>功能</View>
       <View style={{ background: '#fff', borderRadius: '16rpx', margin: '0 24rpx' }}>
         <View
