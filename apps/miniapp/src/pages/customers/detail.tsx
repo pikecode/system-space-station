@@ -263,17 +263,17 @@ export default function CustomerDetailPage() {
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 flexShrink: 0,
               }}>
-                <Text style={{ color: '#fff', fontSize: '48rpx', fontWeight: '800' }}>
+                <Text style={{ color: 'var(--color-text-inv)', fontSize: '48rpx', fontWeight: '800' }}>
                   {customer?.name?.[0] ?? '?'}
                 </Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: '40rpx', fontWeight: '800', color: '#fff', display: 'block' }}>
+                <Text style={{ fontSize: '40rpx', fontWeight: '800', color: 'var(--color-text-inv)', display: 'block' }}>
                   {customer?.name}
                 </Text>
                 <View style={{ display: 'flex', alignItems: 'center', gap: '12rpx', marginTop: '12rpx' }}>
                   <View style={{ background: 'rgba(255,255,255,0.2)', borderRadius: '999rpx', padding: '4rpx 16rpx' }}>
-                    <Text style={{ color: '#fff', fontSize: '22rpx', fontWeight: '500' }}>
+                    <Text style={{ color: 'var(--color-text-inv)', fontSize: '22rpx', fontWeight: '500' }}>
                       {customer?.customerType === 'INDIVIDUAL' ? '个人客户' : '企业客户'}
                     </Text>
                   </View>
@@ -358,10 +358,10 @@ export default function CustomerDetailPage() {
             {!isCreate && (
               <Button style={{ flex: 1, background: 'var(--color-surface-2)', color: 'var(--color-text-2)', borderRadius: 'var(--radius-md)', height: '96rpx', fontSize: '30rpx', fontWeight: '600' }} onClick={() => setEditing(false)}>取消</Button>
             )}
-            <Button style={{ flex: 2, background: 'linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%)', color: '#fff', borderRadius: 'var(--radius-md)', height: '96rpx', fontSize: '30rpx', fontWeight: '600' }} loading={saving} onClick={handleSave}>保存</Button>
+            <Button style={{ flex: 2, background: 'linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%)', color: 'var(--color-text-inv)', borderRadius: 'var(--radius-md)', height: '96rpx', fontSize: '30rpx', fontWeight: '600' }} loading={saving} onClick={handleSave}>保存</Button>
           </View>
         ) : (
-          <Button style={{ flex: 1, background: 'linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%)', color: '#fff', borderRadius: 'var(--radius-md)', height: '96rpx', fontSize: '30rpx', fontWeight: '600' }} onClick={() => setEditing(true)}>编辑</Button>
+          <Button style={{ flex: 1, background: 'linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%)', color: 'var(--color-text-inv)', borderRadius: 'var(--radius-md)', height: '96rpx', fontSize: '30rpx', fontWeight: '600' }} onClick={() => setEditing(true)}>编辑</Button>
         )}
       </View>
     </View>
