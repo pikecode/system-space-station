@@ -277,31 +277,6 @@ export default function CustomerDetailPage() {
                 </View>
               ) : null)}
             </View>
-
-            <View className='section-title'>会员记录</View>
-            {(customer?.memberships ?? []).length === 0 ? (
-              <View className='empty'>暂无会员记录</View>
-            ) : (customer?.memberships ?? []).map((m) => (
-              <View key={m.id} className='card' style={{ margin: '0 24rpx 16rpx', cursor: 'pointer' }}
-                onClick={() => Taro.navigateTo({ url: `/pages/memberships/detail?id=${m.id}` })}>
-                <View style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8rpx' }}>
-                  <Text style={{ fontWeight: '600' }}>{m.memberLevel?.name ?? '会员'}</Text>
-                  <Text className={`tag ${STATUS_CLASS[m.status] ?? ''}`}>{STATUS_LABELS[m.status] ?? m.status}</Text>
-                </View>
-                <Text style={{ fontSize: '26rpx', color: '#888' }}>
-                  ¥{Number(m.fee).toLocaleString()} · {m.startDate?.slice(0, 10)} ~ {m.endDate?.slice(0, 10)}
-                </Text>
-              </View>
-            ))}
-
-            <View style={{ padding: '24rpx' }}>
-              <Button
-                style={{ background: '#00a3a3', color: '#fff', borderRadius: '12rpx' }}
-                onClick={() => Taro.navigateTo({ url: `/pages/memberships/create?customerId=${customer?.id}&customerName=${encodeURIComponent(customer?.name ?? '')}` })}
-              >
-                提交会员申请
-              </Button>
-            </View>
           </View>
         )}
       </ScrollView>
