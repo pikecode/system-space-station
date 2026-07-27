@@ -33,6 +33,7 @@ export class AuthService {
         authVersion: true,
         status: true,
         avatar: true,
+        shareCode: true,
         passwordHash: true,
       },
     });
@@ -91,10 +92,10 @@ export class AuthService {
     });
   }
 
-  private buildLoginResponse(user: { id: string; name: string; role: string; departmentId: string | null; avatar: string | null; authVersion: number }) {
+  private buildLoginResponse(user: { id: string; name: string; role: string; departmentId: string | null; avatar: string | null; authVersion: number; shareCode?: string | null }) {
     return {
       token: this.signToken(user),
-      user: { id: user.id, name: user.name, role: user.role, departmentId: user.departmentId, avatar: user.avatar },
+      user: { id: user.id, name: user.name, role: user.role, departmentId: user.departmentId, avatar: user.avatar, shareCode: user.shareCode ?? null },
     };
   }
 
@@ -112,7 +113,7 @@ export class AuthService {
     const openid = await this.fetchWechatOpenId(code);
     const user = await this.prisma.user.findUnique({
       where: { wechatOpenId: openid },
-      select: { id: true, name: true, role: true, departmentId: true, avatar: true, authVersion: true, status: true },
+      select: { id: true, name: true, role: true, departmentId: true, avatar: true, authVersion: true, status: true, shareCode: true },
     });
     if (!user) throw new NotFoundException('微信未绑定账号，请先绑定');
     if (user.status === 'INACTIVE') throw new UnauthorizedException('账号已禁用');

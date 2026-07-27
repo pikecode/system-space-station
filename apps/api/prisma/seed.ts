@@ -219,7 +219,33 @@ async function main() {
     },
   });
 
-  // ── 14. 分成配置 ──────────────────────────────────────────────────────────
+  // ── 14. 营销中心合伙人（有分享码，可通过小程序邀请客户）────────────────────
+  const partnerPwd = await bcrypt.hash('Partner123456', 12);
+  const partners = [
+    { phone: '13900000001', name: '陈合伙一', shareCode: 'AABB11', deptId: 'dept-market-1' },
+    { phone: '13900000002', name: '刘合伙二', shareCode: 'CCDD22', deptId: 'dept-market-2' },
+    { phone: '13900000003', name: '赵合伙三', shareCode: 'EEFF33', deptId: 'dept-market-3' },
+    { phone: '13900000004', name: '孙合伙四', shareCode: 'GGHH44', deptId: 'dept-div-1' },
+    { phone: '13900000005', name: '周合伙五', shareCode: 'JJKK55', deptId: 'dept-div-2' },
+  ];
+  for (const p of partners) {
+    await prisma.user.upsert({
+      where: { phone: p.phone },
+      update: { shareCode: p.shareCode },
+      create: {
+        name: p.name,
+        phone: p.phone,
+        passwordHash: partnerPwd,
+        userType: 'PARTNER',
+        role: 'MEMBER',
+        departmentId: p.deptId,
+        shareCode: p.shareCode,
+        status: 'ACTIVE',
+      },
+    });
+  }
+
+  // ── 15. 分成配置 ──────────────────────────────────────────────────────────
   const existingConfig = await prisma.commissionConfig.findUnique({ where: { id: 'config-default' } });
   if (!existingConfig) {
     await prisma.commissionConfig.create({
@@ -265,7 +291,12 @@ async function main() {
   console.log('  管理员：admin（或13800000000）/ Admin123456');
   console.log('  市场部负责人：13800000001 / Head123456');
   console.log('  事业部负责人：13800000002 / Head123456');
-  console.log('  销售成员：13800000003 / Member123456');
+  console.log('  合伙人（5个，密码均为 Partner123456）：');
+  console.log('  13900000001 / Partner123456  分享码：AABB11（市场部一部）');
+  console.log('  13900000002 / Partner123456  分享码：CCDD22（市场部二部）');
+  console.log('  13900000003 / Partner123456  分享码：EEFF33（市场部三部）');
+  console.log('  13900000004 / Partner123456  分享码：GGHH44（事业1部）');
+  console.log('  13900000005 / Partner123456  分享码：JJKK55（事业2部）');
 }
 
 main().catch(console.error).finally(() => prisma.$disconnect());

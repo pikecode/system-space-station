@@ -13,5 +13,6 @@ export interface LoginResponseDto {
     role: UserRole;
     departmentId?: string | null;
     avatar?: string | null;
+    shareCode?: string | null;
   };
 }
