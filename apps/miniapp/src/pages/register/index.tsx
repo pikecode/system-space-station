@@ -1,12 +1,24 @@
 import { useState, useEffect } from 'react';
 import Taro, { useRouter } from '@tarojs/taro';
-import { View, Text, Input, Button, Picker } from '@tarojs/components';
-import { inviteApi, type InviterInfo } from '../../services/invite';
+import { View, Text, Input, Button, Picker, Textarea } from '@tarojs/components';
+import { inviteApi, type InviterInfo, type RegisterPayload } from '../../services/invite';
 
-const CUSTOMER_TYPES = [
-  { value: 'INDIVIDUAL', label: '个人' },
-  { value: 'COMPANY', label: '企业' },
-];
+const CUSTOMER_TYPES = [{ value: 'INDIVIDUAL', label: '个人' }, { value: 'COMPANY', label: '企业' }];
+const GENDER_LABELS = ['男', '女', '未知'];
+const GENDER_VALUES = ['MALE', 'FEMALE', 'UNKNOWN'];
+
+const TABS = ['基本信息', '详细信息', '备注'];
+
+const ROW_STYLE = { display: 'flex', alignItems: 'center', padding: '28rpx 32rpx', borderBottom: '1rpx solid #f0f1f3' };
+const LABEL_STYLE = { width: '160rpx', color: '#666', fontSize: '28rpx', flexShrink: 0 };
+const INPUT_STYLE = { flex: 1, fontSize: '28rpx', color: '#1a1d21' };
+
+type FormState = {
+  name: string; phone: string; wechat: string; customerType: string;
+  gender: string; birthday: string; address: string;
+  creditCode: string; industry: string; contactName: string; contactPhone: string;
+  notes: string;
+};
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -14,37 +26,49 @@ export default function RegisterPage() {
 
   const [inviter, setInviter] = useState<InviterInfo | null>(null);
   const [inviterError, setInviterError] = useState('');
-  const [typeIndex, setTypeIndex] = useState(0);
-  const [form, setForm] = useState({ name: '', phone: '', wechat: '', notes: '' });
+  const [activeTab, setActiveTab] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState<FormState>({
+    name: '', phone: '', wechat: '', customerType: 'INDIVIDUAL',
+    gender: 'UNKNOWN', birthday: '', address: '',
+    creditCode: '', industry: '', contactName: '', contactPhone: '',
+    notes: '',
+  });
 
   useEffect(() => {
-    if (!shareCode) {
-      setInviterError('邀请码无效，请重新扫描二维码');
-      return;
-    }
-    inviteApi.getInviter(shareCode)
-      .then(setInviter)
-      .catch(() => setInviterError('邀请码已失效'));
+    if (!shareCode) { setInviterError('邀请码无效，请重新扫描二维码'); return; }
+    inviteApi.getInviter(shareCode).then(setInviter).catch(() => setInviterError('邀请码已失效'));
   }, [shareCode]);
 
+  const set = (key: keyof FormState) => (e: any) => setForm({ ...form, [key]: e.detail.value });
+  const typeIndex = CUSTOMER_TYPES.findIndex(t => t.value === form.customerType);
+  const genderIndex = Math.max(GENDER_VALUES.indexOf(form.gender), 0);
+  const isCompany = form.customerType === 'COMPANY';
+
   const handleSubmit = async () => {
-    if (!form.name.trim()) {
-      Taro.showToast({ title: '请输入姓名', icon: 'none' }); return;
-    }
-    if (!/^1\d{10}$/.test(form.phone)) {
-      Taro.showToast({ title: '请输入正确的手机号', icon: 'none' }); return;
-    }
+    if (!form.name.trim()) { Taro.showToast({ title: '请填写姓名', icon: 'none' }); setActiveTab(0); return; }
+    if (!/^1\d{10}$/.test(form.phone)) { Taro.showToast({ title: '请填写正确的手机号', icon: 'none' }); setActiveTab(0); return; }
     setSubmitting(true);
     try {
-      await inviteApi.register({
+      const payload: RegisterPayload = {
         shareCode,
-        customerType: CUSTOMER_TYPES[typeIndex].value as 'INDIVIDUAL' | 'COMPANY',
+        customerType: form.customerType as 'INDIVIDUAL' | 'COMPANY',
         name: form.name.trim(),
         phone: form.phone,
         wechat: form.wechat.trim() || undefined,
         notes: form.notes.trim() || undefined,
-      });
+        ...(!isCompany ? {
+          gender: form.gender || undefined,
+          birthday: form.birthday || undefined,
+          address: form.address.trim() || undefined,
+        } : {
+          creditCode: form.creditCode.trim() || undefined,
+          industry: form.industry.trim() || undefined,
+          contactName: form.contactName.trim() || undefined,
+          contactPhone: form.contactPhone.trim() || undefined,
+        }),
+      };
+      await inviteApi.register(payload);
       Taro.removeStorageSync('pendingShareCode');
       Taro.redirectTo({ url: '/pages/register/success' });
     } catch (e: any) {
@@ -56,11 +80,9 @@ export default function RegisterPage() {
 
   return (
     <View style={{ minHeight: '100vh', background: '#f5f7fa', paddingBottom: '160rpx' }}>
-      {/* 邀请人信息 */}
+      {/* 邀请人 */}
       <View style={{ background: '#00a3a3', padding: '48rpx 32rpx 40rpx', textAlign: 'center' }}>
-        <Text style={{ color: '#fff', fontSize: '32rpx', display: 'block', marginBottom: '12rpx' }}>
-          您受到邀请
-        </Text>
+        <Text style={{ color: '#fff', fontSize: '32rpx', display: 'block', marginBottom: '12rpx' }}>您受到邀请</Text>
         {inviter ? (
           <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: '26rpx' }}>
             {inviter.inviterName}（{inviter.deptName}）邀请您登记信息
@@ -73,95 +95,135 @@ export default function RegisterPage() {
       </View>
 
       {!inviterError && (
-        <View style={{ margin: '24rpx 24rpx 0', background: '#fff', borderRadius: '16rpx', overflow: 'hidden' }}>
-          <View style={{ padding: '32rpx 32rpx 0' }}>
-            <Text style={{ fontSize: '28rpx', fontWeight: '600', color: '#1a1d21' }}>填写您的信息</Text>
+        <View>
+          {/* Tab 栏 */}
+          <View style={{ background: '#fff', display: 'flex', borderBottom: '1rpx solid #f0f1f3', margin: '16rpx 24rpx 0', borderRadius: '12rpx 12rpx 0 0', overflow: 'hidden' }}>
+            {TABS.map((tab, i) => (
+              <View
+                key={tab}
+                style={{
+                  flex: 1, textAlign: 'center', padding: '24rpx 0', fontSize: '28rpx',
+                  color: activeTab === i ? '#00a3a3' : '#888',
+                  borderBottom: activeTab === i ? '4rpx solid #00a3a3' : '4rpx solid transparent',
+                  fontWeight: activeTab === i ? '600' : '400',
+                }}
+                onClick={() => setActiveTab(i)}
+              >
+                {tab}
+              </View>
+            ))}
           </View>
 
-          {/* 客户类型 */}
-          <Picker
-            mode='selector'
-            range={CUSTOMER_TYPES.map((t) => t.label)}
-            value={typeIndex}
-            onChange={(e) => setTypeIndex(+e.detail.value)}
-          >
-            <View style={{ display: 'flex', alignItems: 'center', padding: '28rpx 32rpx', borderBottom: '1rpx solid #f0f1f3' }}>
-              <Text style={{ flex: 1, color: '#666', fontSize: '28rpx' }}>客户类型</Text>
-              <Text style={{ color: '#1a1d21', fontSize: '28rpx', marginRight: '12rpx' }}>
-                {CUSTOMER_TYPES[typeIndex].label}
-              </Text>
-              <Text style={{ color: '#ccc', fontSize: '24rpx' }}>›</Text>
+          {/* Tab 0: 基本信息 */}
+          {activeTab === 0 && (
+            <View style={{ margin: '0 24rpx', background: '#fff', borderRadius: '0 0 12rpx 12rpx', overflow: 'hidden' }}>
+              <Picker mode='selector' range={CUSTOMER_TYPES.map(t => t.label)} value={typeIndex}
+                onChange={(e) => setForm({ ...form, customerType: CUSTOMER_TYPES[+e.detail.value].value })}>
+                <View style={ROW_STYLE}>
+                  <Text style={LABEL_STYLE}>客户类型</Text>
+                  <Text style={{ flex: 1, fontSize: '28rpx', color: '#1a1d21', textAlign: 'right', marginRight: '8rpx' }}>
+                    {CUSTOMER_TYPES[typeIndex]?.label}
+                  </Text>
+                  <Text style={{ color: '#ccc' }}>›</Text>
+                </View>
+              </Picker>
+              <View style={ROW_STYLE}>
+                <Text style={LABEL_STYLE}>姓名 <Text style={{ color: '#f5222d' }}>*</Text></Text>
+                <Input style={INPUT_STYLE} placeholder='请输入姓名' placeholderStyle='color:#bbb'
+                  maxlength={50} value={form.name} onInput={set('name')} />
+              </View>
+              <View style={ROW_STYLE}>
+                <Text style={LABEL_STYLE}>手机号 <Text style={{ color: '#f5222d' }}>*</Text></Text>
+                <Input style={INPUT_STYLE} type='number' placeholder='请输入手机号' placeholderStyle='color:#bbb'
+                  maxlength={11} value={form.phone} onInput={set('phone')} />
+              </View>
+              <View style={{ ...ROW_STYLE, borderBottom: 'none' }}>
+                <Text style={LABEL_STYLE}>微信号</Text>
+                <Input style={INPUT_STYLE} placeholder='选填' placeholderStyle='color:#bbb'
+                  maxlength={64} value={form.wechat} onInput={set('wechat')} />
+              </View>
             </View>
-          </Picker>
+          )}
 
-          {/* 姓名 */}
-          <View style={{ display: 'flex', alignItems: 'center', padding: '28rpx 32rpx', borderBottom: '1rpx solid #f0f1f3' }}>
-            <Text style={{ width: '140rpx', color: '#666', fontSize: '28rpx', flexShrink: 0 }}>
-              姓名 <Text style={{ color: '#f5222d' }}>*</Text>
-            </Text>
-            <Input
-              style={{ flex: 1, fontSize: '28rpx', color: '#1a1d21' }}
-              placeholder='请输入姓名'
-              placeholderStyle='color:#bbb'
-              maxlength={50}
-              value={form.name}
-              onInput={(e) => setForm({ ...form, name: e.detail.value })}
-            />
-          </View>
+          {/* Tab 1: 详细信息（个人/企业分组） */}
+          {activeTab === 1 && (
+            <View style={{ margin: '0 24rpx', background: '#fff', borderRadius: '0 0 12rpx 12rpx', overflow: 'hidden' }}>
+              {!isCompany && (
+                <View>
+                  <Picker mode='selector' range={GENDER_LABELS} value={genderIndex}
+                    onChange={(e) => setForm({ ...form, gender: GENDER_VALUES[+e.detail.value] })}>
+                    <View style={ROW_STYLE}>
+                      <Text style={LABEL_STYLE}>性别</Text>
+                      <Text style={{ flex: 1, fontSize: '28rpx', color: '#1a1d21', textAlign: 'right', marginRight: '8rpx' }}>
+                        {GENDER_LABELS[genderIndex]}
+                      </Text>
+                      <Text style={{ color: '#ccc' }}>›</Text>
+                    </View>
+                  </Picker>
+                  <Picker mode='date' value={form.birthday}
+                    onChange={(e) => setForm({ ...form, birthday: e.detail.value })}>
+                    <View style={ROW_STYLE}>
+                      <Text style={LABEL_STYLE}>生日</Text>
+                      <Text style={{ flex: 1, fontSize: '28rpx', color: form.birthday ? '#1a1d21' : '#bbb', textAlign: 'right', marginRight: '8rpx' }}>
+                        {form.birthday || '选填'}
+                      </Text>
+                      <Text style={{ color: '#ccc' }}>›</Text>
+                    </View>
+                  </Picker>
+                  <View style={{ ...ROW_STYLE, borderBottom: 'none' }}>
+                    <Text style={LABEL_STYLE}>地址</Text>
+                    <Input style={INPUT_STYLE} placeholder='选填' placeholderStyle='color:#bbb'
+                      maxlength={200} value={form.address} onInput={set('address')} />
+                  </View>
+                </View>
+              )}
+              {isCompany && (
+                <View>
+                  <View style={ROW_STYLE}>
+                    <Text style={LABEL_STYLE}>统一信用代码</Text>
+                    <Input style={INPUT_STYLE} placeholder='选填' placeholderStyle='color:#bbb'
+                      maxlength={18} value={form.creditCode} onInput={set('creditCode')} />
+                  </View>
+                  <View style={ROW_STYLE}>
+                    <Text style={LABEL_STYLE}>行业</Text>
+                    <Input style={INPUT_STYLE} placeholder='选填' placeholderStyle='color:#bbb'
+                      maxlength={50} value={form.industry} onInput={set('industry')} />
+                  </View>
+                  <View style={ROW_STYLE}>
+                    <Text style={LABEL_STYLE}>联系人</Text>
+                    <Input style={INPUT_STYLE} placeholder='选填' placeholderStyle='color:#bbb'
+                      maxlength={50} value={form.contactName} onInput={set('contactName')} />
+                  </View>
+                  <View style={{ ...ROW_STYLE, borderBottom: 'none' }}>
+                    <Text style={LABEL_STYLE}>联系手机</Text>
+                    <Input style={INPUT_STYLE} type='number' placeholder='选填' placeholderStyle='color:#bbb'
+                      maxlength={11} value={form.contactPhone} onInput={set('contactPhone')} />
+                  </View>
+                </View>
+              )}
+            </View>
+          )}
 
-          {/* 手机号 */}
-          <View style={{ display: 'flex', alignItems: 'center', padding: '28rpx 32rpx', borderBottom: '1rpx solid #f0f1f3' }}>
-            <Text style={{ width: '140rpx', color: '#666', fontSize: '28rpx', flexShrink: 0 }}>
-              手机号 <Text style={{ color: '#f5222d' }}>*</Text>
-            </Text>
-            <Input
-              style={{ flex: 1, fontSize: '28rpx', color: '#1a1d21' }}
-              type='number'
-              placeholder='请输入手机号'
-              placeholderStyle='color:#bbb'
-              maxlength={11}
-              value={form.phone}
-              onInput={(e) => setForm({ ...form, phone: e.detail.value })}
-            />
-          </View>
-
-          {/* 微信号 */}
-          <View style={{ display: 'flex', alignItems: 'center', padding: '28rpx 32rpx', borderBottom: '1rpx solid #f0f1f3' }}>
-            <Text style={{ width: '140rpx', color: '#666', fontSize: '28rpx', flexShrink: 0 }}>微信号</Text>
-            <Input
-              style={{ flex: 1, fontSize: '28rpx', color: '#1a1d21' }}
-              placeholder='选填'
-              placeholderStyle='color:#bbb'
-              maxlength={64}
-              value={form.wechat}
-              onInput={(e) => setForm({ ...form, wechat: e.detail.value })}
-            />
-          </View>
-
-          {/* 备注 */}
-          <View style={{ display: 'flex', alignItems: 'flex-start', padding: '28rpx 32rpx' }}>
-            <Text style={{ width: '140rpx', color: '#666', fontSize: '28rpx', flexShrink: 0, paddingTop: '4rpx' }}>备注</Text>
-            <Input
-              style={{ flex: 1, fontSize: '28rpx', color: '#1a1d21' }}
-              placeholder='选填，例如：意向产品或需求说明'
-              placeholderStyle='color:#bbb'
-              maxlength={200}
-              value={form.notes}
-              onInput={(e) => setForm({ ...form, notes: e.detail.value })}
-            />
-          </View>
+          {/* Tab 2: 备注 */}
+          {activeTab === 2 && (
+            <View style={{ margin: '0 24rpx', background: '#fff', borderRadius: '0 0 12rpx 12rpx', padding: '24rpx 32rpx' }}>
+              <Textarea
+                style={{ width: '100%', fontSize: '28rpx', minHeight: '240rpx', color: '#1a1d21', boxSizing: 'border-box' }}
+                placeholder='选填，例如：意向产品、需求说明等'
+                placeholderStyle='color:#bbb'
+                maxlength={500}
+                value={form.notes}
+                onInput={(e) => setForm({ ...form, notes: e.detail.value })}
+              />
+            </View>
+          )}
         </View>
       )}
 
       <View style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#fff', padding: '24rpx 32rpx', borderTop: '1rpx solid #f0f1f3' }}>
         <Button
           disabled={!!inviterError || submitting}
-          style={{
-            background: inviterError ? '#ccc' : '#00a3a3',
-            color: '#fff',
-            borderRadius: '12rpx',
-            fontSize: '30rpx',
-          }}
+          style={{ background: inviterError ? '#ccc' : '#00a3a3', color: '#fff', borderRadius: '12rpx', fontSize: '30rpx' }}
           loading={submitting}
           onClick={handleSubmit}
         >

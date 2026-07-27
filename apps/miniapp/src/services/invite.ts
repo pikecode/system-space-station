@@ -12,6 +12,13 @@ export interface RegisterPayload {
   phone: string;
   wechat?: string;
   notes?: string;
+  gender?: string;
+  birthday?: string;
+  address?: string;
+  creditCode?: string;
+  industry?: string;
+  contactName?: string;
+  contactPhone?: string;
 }
 
 export const inviteApi = {
