@@ -4,6 +4,9 @@ import {
 import { CustomerType, CustomerSource, Gender } from '@prisma/client';
 
 export class CreateCustomerDto {
+  @IsString()
+  shareCode: string;
+
   @IsEnum(CustomerType)
   customerType: CustomerType;
 

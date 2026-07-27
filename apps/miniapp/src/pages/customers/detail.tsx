@@ -35,8 +35,9 @@ export default function CustomerDetailPage() {
   const [saving, setSaving] = useState(false);
 
   const [form, setForm] = useState({
+    shareCode: user?.shareCode ?? '',
     name: '', phone: '', customerType: 'INDIVIDUAL',
-    source: 'OTHER', tags: '', notes: '', wechat: '',
+    source: 'REFERRAL', tags: '', notes: '', wechat: '',
   });
 
   useEffect(() => {
@@ -44,6 +45,7 @@ export default function CustomerDetailPage() {
       customersApi.getOne(id).then((data) => {
         setCustomer(data);
         setForm({
+          shareCode: '',
           name: data.name, phone: data.phone,
           customerType: data.customerType, source: data.source,
           tags: data.tags ?? '', notes: data.notes ?? '', wechat: data.wechat ?? '',
@@ -60,10 +62,22 @@ export default function CustomerDetailPage() {
     if (!form.name || !form.phone) {
       Taro.showToast({ title: '姓名和手机号必填', icon: 'none' }); return;
     }
+    if (isCreate && !form.shareCode.trim()) {
+      Taro.showToast({ title: '请填写分享码', icon: 'none' }); return;
+    }
     setSaving(true);
     try {
       if (isCreate) {
-        await customersApi.create(form);
+        await customersApi.create({
+          shareCode: form.shareCode.trim(),
+          customerType: form.customerType as 'INDIVIDUAL' | 'COMPANY',
+          name: form.name,
+          phone: form.phone,
+          source: form.source,
+          tags: form.tags || undefined,
+          notes: form.notes || undefined,
+          wechat: form.wechat || undefined,
+        });
         Taro.showToast({ title: '创建成功', icon: 'success' });
         setTimeout(() => Taro.navigateBack(), 1500);
       } else {
@@ -86,6 +100,16 @@ export default function CustomerDetailPage() {
       <ScrollView scrollY style={{ height: '100vh' }}>
         {editing ? (
           <View style={{ paddingBottom: '160rpx' }}>
+            <View className='section-title'>分享码</View>
+            <View className='field'>
+              <Text className='field__label'>分享码 <Text style={{ color: '#f5222d' }}>*</Text></Text>
+              <Input
+                className='field__input'
+                placeholder='请输入营销人员的分享码'
+                value={form.shareCode}
+                onInput={(e) => setForm({ ...form, shareCode: e.detail.value })}
+              />
+            </View>
             <View className='section-title'>基本信息</View>
             {[
               { label: '姓名', key: 'name', placeholder: '请输入姓名' },

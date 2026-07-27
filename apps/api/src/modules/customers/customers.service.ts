@@ -73,17 +73,25 @@ export class CustomersService {
   }
 
   async create(dto: CreateCustomerDto, currentUser: any) {
-    if (!currentUser.departmentId) throw new BadRequestException('账号未关联部门');
-    const { birthday, source, gender, ...rest } = dto;
+    const owner = await this.prisma.user.findUnique({
+      where: { shareCode: dto.shareCode },
+      select: { id: true, departmentId: true, status: true },
+    });
+    if (!owner) throw new BadRequestException('分享码无效');
+    if (owner.status !== 'ACTIVE') throw new BadRequestException('分享码用户已停用');
+    if (!owner.departmentId) throw new BadRequestException('分享码用户未分配部门');
+
+    const { shareCode, birthday, source, gender, ...rest } = dto;
     return this.prisma.customer.create({
       data: {
         ...rest,
-        ...(source !== undefined ? { source } : {}),
+        ...(source !== undefined ? { source } : { source: 'REFERRAL' }),
         ...(gender !== undefined ? { gender } : {}),
         ...(birthday ? { birthday: new Date(birthday) } : {}),
-        assignedTo: currentUser.id,
+        assignedTo: owner.id,
+        referredBy: owner.id,
+        departmentId: owner.departmentId as string,
         createdBy: currentUser.id,
-        departmentId: currentUser.departmentId as string,
       } as Prisma.CustomerUncheckedCreateInput,
     });
   }

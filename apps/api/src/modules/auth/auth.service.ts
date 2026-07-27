@@ -75,6 +75,7 @@ export class AuthService {
         departmentId: true,
         avatar: true,
         email: true,
+        shareCode: true,
         department: { select: { id: true, name: true, type: true } },
         position: { select: { id: true, name: true } },
       },

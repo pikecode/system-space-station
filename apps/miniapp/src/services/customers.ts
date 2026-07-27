@@ -32,6 +32,17 @@ export interface MembershipSummary {
   memberLevel?: { name: string };
 }
 
+export interface CreateCustomerPayload {
+  shareCode: string;
+  customerType: 'INDIVIDUAL' | 'COMPANY';
+  name: string;
+  phone: string;
+  source?: string;
+  tags?: string;
+  notes?: string;
+  wechat?: string;
+}
+
 export const customersApi = {
   getAll: async (params?: { name?: string; phone?: string }): Promise<CustomerRow[]> => {
     const qs = params ? new URLSearchParams(params as Record<string, string>).toString() : '';
@@ -42,7 +53,7 @@ export const customersApi = {
   getOne: (id: string) =>
     http.get<CustomerRow>(`/customers/${id}`),
 
-  create: (data: unknown) =>
+  create: (data: CreateCustomerPayload) =>
     http.post<CustomerRow>('/customers', data),
 
   update: (id: string, data: unknown) =>

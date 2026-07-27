@@ -8,6 +8,7 @@ interface UserInfo {
   role: UserRole;
   departmentId?: string | null;
   avatar?: string | null;
+  shareCode?: string | null;
 }
 
 interface AuthState {
