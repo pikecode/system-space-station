@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Taro from '@tarojs/taro';
 import { View, Text, Input, Button } from '@tarojs/components';
 import { authApi } from '../../services/auth';
@@ -7,9 +7,16 @@ import './index.css';
 
 export default function LoginPage() {
   const setAuth = useAuthStore((s) => s.setAuth);
+  const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
   const [account, setAccount] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isLoggedIn()) {
+      Taro.switchTab({ url: '/pages/customers/index' });
+    }
+  }, []);
 
   const handleLogin = async () => {
     if (!account.trim() || !password.trim()) {
