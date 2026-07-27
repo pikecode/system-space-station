@@ -5,7 +5,6 @@ export default {
     'pages/register/success',
     'pages/customers/index',
     'pages/customers/detail',
-    'pages/approvals/index',
     'pages/profile/index',
     'pages/memberships/create',
     'pages/memberships/detail',
@@ -28,12 +27,6 @@ export default {
         text: '客户',
         iconPath: 'assets/icons/customers.png',
         selectedIconPath: 'assets/icons/customers-active.png',
-      },
-      {
-        pagePath: 'pages/approvals/index',
-        text: '待办',
-        iconPath: 'assets/icons/approvals.png',
-        selectedIconPath: 'assets/icons/approvals-active.png',
       },
       {
         pagePath: 'pages/profile/index',
