@@ -37,14 +37,14 @@ export default function CustomersPage() {
           <Input
             style={{ flex: 1, fontSize: '28rpx', color: 'var(--color-text-1)' }}
             placeholder='搜索客户姓名'
-            placeholderStyle='color: #9ea5b0'
+            placeholderStyle='color: var(--color-text-3)'
             value={search}
             onInput={(e) => setSearch(e.detail.value)}
             onConfirm={() => load(search)}
           />
         </View>
         <View
-          style={{ background: 'linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%)', color: '#fff', borderRadius: 'var(--radius-md)', padding: '0 28rpx', fontSize: '28rpx', fontWeight: '600', display: 'flex', alignItems: 'center' }}
+          style={{ background: 'linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%)', color: 'var(--color-text-inv)', borderRadius: 'var(--radius-md)', padding: '0 28rpx', fontSize: '28rpx', fontWeight: '600', display: 'flex', alignItems: 'center' }}
           onClick={() => Taro.navigateTo({ url: '/pages/customers/detail?mode=create' })}
         >
           新增
@@ -69,7 +69,7 @@ export default function CustomersPage() {
                 onClick={() => Taro.navigateTo({ url: `/pages/customers/detail?id=${item.id}` })}
               >
                 <View className='avatar'>
-                  <Text style={{ color: '#fff', fontSize: '28rpx', fontWeight: '700' }}>
+                  <Text style={{ color: 'var(--color-text-inv)', fontSize: '28rpx', fontWeight: '700' }}>
                     {item.name?.[0] ?? '?'}
                   </Text>
                 </View>
