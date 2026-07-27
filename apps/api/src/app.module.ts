@@ -12,6 +12,7 @@ import { MembershipsModule } from './modules/memberships/memberships.module';
 import { AppConfigModule } from './modules/config/config.module';
 import { CommissionsModule } from './modules/commissions/commissions.module';
 import { SchedulerModule } from './modules/scheduler/scheduler.module';
+import { PublicModule } from './modules/public/public.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { SchedulerModule } from './modules/scheduler/scheduler.module';
     AppConfigModule,
     CommissionsModule,
     SchedulerModule,
+    PublicModule,
   ],
 })
 export class AppModule {}

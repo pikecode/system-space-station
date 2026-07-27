@@ -1,6 +1,8 @@
 export default {
   pages: [
     'pages/login/index',
+    'pages/register/index',
+    'pages/register/success',
     'pages/customers/index',
     'pages/customers/detail',
     'pages/approvals/index',
