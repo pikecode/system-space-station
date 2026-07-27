@@ -13,15 +13,15 @@ export default defineConfig({
   sourceRoot: 'src',
   outputRoot: 'dist',
   plugins: [],
+  env: {
+    TARO_APP_API_URL: '"http://localhost:4100/api"',
+  },
   defineConstants: {},
   copy: { patterns: [], options: {} },
   framework: 'react',
   compiler: 'webpack5',
   cache: { enable: false },
   mini: {
-    env: {
-      TARO_APP_API_URL: '"http://localhost:4100/api"',
-    },
     postcss: {
       pxtransform: { enable: true, config: {} },
       url: { enable: true, config: { limit: 1024 } },
