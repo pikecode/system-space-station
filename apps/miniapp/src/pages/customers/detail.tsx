@@ -246,36 +246,81 @@ export default function CustomerDetailPage() {
             </View>
           </View>
         ) : (
-          <View>
-            <View className='card' style={{ margin: '24rpx' }}>
-              <View style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16rpx' }}>
+          <View style={{ paddingBottom: '120rpx' }}>
+            {/* 头部 */}
+            <View className='card' style={{ margin: '24rpx 24rpx 0' }}>
+              <View style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8rpx' }}>
                 <Text style={{ fontSize: '36rpx', fontWeight: '700' }}>{customer?.name}</Text>
                 <Text className='tag'>{customer?.customerType === 'INDIVIDUAL' ? '个人' : '企业'}</Text>
               </View>
               {customer?.registrationSource && (
-                <Text style={{ fontSize: '22rpx', color: '#bbb', display: 'block', marginBottom: '12rpx' }}>
+                <Text style={{ fontSize: '22rpx', color: '#bbb' }}>
                   {REG_SOURCE_LABELS[customer.registrationSource] ?? customer.registrationSource}
                 </Text>
               )}
-              {([
-                { label: '手机', value: customer?.phone },
-                { label: '微信', value: customer?.wechat },
+            </View>
+
+            {/* 基本信息 */}
+            <View className='section-title'>基本信息</View>
+            <View style={{ background: '#fff', borderRadius: '12rpx', margin: '0 24rpx' }}>
+              {[
+                { label: customer?.customerType === 'COMPANY' ? '联系电话' : '手机号', value: customer?.phone },
+                { label: '微信号', value: customer?.wechat },
                 { label: '来源', value: SOURCE_OPTIONS.find(s => s.value === customer?.source)?.label },
-                { label: '性别', value: customer?.gender ? GENDER_LABELS[GENDER_VALUES.indexOf(customer.gender)] : undefined },
-                { label: '生日', value: customer?.birthday?.slice(0, 10) },
-                { label: '地址', value: customer?.address },
-                { label: '行业', value: customer?.industry },
-                { label: '信用代码', value: customer?.creditCode },
-                { label: '联系人', value: customer?.contactName },
-                { label: '联系手机', value: customer?.contactPhone },
                 { label: '标签', value: customer?.tags },
-                { label: '备注', value: customer?.notes },
-              ] as { label: string; value?: string }[]).map(({ label, value }) => value ? (
-                <View key={label} className='row'>
+              ].map(({ label, value }, i, arr) => (
+                <View key={label} className='row' style={{ padding: '24rpx 32rpx', borderBottom: i < arr.length - 1 ? '1rpx solid #f0f1f3' : 'none' }}>
                   <Text className='row__label'>{label}</Text>
-                  <Text className='row__value'>{value}</Text>
+                  <Text className='row__value' style={{ color: value ? '#1a1d21' : '#bbb' }}>{value || '-'}</Text>
                 </View>
-              ) : null)}
+              ))}
+            </View>
+
+            {/* 个人信息 */}
+            {customer?.customerType === 'INDIVIDUAL' && (
+              <View>
+                <View className='section-title'>个人信息</View>
+                <View style={{ background: '#fff', borderRadius: '12rpx', margin: '0 24rpx' }}>
+                  {[
+                    { label: '性别', value: customer?.gender ? GENDER_LABELS[GENDER_VALUES.indexOf(customer.gender)] : undefined },
+                    { label: '生日', value: customer?.birthday?.slice(0, 10) },
+                    { label: '地址', value: customer?.address },
+                  ].map(({ label, value }, i, arr) => (
+                    <View key={label} className='row' style={{ padding: '24rpx 32rpx', borderBottom: i < arr.length - 1 ? '1rpx solid #f0f1f3' : 'none' }}>
+                      <Text className='row__label'>{label}</Text>
+                      <Text className='row__value' style={{ color: value ? '#1a1d21' : '#bbb' }}>{value || '-'}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* 企业信息 */}
+            {customer?.customerType === 'COMPANY' && (
+              <View>
+                <View className='section-title'>企业信息</View>
+                <View style={{ background: '#fff', borderRadius: '12rpx', margin: '0 24rpx' }}>
+                  {[
+                    { label: '统一信用代码', value: customer?.creditCode },
+                    { label: '行业', value: customer?.industry },
+                    { label: '联系人', value: customer?.contactName },
+                    { label: '联系手机', value: customer?.contactPhone },
+                  ].map(({ label, value }, i, arr) => (
+                    <View key={label} className='row' style={{ padding: '24rpx 32rpx', borderBottom: i < arr.length - 1 ? '1rpx solid #f0f1f3' : 'none' }}>
+                      <Text className='row__label'>{label}</Text>
+                      <Text className='row__value' style={{ color: value ? '#1a1d21' : '#bbb' }}>{value || '-'}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* 备注 */}
+            <View className='section-title'>备注</View>
+            <View style={{ background: '#fff', borderRadius: '12rpx', margin: '0 24rpx', padding: '24rpx 32rpx' }}>
+              <Text style={{ fontSize: '28rpx', color: customer?.notes ? '#1a1d21' : '#bbb', lineHeight: '1.6' }}>
+                {customer?.notes || '暂无备注'}
+              </Text>
             </View>
           </View>
         )}
