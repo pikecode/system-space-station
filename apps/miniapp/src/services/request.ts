@@ -34,7 +34,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     header,
   });
 
-  if (res.statusCode === 401) {
+  if (res.statusCode === 401 && auth) {
     storage.clear();
     Taro.reLaunch({ url: '/pages/login/index' });
     throw new ApiError('未授权，请重新登录', 401);
