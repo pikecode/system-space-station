@@ -42,7 +42,8 @@ export default function LoginPage() {
         setMode('wechat-bind');
         Taro.showToast({ title: '请绑定账号', icon: 'none' });
       } else {
-        Taro.showToast({ title: e.message || '微信登录失败', icon: 'none' });
+        const msg = e.message || e.errMsg || JSON.stringify(e);
+        Taro.showToast({ title: msg.substring(0, 40), icon: 'none', duration: 3000 });
       }
     } finally {
       setLoading(false);

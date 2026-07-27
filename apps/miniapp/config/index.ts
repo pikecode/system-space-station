@@ -19,6 +19,9 @@ export default defineConfig({
   compiler: 'webpack5',
   cache: { enable: false },
   mini: {
+    env: {
+      TARO_APP_API_URL: '"http://localhost:4100/api"',
+    },
     postcss: {
       pxtransform: { enable: true, config: {} },
       url: { enable: true, config: { limit: 1024 } },
