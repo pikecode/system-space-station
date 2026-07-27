@@ -14,6 +14,14 @@ page {
   --color-success:     #10b981;
   --color-warning:     #f59e0b;
   --color-error:       #ef4444;
+  --color-tag-pending-bg:  #fef3c7;
+  --color-tag-pending-fg:  #d97706;
+  --color-tag-approved-bg: #d1fae5;
+  --color-tag-approved-fg: #059669;
+  --color-tag-rejected-bg: #fee2e2;
+  --color-tag-rejected-fg: #dc2626;
+  --color-tag-expired-bg:  #f1f5f9;
+  --color-tag-expired-fg:  #64748b;
   --space-2xs: 8rpx;
   --space-xs:  16rpx;
   --space-sm:  24rpx;
@@ -45,10 +53,10 @@ page {
 .row__label { font-size: 22rpx; font-weight: 500; letter-spacing: 0.05em; color: var(--color-text-2); width: 160rpx; flex-shrink: 0; }
 .row__value { flex: 1; font-size: 28rpx; color: var(--color-text-1); }
 .tag { display: inline-flex; align-items: center; padding: 4rpx 16rpx; border-radius: var(--radius-pill); font-size: 22rpx; font-weight: 500; background: var(--color-brand-light); color: var(--color-brand); }
-.tag--pending  { background: #fef3c7; color: #d97706; }
-.tag--approved { background: #d1fae5; color: #059669; }
-.tag--rejected { background: #fee2e2; color: #dc2626; }
-.tag--expired  { background: #f1f5f9; color: #64748b; }
+.tag--pending  { background: var(--color-tag-pending-bg);  color: var(--color-tag-pending-fg); }
+.tag--approved { background: var(--color-tag-approved-bg); color: var(--color-tag-approved-fg); }
+.tag--rejected { background: var(--color-tag-rejected-bg); color: var(--color-tag-rejected-fg); }
+.tag--expired  { background: var(--color-tag-expired-bg);  color: var(--color-tag-expired-fg); }
 .btn { display: flex; align-items: center; justify-content: center; height: 96rpx; border-radius: var(--radius-md); font-size: 30rpx; font-weight: 600; border: none; }
 .btn--primary { background: linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%); color: var(--color-text-inv); }
 .btn--danger  { background: var(--color-error); color: var(--color-text-inv); }
