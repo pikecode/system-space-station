@@ -160,13 +160,13 @@ export default function CustomerDetailPage() {
             </Picker>
 
             <View className='field'>
-              <Text className='field__label'>姓名 <Text style={{ color: '#f5222d' }}>*</Text></Text>
-              <Input className='field__input' placeholder='请输入姓名' maxlength={50}
+              <Text className='field__label'>{isCompanyForm ? '企业名称' : '姓名'} <Text style={{ color: '#f5222d' }}>*</Text></Text>
+              <Input className='field__input' placeholder={isCompanyForm ? '请输入企业名称' : '请输入姓名'} maxlength={50}
                 value={form.name} onInput={set('name')} />
             </View>
             <View className='field'>
-              <Text className='field__label'>手机号 <Text style={{ color: '#f5222d' }}>*</Text></Text>
-              <Input className='field__input' type='number' placeholder='请输入手机号' maxlength={11}
+              <Text className='field__label'>{isCompanyForm ? '联系电话' : '手机号'} <Text style={{ color: '#f5222d' }}>*</Text></Text>
+              <Input className='field__input' type='number' placeholder={isCompanyForm ? '请输入联系电话' : '请输入手机号'} maxlength={11}
                 value={form.phone} onInput={set('phone')} />
             </View>
             <View className='field'>

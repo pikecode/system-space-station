@@ -128,13 +128,13 @@ export default function RegisterPage() {
                 </View>
               </Picker>
               <View style={ROW_STYLE}>
-                <Text style={LABEL_STYLE}>姓名 <Text style={{ color: '#f5222d' }}>*</Text></Text>
-                <Input style={INPUT_STYLE} placeholder='请输入姓名' placeholderStyle='color:#bbb'
+                <Text style={LABEL_STYLE}>{isCompany ? '企业名称' : '姓名'} <Text style={{ color: '#f5222d' }}>*</Text></Text>
+                <Input style={INPUT_STYLE} placeholder={isCompany ? '请输入企业名称' : '请输入姓名'} placeholderStyle='color:#bbb'
                   maxlength={50} value={form.name} onInput={set('name')} />
               </View>
               <View style={ROW_STYLE}>
-                <Text style={LABEL_STYLE}>手机号 <Text style={{ color: '#f5222d' }}>*</Text></Text>
-                <Input style={INPUT_STYLE} type='number' placeholder='请输入手机号' placeholderStyle='color:#bbb'
+                <Text style={LABEL_STYLE}>{isCompany ? '联系电话' : '手机号'} <Text style={{ color: '#f5222d' }}>*</Text></Text>
+                <Input style={INPUT_STYLE} type='number' placeholder={isCompany ? '请输入联系电话' : '请输入手机号'} placeholderStyle='color:#bbb'
                   maxlength={11} value={form.phone} onInput={set('phone')} />
               </View>
               <View style={{ ...ROW_STYLE, borderBottom: 'none' }}>
