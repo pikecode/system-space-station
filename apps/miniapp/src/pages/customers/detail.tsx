@@ -143,7 +143,7 @@ export default function CustomerDetailPage() {
               onChange={(e) => setForm({ ...form, customerType: CUSTOMER_TYPE_VALUES[+e.detail.value] })}>
               <View className='field'>
                 <Text className='field__label'>客户类型 <Text style={{ color: '#f5222d' }}>*</Text></Text>
-                <Text style={{ flex: 1, fontSize: '28rpx', color: '#1a1d21', textAlign: 'right' }}>
+                <Text style={{ flex: 1, fontSize: '28rpx', color: 'var(--color-text-1)', textAlign: 'right' }}>
                   {CUSTOMER_TYPE_LABELS[typeIndex]} ›
                 </Text>
               </View>
@@ -153,7 +153,7 @@ export default function CustomerDetailPage() {
               onChange={(e) => setForm({ ...form, source: SOURCE_OPTIONS[+e.detail.value].value })}>
               <View className='field'>
                 <Text className='field__label'>客户来源</Text>
-                <Text style={{ flex: 1, fontSize: '28rpx', color: '#1a1d21', textAlign: 'right' }}>
+                <Text style={{ flex: 1, fontSize: '28rpx', color: 'var(--color-text-1)', textAlign: 'right' }}>
                   {SOURCE_OPTIONS[sourceIndex]?.label} ›
                 </Text>
               </View>
@@ -182,7 +182,7 @@ export default function CustomerDetailPage() {
                   onChange={(e) => setForm({ ...form, gender: GENDER_VALUES[+e.detail.value] })}>
                   <View className='field'>
                     <Text className='field__label'>性别</Text>
-                    <Text style={{ flex: 1, fontSize: '28rpx', color: '#1a1d21', textAlign: 'right' }}>
+                    <Text style={{ flex: 1, fontSize: '28rpx', color: 'var(--color-text-1)', textAlign: 'right' }}>
                       {GENDER_LABELS[genderIndex]} ›
                     </Text>
                   </View>
@@ -191,7 +191,7 @@ export default function CustomerDetailPage() {
                   onChange={(e) => setForm({ ...form, birthday: e.detail.value })}>
                   <View className='field'>
                     <Text className='field__label'>生日</Text>
-                    <Text style={{ flex: 1, fontSize: '28rpx', color: form.birthday ? '#1a1d21' : '#bbb', textAlign: 'right' }}>
+                    <Text style={{ flex: 1, fontSize: '28rpx', color: form.birthday ? 'var(--color-text-1)' : 'var(--color-text-3)', textAlign: 'right' }}>
                       {form.birthday || '选填'} ›
                     </Text>
                   </View>
@@ -239,7 +239,7 @@ export default function CustomerDetailPage() {
             </View>
             <View style={{ padding: '0 32rpx 24rpx' }}>
               <Textarea
-                style={{ width: '100%', fontSize: '28rpx', minHeight: '160rpx', background: '#fff', padding: '20rpx', borderRadius: '12rpx', boxSizing: 'border-box' }}
+                style={{ width: '100%', fontSize: '28rpx', minHeight: '160rpx', background: 'var(--color-surface)', padding: '20rpx', borderRadius: 'var(--radius-md)', boxSizing: 'border-box' }}
                 placeholder='备注（选填）' value={form.notes}
                 onInput={(e) => setForm({ ...form, notes: e.detail.value })}
               />
@@ -288,7 +288,7 @@ export default function CustomerDetailPage() {
 
             {/* 基本信息 */}
             <View className='section-title'>基本信息</View>
-            <View style={{ background: '#fff', borderRadius: '12rpx', margin: '0 24rpx' }}>
+            <View style={{ background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', margin: '0 24rpx' }}>
               {[
                 { label: customer?.customerType === 'COMPANY' ? '联系电话' : '手机号', value: customer?.phone },
                 { label: '微信号', value: customer?.wechat },
@@ -297,7 +297,7 @@ export default function CustomerDetailPage() {
               ].map(({ label, value }, i, arr) => (
                 <View key={label} className='row' style={{ padding: '24rpx 32rpx', borderBottom: i < arr.length - 1 ? '1rpx solid #f0f1f3' : 'none' }}>
                   <Text className='row__label'>{label}</Text>
-                  <Text className='row__value' style={{ color: value ? '#1a1d21' : '#bbb' }}>{value || '-'}</Text>
+                  <Text className='row__value' style={{ color: value ? 'var(--color-text-1)' : 'var(--color-text-3)' }}>{value || '-'}</Text>
                 </View>
               ))}
             </View>
@@ -306,7 +306,7 @@ export default function CustomerDetailPage() {
             {customer?.customerType === 'INDIVIDUAL' && (
               <View>
                 <View className='section-title'>个人信息</View>
-                <View style={{ background: '#fff', borderRadius: '12rpx', margin: '0 24rpx' }}>
+                <View style={{ background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', margin: '0 24rpx' }}>
                   {[
                     { label: '性别', value: customer?.gender ? GENDER_LABELS[GENDER_VALUES.indexOf(customer.gender)] : undefined },
                     { label: '生日', value: customer?.birthday?.slice(0, 10) },
@@ -314,7 +314,7 @@ export default function CustomerDetailPage() {
                   ].map(({ label, value }, i, arr) => (
                     <View key={label} className='row' style={{ padding: '24rpx 32rpx', borderBottom: i < arr.length - 1 ? '1rpx solid #f0f1f3' : 'none' }}>
                       <Text className='row__label'>{label}</Text>
-                      <Text className='row__value' style={{ color: value ? '#1a1d21' : '#bbb' }}>{value || '-'}</Text>
+                      <Text className='row__value' style={{ color: value ? 'var(--color-text-1)' : 'var(--color-text-3)' }}>{value || '-'}</Text>
                     </View>
                   ))}
                 </View>
@@ -325,7 +325,7 @@ export default function CustomerDetailPage() {
             {customer?.customerType === 'COMPANY' && (
               <View>
                 <View className='section-title'>企业信息</View>
-                <View style={{ background: '#fff', borderRadius: '12rpx', margin: '0 24rpx' }}>
+                <View style={{ background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', margin: '0 24rpx' }}>
                   {[
                     { label: '统一信用代码', value: customer?.creditCode },
                     { label: '行业', value: customer?.industry },
@@ -334,7 +334,7 @@ export default function CustomerDetailPage() {
                   ].map(({ label, value }, i, arr) => (
                     <View key={label} className='row' style={{ padding: '24rpx 32rpx', borderBottom: i < arr.length - 1 ? '1rpx solid #f0f1f3' : 'none' }}>
                       <Text className='row__label'>{label}</Text>
-                      <Text className='row__value' style={{ color: value ? '#1a1d21' : '#bbb' }}>{value || '-'}</Text>
+                      <Text className='row__value' style={{ color: value ? 'var(--color-text-1)' : 'var(--color-text-3)' }}>{value || '-'}</Text>
                     </View>
                   ))}
                 </View>
@@ -343,8 +343,8 @@ export default function CustomerDetailPage() {
 
             {/* 备注 */}
             <View className='section-title'>备注</View>
-            <View style={{ background: '#fff', borderRadius: '12rpx', margin: '0 24rpx', padding: '24rpx 32rpx' }}>
-              <Text style={{ fontSize: '28rpx', color: customer?.notes ? '#1a1d21' : '#bbb', lineHeight: '1.6' }}>
+            <View style={{ background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', margin: '0 24rpx', padding: '24rpx 32rpx' }}>
+              <Text style={{ fontSize: '28rpx', color: customer?.notes ? 'var(--color-text-1)' : 'var(--color-text-3)', lineHeight: '1.6' }}>
                 {customer?.notes || '暂无备注'}
               </Text>
             </View>
