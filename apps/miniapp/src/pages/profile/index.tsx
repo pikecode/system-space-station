@@ -1,13 +1,24 @@
+import { useEffect } from 'react';
 import Taro, { useShareAppMessage } from '@tarojs/taro';
 import { View, Text, Button } from '@tarojs/components';
 import { useAuthStore } from '../../store/auth';
+import { authApi } from '../../services/auth';
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: '系统管理员', HEAD: '部门负责人', MEMBER: '部门成员',
 };
 
 export default function ProfilePage() {
-  const { user, logout } = useAuthStore();
+  const { user, logout, setAuth } = useAuthStore();
+  const token = useAuthStore((s) => s.token);
+
+  // 每次进入页面刷新用户信息（确保 shareCode 等字段最新）
+  useEffect(() => {
+    if (!token) return;
+    authApi.me().then((me) => {
+      if (me && token) setAuth(token, me as any);
+    }).catch(() => {});
+  }, []);
 
   // 配置分享卡片，携带分享码
   useShareAppMessage(() => ({
