@@ -35,16 +35,24 @@ export default function CommissionsListPage() {
 
   return (
     <View className='page'>
-      <View style={{ display: 'flex', gap: '16rpx', padding: '24rpx' }}>
-        <View className='card' style={{ flex: 1, margin: 0, textAlign: 'center' }}>
-          <Text style={{ fontSize: '24rpx', color: '#888', display: 'block' }}>待结算</Text>
-          <Text style={{ fontSize: '36rpx', fontWeight: '700', color: '#fa8c16', display: 'block', marginTop: '8rpx' }}>
+      {/* 统计 Banner */}
+      <View style={{
+        background: 'linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%)',
+        borderRadius: '0 0 32rpx 32rpx',
+        padding: '32rpx 24rpx 40rpx',
+        display: 'flex',
+        gap: '16rpx',
+      }}>
+        <View style={{ flex: 1, textAlign: 'center' }}>
+          <Text style={{ fontSize: '24rpx', color: 'rgba(255,255,255,0.7)', display: 'block' }}>待结算</Text>
+          <Text style={{ fontSize: '56rpx', fontWeight: '800', color: '#f59e0b', display: 'block', marginTop: '8rpx' }}>
             ¥{totalPending.toLocaleString()}
           </Text>
         </View>
-        <View className='card' style={{ flex: 1, margin: 0, textAlign: 'center' }}>
-          <Text style={{ fontSize: '24rpx', color: '#888', display: 'block' }}>已结算</Text>
-          <Text style={{ fontSize: '36rpx', fontWeight: '700', color: '#52c41a', display: 'block', marginTop: '8rpx' }}>
+        <View style={{ width: '1rpx', background: 'rgba(255,255,255,0.2)', margin: '8rpx 0' }} />
+        <View style={{ flex: 1, textAlign: 'center' }}>
+          <Text style={{ fontSize: '24rpx', color: 'rgba(255,255,255,0.7)', display: 'block' }}>已结算</Text>
+          <Text style={{ fontSize: '56rpx', fontWeight: '800', color: '#10b981', display: 'block', marginTop: '8rpx' }}>
             ¥{totalSettled.toLocaleString()}
           </Text>
         </View>
@@ -55,23 +63,35 @@ export default function CommissionsListPage() {
           <View className='loading'>加载中…</View>
         ) : list.length === 0 ? (
           <View className='empty'>暂无分成记录</View>
-        ) : list.map((item) => (
-          <View key={item.id} className='card' style={{ margin: '0 24rpx 16rpx' }}>
-            <View style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8rpx' }}>
-              <Text style={{ fontWeight: '600' }}>{item.membership?.customer?.name ?? '—'}</Text>
-              <Text className={`tag ${STATUS_CLASS[item.status] ?? ''}`}>{STATUS_LABELS[item.status] ?? item.status}</Text>
-            </View>
-            <View style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={{ fontSize: '26rpx', color: '#888' }}>{ROLE_LABELS[item.receiverRole] ?? item.receiverRole}</Text>
-              <Text style={{ fontSize: '32rpx', fontWeight: '700', color: Number(item.amount) < 0 ? '#f5222d' : '#1a1d21' }}>
-                ¥{Number(item.amount).toLocaleString()}
-              </Text>
-            </View>
-            <Text style={{ fontSize: '22rpx', color: '#bbb', display: 'block', marginTop: '8rpx' }}>
-              {item.createdAt?.slice(0, 10)}
-            </Text>
+        ) : (
+          <View style={{ padding: 'var(--space-sm) var(--space-md)', display: 'flex', flexDirection: 'column', gap: 'var(--space-xs)' }}>
+            {list.map((item) => (
+              <View key={item.id} className='card' style={{ margin: 0 }}>
+                <View style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12rpx' }}>
+                  <Text style={{ fontWeight: '700', fontSize: '30rpx', color: 'var(--color-text-1)' }}>
+                    {item.membership?.customer?.name ?? '—'}
+                  </Text>
+                  <Text className={`tag ${STATUS_CLASS[item.status] ?? ''}`}>
+                    {STATUS_LABELS[item.status] ?? item.status}
+                  </Text>
+                </View>
+                <View style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                  <View>
+                    <Text style={{ fontSize: '26rpx', color: 'var(--color-text-2)', display: 'block' }}>
+                      {ROLE_LABELS[item.receiverRole] ?? item.receiverRole}
+                    </Text>
+                    <Text style={{ fontSize: '22rpx', color: 'var(--color-text-3)', display: 'block', marginTop: '4rpx' }}>
+                      {item.createdAt?.slice(0, 10)}
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: '40rpx', fontWeight: '800', color: Number(item.amount) < 0 ? 'var(--color-error)' : 'var(--color-text-1)' }}>
+                    ¥{Number(item.amount).toLocaleString()}
+                  </Text>
+                </View>
+              </View>
+            ))}
           </View>
-        ))}
+        )}
       </ScrollView>
     </View>
   );
