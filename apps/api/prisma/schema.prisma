@@ -66,6 +66,12 @@ enum CustomerStatus {
   INACTIVE
 }
 
+enum RegistrationSource {
+  SELF
+  PARTNER
+  ADMIN
+}
+
 enum MemberLevelStatus {
   ACTIVE
   INACTIVE
@@ -228,7 +234,8 @@ model Customer {
   referrer     User?          @relation("ReferredCustomers", fields: [referredBy], references: [id])
   departmentId String
   department   Department     @relation(fields: [departmentId], references: [id])
-  status       CustomerStatus @default(ACTIVE)
+  status             CustomerStatus     @default(ACTIVE)
+  registrationSource RegistrationSource @default(PARTNER)
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   memberships  Membership[]

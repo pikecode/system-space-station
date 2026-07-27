@@ -82,6 +82,7 @@ export class CustomersService {
     if (!owner.departmentId) throw new BadRequestException('分享码用户未分配部门');
 
     const { shareCode, birthday, source, gender, ...rest } = dto;
+    const registrationSource = currentUser.role === 'ADMIN' ? 'ADMIN' : 'PARTNER';
     return this.prisma.customer.create({
       data: {
         ...rest,
@@ -92,6 +93,7 @@ export class CustomersService {
         referredBy: owner.id,
         departmentId: owner.departmentId as string,
         createdBy: currentUser.id,
+        registrationSource,
       } as Prisma.CustomerUncheckedCreateInput,
     });
   }

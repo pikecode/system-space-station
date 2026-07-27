@@ -6,6 +6,7 @@ export interface CustomerRow {
   phone: string;
   customerType: 'INDIVIDUAL' | 'COMPANY';
   source: string;
+  registrationSource?: string;
   tags?: string;
   notes?: string;
   wechat?: string;

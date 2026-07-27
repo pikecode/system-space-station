@@ -51,6 +51,7 @@ export class PublicController {
         assignedTo: inviter.id,
         departmentId: inviter.departmentId,
         createdBy: inviter.id,
+        registrationSource: 'SELF',
       },
       select: { id: true, name: true },
     });
