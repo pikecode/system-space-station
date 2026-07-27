@@ -1,137 +1,66 @@
 page {
-  background-color: #f5f6f8;
-  color: #1a1d21;
+  --color-brand-dark:  #0a4f5e;
+  --color-brand:       #007d7d;
+  --color-brand-light: #e6f4f4;
+  --color-bg:          #f0f4f8;
+  --color-surface:     #ffffff;
+  --color-surface-2:   #f8fafc;
+  --color-text-1:      #141921;
+  --color-text-2:      #5c6470;
+  --color-text-3:      #9ea5b0;
+  --color-text-inv:    #ffffff;
+  --color-border:      #e4eaf0;
+  --color-divider:     #f0f3f7;
+  --color-success:     #10b981;
+  --color-warning:     #f59e0b;
+  --color-error:       #ef4444;
+  --space-2xs: 8rpx;
+  --space-xs:  16rpx;
+  --space-sm:  24rpx;
+  --space-md:  32rpx;
+  --space-lg:  48rpx;
+  --space-xl:  64rpx;
+  --radius-sm:   8rpx;
+  --radius-md:   16rpx;
+  --radius-lg:   20rpx;
+  --radius-pill: 999rpx;
+  --shadow-card:  0 2rpx 20rpx rgba(0, 40, 60, 0.07);
+  --shadow-float: 0 8rpx 32rpx rgba(0, 40, 60, 0.12);
+  background-color: var(--color-bg);
+  color: var(--color-text-1);
   font-family: -apple-system, "SF Pro Text", "PingFang SC", "Helvetica Neue", sans-serif;
   font-size: 28rpx;
   line-height: 1.5;
 }
-
-.page {
-  min-height: 100vh;
-  background: #f5f6f8;
-}
-
-/* Card */
+.page { min-height: 100vh; background: var(--color-bg); }
 .card {
-  background: #fff;
-  border-radius: 16rpx;
-  padding: 28rpx 32rpx;
-  margin-bottom: 20rpx;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  box-shadow: var(--shadow-card);
+  margin-bottom: var(--space-xs);
 }
-
-/* Row between label and value */
-.row {
-  display: flex;
-  align-items: center;
-  padding: 18rpx 0;
-  border-bottom: 1rpx solid #f0f1f3;
-}
+.row { display: flex; align-items: center; padding: var(--space-sm) 0; border-bottom: 1rpx solid var(--color-divider); }
 .row:last-child { border-bottom: none; }
-.row__label {
-  color: #888;
-  font-size: 26rpx;
-  width: 160rpx;
-  flex-shrink: 0;
-}
-.row__value {
-  flex: 1;
-  color: #1a1d21;
-  font-size: 26rpx;
-}
-
-/* Tag */
-.tag {
-  display: inline-block;
-  padding: 4rpx 14rpx;
-  border-radius: 8rpx;
-  font-size: 22rpx;
-  background: #e8f6f6;
-  color: #00a3a3;
-}
-.tag--pending { background: #fff7e6; color: #fa8c16; }
-.tag--approved { background: #f0fff4; color: #52c41a; }
-.tag--rejected { background: #fff1f0; color: #f5222d; }
-.tag--expired  { background: #f5f5f5; color: #999; }
-
-/* Button */
-.btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 88rpx;
-  border-radius: 12rpx;
-  font-size: 30rpx;
-  font-weight: 600;
-  border: none;
-}
-.btn--primary {
-  background: #00a3a3;
-  color: #fff;
-}
-.btn--danger {
-  background: #f5222d;
-  color: #fff;
-}
-.btn--outline {
-  background: transparent;
-  border: 2rpx solid #00a3a3;
-  color: #00a3a3;
-}
-.btn--ghost {
-  background: #f5f6f8;
-  color: #666;
-}
-
-/* Form field */
-.field {
-  background: #fff;
-  padding: 24rpx 32rpx;
-  border-bottom: 1rpx solid #f0f1f3;
-}
-.field__label {
-  font-size: 24rpx;
-  color: #888;
-  margin-bottom: 12rpx;
-}
-.field__input {
-  width: 100%;
-  font-size: 30rpx;
-  color: #1a1d21;
-  border: none;
-  outline: none;
-  background: transparent;
-}
-
-/* Section title */
-.section-title {
-  font-size: 26rpx;
-  color: #888;
-  padding: 24rpx 32rpx 12rpx;
-  font-weight: 500;
-}
-
-/* Empty state */
-.empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 80rpx 0;
-  color: #bbb;
-  font-size: 26rpx;
-}
-
-/* Loading */
-.loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 60rpx 0;
-  color: #bbb;
-  font-size: 26rpx;
-}
-
-/* Amount text */
-.amount--positive { color: #52c41a; }
-.amount--negative { color: #f5222d; }
-.amount--pending  { color: #fa8c16; }
+.row__label { font-size: 22rpx; font-weight: 500; letter-spacing: 0.05em; color: var(--color-text-2); width: 160rpx; flex-shrink: 0; }
+.row__value { flex: 1; font-size: 28rpx; color: var(--color-text-1); }
+.tag { display: inline-flex; align-items: center; padding: 4rpx 16rpx; border-radius: var(--radius-pill); font-size: 22rpx; font-weight: 500; background: var(--color-brand-light); color: var(--color-brand); }
+.tag--pending  { background: #fef3c7; color: #d97706; }
+.tag--approved { background: #d1fae5; color: #059669; }
+.tag--rejected { background: #fee2e2; color: #dc2626; }
+.tag--expired  { background: #f1f5f9; color: #64748b; }
+.btn { display: flex; align-items: center; justify-content: center; height: 96rpx; border-radius: var(--radius-md); font-size: 30rpx; font-weight: 600; border: none; }
+.btn--primary { background: linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%); color: var(--color-text-inv); }
+.btn--danger  { background: var(--color-error); color: var(--color-text-inv); }
+.btn--outline { background: transparent; border: 2rpx solid var(--color-brand); color: var(--color-brand); }
+.btn--ghost   { background: var(--color-surface-2); color: var(--color-text-2); }
+.field { background: var(--color-surface); padding: 24rpx var(--space-md); border-bottom: 1rpx solid var(--color-divider); }
+.field__label { font-size: 22rpx; font-weight: 500; letter-spacing: 0.05em; color: var(--color-text-2); margin-bottom: 10rpx; display: block; }
+.field__input { width: 100%; font-size: 30rpx; color: var(--color-text-1); border: none; outline: none; background: transparent; }
+.section-title { font-size: 22rpx; font-weight: 600; letter-spacing: 0.08em; color: var(--color-text-3); padding: var(--space-md) var(--space-md) 12rpx; text-transform: uppercase; }
+.avatar { width: 72rpx; height: 72rpx; border-radius: var(--radius-pill); background: linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%); display: flex; align-items: center; justify-content: center; color: var(--color-text-inv); font-size: 28rpx; font-weight: 700; flex-shrink: 0; }
+.empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80rpx 0; color: var(--color-text-3); font-size: 26rpx; gap: 16rpx; }
+.loading { display: flex; align-items: center; justify-content: center; padding: 60rpx 0; color: var(--color-text-3); font-size: 26rpx; }
+.amount--positive { color: var(--color-success); }
+.amount--negative { color: var(--color-error); }
+.amount--pending  { color: var(--color-warning); }
