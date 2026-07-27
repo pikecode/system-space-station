@@ -42,6 +42,13 @@ export interface CreateCustomerPayload {
   tags?: string;
   notes?: string;
   wechat?: string;
+  gender?: string;
+  birthday?: string;
+  address?: string;
+  creditCode?: string;
+  industry?: string;
+  contactName?: string;
+  contactPhone?: string;
 }
 
 export const customersApi = {
