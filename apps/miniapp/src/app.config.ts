@@ -12,15 +12,15 @@ export default {
   ],
   window: {
     backgroundTextStyle: 'light',
-    navigationBarBackgroundColor: '#ffffff',
+    navigationBarBackgroundColor: '#0a4f5e',
     navigationBarTitleText: '客户资源管理',
-    navigationBarTextStyle: 'black',
+    navigationBarTextStyle: 'white',
   },
   tabBar: {
-    color: '#666666',
-    selectedColor: '#00a3a3',
+    color: '#9ea5b0',
+    selectedColor: '#007d7d',
     backgroundColor: '#ffffff',
-    borderStyle: 'black',
+    borderStyle: 'white',
     list: [
       {
         pagePath: 'pages/customers/index',
