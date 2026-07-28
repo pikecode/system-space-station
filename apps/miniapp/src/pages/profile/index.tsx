@@ -43,7 +43,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <View className='page'>
+    <View className='page' style={{ paddingBottom: '64rpx' }}>
       {/* Hero Banner */}
       <View style={{
         background: 'linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%)',
@@ -74,51 +74,36 @@ export default function ProfilePage() {
 
       {/* 分享邀请 */}
       {user?.shareCode && (
-        <>
-          <View className='section-title'>邀请客户</View>
-          <View style={{ background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', margin: '0 var(--space-md)', padding: '28rpx 32rpx', boxShadow: 'var(--shadow-card)' }}>
-            <View style={{ display: 'flex', alignItems: 'center', marginBottom: '24rpx' }}>
-              <Text style={{ fontSize: '28rpx', color: 'var(--color-text-2)', flex: 1 }}>我的分享码</Text>
-              <Text style={{ fontFamily: '"Courier New", "SF Mono", monospace', fontSize: '40rpx', fontWeight: '700', color: 'var(--color-brand)', letterSpacing: '0.15em', marginRight: '16rpx' }}>
-                {user.shareCode}
-              </Text>
-              <Text
-                style={{ fontSize: '24rpx', color: 'var(--color-brand)', border: '2rpx solid var(--color-brand)', padding: '8rpx 20rpx', borderRadius: 'var(--radius-pill)' }}
-                onClick={handleCopyCode}
-              >
-                复制
-              </Text>
-            </View>
-            <Button
-              style={{ background: 'linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%)', color: 'var(--color-text-inv)', borderRadius: 'var(--radius-md)', fontSize: '30rpx', fontWeight: '600', height: '96rpx' }}
-              openType='share'
+        <View style={{ margin: 'var(--space-md) var(--space-md) 0', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-md)', boxShadow: 'var(--shadow-card)' }}>
+          <View style={{ display: 'flex', alignItems: 'center', marginBottom: 'var(--space-sm)' }}>
+            <Text style={{ fontSize: '26rpx', color: 'var(--color-text-2)', flex: 1 }}>我的分享码</Text>
+            <Text style={{ fontFamily: '"Courier New", "SF Mono", monospace', fontSize: '40rpx', fontWeight: '700', color: 'var(--color-brand)', letterSpacing: '0.15em', marginRight: '16rpx' }}>
+              {user.shareCode}
+            </Text>
+            <Text
+              style={{ fontSize: '24rpx', color: 'var(--color-brand)', border: '2rpx solid var(--color-brand)', padding: '8rpx 20rpx', borderRadius: 'var(--radius-pill)' }}
+              onClick={handleCopyCode}
             >
-              分享给客户
-            </Button>
+              复制
+            </Text>
           </View>
-        </>
+          <Button
+            style={{ background: 'linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%)', color: 'var(--color-text-inv)', borderRadius: 'var(--radius-md)', fontSize: '30rpx', fontWeight: '600', height: '88rpx' }}
+            openType='share'
+          >
+            分享给客户
+          </Button>
+        </View>
       )}
 
-      {/* 功能 */}
-      <View className='section-title'>功能</View>
-      <View style={{ background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', margin: '0 var(--space-md)', boxShadow: 'var(--shadow-card)' }}>
-        <View
-          className='row'
-          style={{ padding: '28rpx 32rpx', cursor: 'pointer' }}
-          onClick={() => Taro.navigateTo({ url: '/pages/commissions/list' })}
-        >
-          <Text style={{ fontSize: '30rpx', flex: 1, color: 'var(--color-text-1)' }}>我的分成</Text>
-          <Text style={{ color: 'var(--color-text-3)', fontSize: '24rpx' }}>›</Text>
-        </View>
-      </View>
-
-      <View style={{ padding: '48rpx var(--space-md) 0' }}>
-        <Button
-          style={{ background: 'var(--color-surface)', color: 'var(--color-error)', border: '2rpx solid var(--color-error)', borderRadius: 'var(--radius-md)', height: '96rpx', fontSize: '30rpx', fontWeight: '600' }}
+      {/* 退出登录 */}
+      <View style={{ padding: 'var(--space-xl) var(--space-md) 0', textAlign: 'center' }}>
+        <Text
+          style={{ fontSize: '28rpx', color: 'var(--color-text-3)' }}
           onClick={handleLogout}
         >
           退出登录
-        </Button>
+        </Text>
       </View>
     </View>
   );
