@@ -26,6 +26,7 @@ const STATUS_CLASS: Record<string, string> = {
   PENDING: 'tag--pending', APPROVED: 'tag--approved', REJECTED: 'tag--rejected',
   EXPIRED: 'tag--expired', REFUND_PENDING: 'tag--pending', REFUNDED: 'tag--expired',
 };
+const EDIT_TABS = ['基本信息', '详细信息', '备注'];
 
 type FormState = {
   shareCode: string; name: string; phone: string;
@@ -45,6 +46,7 @@ export default function CustomerDetailPage() {
   const [loading, setLoading] = useState(!isCreate);
   const [editing, setEditing] = useState(isCreate);
   const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
   const [form, setForm] = useState<FormState>({
     shareCode: user?.shareCode ?? '',
     name: '', phone: '', customerType: 'INDIVIDUAL', source: 'REFERRAL',
@@ -73,9 +75,9 @@ export default function CustomerDetailPage() {
   }, [id]);
 
   const handleSave = async () => {
-    if (!form.name.trim()) { Taro.showToast({ title: '请填写姓名', icon: 'none' }); return; }
-    if (!/^1\d{10}$/.test(form.phone)) { Taro.showToast({ title: '请填写正确的手机号', icon: 'none' }); return; }
-    if (isCreate && !form.shareCode.trim()) { Taro.showToast({ title: '请填写分享码', icon: 'none' }); return; }
+    if (!form.name.trim()) { Taro.showToast({ title: '请填写姓名', icon: 'none' }); setActiveTab(0); return; }
+    if (!/^1\d{10}$/.test(form.phone)) { Taro.showToast({ title: '请填写正确的手机号', icon: 'none' }); setActiveTab(0); return; }
+    if (isCreate && !form.shareCode.trim()) { Taro.showToast({ title: '请填写分享码', icon: 'none' }); setActiveTab(0); return; }
     setSaving(true);
     const isCompany = form.customerType === 'COMPANY';
     const extraFields = !isCompany
@@ -125,125 +127,142 @@ export default function CustomerDetailPage() {
       <ScrollView scrollY style={{ height: '100vh' }}>
         {editing ? (
           <View style={{ paddingBottom: '160rpx' }}>
-
-            {isCreate && (
-              <View>
-                <View className='section-title'>归属信息</View>
-                <View className='field'>
-                  <Text className='field__label'>分享码 <Text style={{ color: '#f5222d' }}>*</Text></Text>
-                  <Input className='field__input' placeholder='营销人员的分享码'
-                    value={form.shareCode} onInput={set('shareCode')} />
+            {/* Tab 栏 */}
+            <View style={{ background: 'var(--color-surface)', display: 'flex', borderBottom: '1rpx solid var(--color-divider)', margin: 'var(--space-sm) var(--space-md) 0', borderRadius: 'var(--radius-md) var(--radius-md) 0 0', overflow: 'hidden' }}>
+              {EDIT_TABS.map((tab, i) => (
+                <View
+                  key={tab}
+                  style={{
+                    flex: 1, textAlign: 'center', padding: '24rpx 0', fontSize: '28rpx',
+                    color: activeTab === i ? 'var(--color-brand)' : 'var(--color-text-2)',
+                    borderBottom: activeTab === i ? '4rpx solid var(--color-brand)' : '4rpx solid transparent',
+                    fontWeight: activeTab === i ? '600' : '400',
+                  }}
+                  onClick={() => setActiveTab(i)}
+                >
+                  {tab}
                 </View>
-              </View>
-            )}
-
-            <View className='section-title'>基本信息</View>
-
-            <Picker mode='selector' range={CUSTOMER_TYPE_LABELS} value={typeIndex}
-              onChange={(e) => setForm({ ...form, customerType: CUSTOMER_TYPE_VALUES[+e.detail.value] })}>
-              <View className='field'>
-                <Text className='field__label'>客户类型 <Text style={{ color: '#f5222d' }}>*</Text></Text>
-                <Text style={{ flex: 1, fontSize: '28rpx', color: 'var(--color-text-1)', textAlign: 'right' }}>
-                  {CUSTOMER_TYPE_LABELS[typeIndex]} ›
-                </Text>
-              </View>
-            </Picker>
-
-            <Picker mode='selector' range={SOURCE_OPTIONS.map(s => s.label)} value={sourceIndex}
-              onChange={(e) => setForm({ ...form, source: SOURCE_OPTIONS[+e.detail.value].value })}>
-              <View className='field'>
-                <Text className='field__label'>客户来源</Text>
-                <Text style={{ flex: 1, fontSize: '28rpx', color: 'var(--color-text-1)', textAlign: 'right' }}>
-                  {SOURCE_OPTIONS[sourceIndex]?.label} ›
-                </Text>
-              </View>
-            </Picker>
-
-            <View className='field'>
-              <Text className='field__label'>{isCompanyForm ? '企业名称' : '姓名'} <Text style={{ color: '#f5222d' }}>*</Text></Text>
-              <Input className='field__input' placeholder={isCompanyForm ? '请输入企业名称' : '请输入姓名'} maxlength={50}
-                value={form.name} onInput={set('name')} />
-            </View>
-            <View className='field'>
-              <Text className='field__label'>{isCompanyForm ? '联系电话' : '手机号'} <Text style={{ color: '#f5222d' }}>*</Text></Text>
-              <Input className='field__input' type='number' placeholder={isCompanyForm ? '请输入联系电话' : '请输入手机号'} maxlength={11}
-                value={form.phone} onInput={set('phone')} />
-            </View>
-            <View className='field'>
-              <Text className='field__label'>微信号</Text>
-              <Input className='field__input' placeholder='选填' maxlength={64}
-                value={form.wechat} onInput={set('wechat')} />
+              ))}
             </View>
 
-            {!isCompanyForm && (
-              <View>
-                <View className='section-title'>个人信息</View>
-                <Picker mode='selector' range={GENDER_LABELS} value={genderIndex}
-                  onChange={(e) => setForm({ ...form, gender: GENDER_VALUES[+e.detail.value] })}>
+            {/* Tab 0: 基本信息 */}
+            {activeTab === 0 && (
+              <View style={{ margin: '0 var(--space-md)', background: 'var(--color-surface)', borderRadius: '0 0 var(--radius-md) var(--radius-md)', overflow: 'hidden' }}>
+                {isCreate && (
                   <View className='field'>
-                    <Text className='field__label'>性别</Text>
+                    <Text className='field__label'>分享码 <Text style={{ color: 'var(--color-error)' }}>*</Text></Text>
+                    <Input className='field__input' placeholder='营销人员的分享码'
+                      value={form.shareCode} onInput={set('shareCode')} />
+                  </View>
+                )}
+                <Picker mode='selector' range={CUSTOMER_TYPE_LABELS} value={typeIndex}
+                  onChange={(e) => setForm({ ...form, customerType: CUSTOMER_TYPE_VALUES[+e.detail.value] })}>
+                  <View className='field'>
+                    <Text className='field__label'>客户类型 <Text style={{ color: 'var(--color-error)' }}>*</Text></Text>
                     <Text style={{ flex: 1, fontSize: '28rpx', color: 'var(--color-text-1)', textAlign: 'right' }}>
-                      {GENDER_LABELS[genderIndex]} ›
+                      {CUSTOMER_TYPE_LABELS[typeIndex]} ›
                     </Text>
                   </View>
                 </Picker>
-                <Picker mode='date' value={form.birthday}
-                  onChange={(e) => setForm({ ...form, birthday: e.detail.value })}>
+                <Picker mode='selector' range={SOURCE_OPTIONS.map(s => s.label)} value={sourceIndex}
+                  onChange={(e) => setForm({ ...form, source: SOURCE_OPTIONS[+e.detail.value].value })}>
                   <View className='field'>
-                    <Text className='field__label'>生日</Text>
-                    <Text style={{ flex: 1, fontSize: '28rpx', color: form.birthday ? 'var(--color-text-1)' : 'var(--color-text-3)', textAlign: 'right' }}>
-                      {form.birthday || '选填'} ›
+                    <Text className='field__label'>客户来源</Text>
+                    <Text style={{ flex: 1, fontSize: '28rpx', color: 'var(--color-text-1)', textAlign: 'right' }}>
+                      {SOURCE_OPTIONS[sourceIndex]?.label} ›
                     </Text>
                   </View>
                 </Picker>
                 <View className='field'>
-                  <Text className='field__label'>地址</Text>
-                  <Input className='field__input' placeholder='选填' maxlength={200}
-                    value={form.address} onInput={set('address')} />
+                  <Text className='field__label'>{isCompanyForm ? '企业名称' : '姓名'} <Text style={{ color: 'var(--color-error)' }}>*</Text></Text>
+                  <Input className='field__input' placeholder={isCompanyForm ? '请输入企业名称' : '请输入姓名'} maxlength={50}
+                    value={form.name} onInput={set('name')} />
+                </View>
+                <View className='field'>
+                  <Text className='field__label'>{isCompanyForm ? '联系电话' : '手机号'} <Text style={{ color: 'var(--color-error)' }}>*</Text></Text>
+                  <Input className='field__input' type='number' placeholder={isCompanyForm ? '请输入联系电话' : '请输入手机号'} maxlength={11}
+                    value={form.phone} onInput={set('phone')} />
+                </View>
+                <View className='field'>
+                  <Text className='field__label'>微信号</Text>
+                  <Input className='field__input' placeholder='选填' maxlength={64}
+                    value={form.wechat} onInput={set('wechat')} />
                 </View>
               </View>
             )}
 
-            {isCompanyForm && (
-              <View>
-                <View className='section-title'>企业信息</View>
-                <View className='field'>
-                  <Text className='field__label'>统一信用代码</Text>
-                  <Input className='field__input' placeholder='选填' maxlength={18}
-                    value={form.creditCode} onInput={set('creditCode')} />
-                </View>
-                <View className='field'>
-                  <Text className='field__label'>行业</Text>
-                  <Input className='field__input' placeholder='选填' maxlength={50}
-                    value={form.industry} onInput={set('industry')} />
-                </View>
-                <View className='section-title'>联系人</View>
-                <View className='field'>
-                  <Text className='field__label'>联系人姓名</Text>
-                  <Input className='field__input' placeholder='选填' maxlength={50}
-                    value={form.contactName} onInput={set('contactName')} />
-                </View>
-                <View className='field'>
-                  <Text className='field__label'>联系人手机</Text>
-                  <Input className='field__input' type='number' placeholder='选填' maxlength={11}
-                    value={form.contactPhone} onInput={set('contactPhone')} />
-                </View>
+            {/* Tab 1: 详细信息 */}
+            {activeTab === 1 && (
+              <View style={{ margin: '0 var(--space-md)', background: 'var(--color-surface)', borderRadius: '0 0 var(--radius-md) var(--radius-md)', overflow: 'hidden' }}>
+                {!isCompanyForm && (
+                  <View>
+                    <Picker mode='selector' range={GENDER_LABELS} value={genderIndex}
+                      onChange={(e) => setForm({ ...form, gender: GENDER_VALUES[+e.detail.value] })}>
+                      <View className='field'>
+                        <Text className='field__label'>性别</Text>
+                        <Text style={{ flex: 1, fontSize: '28rpx', color: 'var(--color-text-1)', textAlign: 'right' }}>
+                          {GENDER_LABELS[genderIndex]} ›
+                        </Text>
+                      </View>
+                    </Picker>
+                    <Picker mode='date' value={form.birthday}
+                      onChange={(e) => setForm({ ...form, birthday: e.detail.value })}>
+                      <View className='field'>
+                        <Text className='field__label'>生日</Text>
+                        <Text style={{ flex: 1, fontSize: '28rpx', color: form.birthday ? 'var(--color-text-1)' : 'var(--color-text-3)', textAlign: 'right' }}>
+                          {form.birthday || '选填'} ›
+                        </Text>
+                      </View>
+                    </Picker>
+                    <View className='field'>
+                      <Text className='field__label'>地址</Text>
+                      <Input className='field__input' placeholder='选填' maxlength={200}
+                        value={form.address} onInput={set('address')} />
+                    </View>
+                  </View>
+                )}
+                {isCompanyForm && (
+                  <View>
+                    <View className='field'>
+                      <Text className='field__label'>统一信用代码</Text>
+                      <Input className='field__input' placeholder='选填' maxlength={18}
+                        value={form.creditCode} onInput={set('creditCode')} />
+                    </View>
+                    <View className='field'>
+                      <Text className='field__label'>行业</Text>
+                      <Input className='field__input' placeholder='选填' maxlength={50}
+                        value={form.industry} onInput={set('industry')} />
+                    </View>
+                    <View className='field'>
+                      <Text className='field__label'>联系人姓名</Text>
+                      <Input className='field__input' placeholder='选填' maxlength={50}
+                        value={form.contactName} onInput={set('contactName')} />
+                    </View>
+                    <View className='field'>
+                      <Text className='field__label'>联系人手机</Text>
+                      <Input className='field__input' type='number' placeholder='选填' maxlength={11}
+                        value={form.contactPhone} onInput={set('contactPhone')} />
+                    </View>
+                  </View>
+                )}
               </View>
             )}
 
-            <View className='section-title'>标签 / 备注</View>
-            <View className='field'>
-              <Text className='field__label'>标签</Text>
-              <Input className='field__input' placeholder='多个标签用逗号分隔'
-                value={form.tags} onInput={set('tags')} />
-            </View>
-            <View style={{ padding: '0 32rpx 24rpx' }}>
-              <Textarea
-                style={{ width: '100%', fontSize: '28rpx', minHeight: '160rpx', background: 'var(--color-surface)', padding: '20rpx', borderRadius: 'var(--radius-md)', boxSizing: 'border-box' }}
-                placeholder='备注（选填）' value={form.notes}
-                onInput={(e) => setForm({ ...form, notes: e.detail.value })}
-              />
-            </View>
+            {/* Tab 2: 备注 */}
+            {activeTab === 2 && (
+              <View style={{ margin: '0 var(--space-md)', background: 'var(--color-surface)', borderRadius: '0 0 var(--radius-md) var(--radius-md)', padding: '24rpx var(--space-md)' }}>
+                <View className='field' style={{ borderBottom: 'none', paddingLeft: 0, paddingRight: 0 }}>
+                  <Text className='field__label'>标签</Text>
+                  <Input className='field__input' placeholder='多个标签用逗号分隔'
+                    value={form.tags} onInput={set('tags')} />
+                </View>
+                <Textarea
+                  style={{ width: '100%', fontSize: '28rpx', minHeight: '200rpx', background: 'var(--color-bg)', padding: '20rpx', borderRadius: 'var(--radius-md)', boxSizing: 'border-box', marginTop: 'var(--space-xs)' }}
+                  placeholder='备注（选填）' value={form.notes}
+                  onInput={(e) => setForm({ ...form, notes: e.detail.value })}
+                />
+              </View>
+            )}
           </View>
         ) : (
           <View style={{ paddingBottom: '120rpx' }}>
@@ -356,12 +375,12 @@ export default function CustomerDetailPage() {
         {editing ? (
           <View style={{ display: 'flex', flex: 1, gap: 'var(--space-xs)' }}>
             {!isCreate && (
-              <Button style={{ flex: 1, background: 'var(--color-surface-2)', color: 'var(--color-text-2)', borderRadius: 'var(--radius-md)', height: '96rpx', fontSize: '30rpx', fontWeight: '600' }} onClick={() => setEditing(false)}>取消</Button>
+              <Button style={{ flex: 1, background: 'var(--color-surface-2)', color: 'var(--color-text-2)', borderRadius: 'var(--radius-md)', height: '96rpx', fontSize: '30rpx', fontWeight: '600' }} onClick={() => { setEditing(false); setActiveTab(0); }}>取消</Button>
             )}
             <Button style={{ flex: 2, background: 'linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%)', color: 'var(--color-text-inv)', borderRadius: 'var(--radius-md)', height: '96rpx', fontSize: '30rpx', fontWeight: '600' }} loading={saving} onClick={handleSave}>保存</Button>
           </View>
         ) : (
-          <Button style={{ flex: 1, background: 'linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%)', color: 'var(--color-text-inv)', borderRadius: 'var(--radius-md)', height: '96rpx', fontSize: '30rpx', fontWeight: '600' }} onClick={() => setEditing(true)}>编辑</Button>
+          <Button style={{ flex: 1, background: 'linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%)', color: 'var(--color-text-inv)', borderRadius: 'var(--radius-md)', height: '96rpx', fontSize: '30rpx', fontWeight: '600' }} onClick={() => { setEditing(true); setActiveTab(0); }}>编辑</Button>
         )}
       </View>
     </View>
