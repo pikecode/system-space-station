@@ -88,7 +88,7 @@ export default function ProfilePage() {
             </Text>
           </View>
           <Button
-            style={{ background: 'linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%)', color: 'var(--color-text-inv)', borderRadius: 'var(--radius-md)', fontSize: '30rpx', fontWeight: '600', height: '88rpx' }}
+            style={{ background: 'linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%)', color: 'var(--color-text-inv)', borderRadius: 'var(--radius-md)', fontSize: '30rpx', fontWeight: '600', height: '88rpx', lineHeight: '88rpx', padding: 0 }}
             openType='share'
           >
             分享给客户
