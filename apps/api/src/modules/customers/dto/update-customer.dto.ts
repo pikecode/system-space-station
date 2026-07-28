@@ -1,5 +1,5 @@
-import { IsOptional, IsEnum, IsMobilePhone, IsDateString, IsString, MaxLength } from 'class-validator';
-import { CustomerType, CustomerSource, CustomerStatus, Gender } from '@prisma/client';
+import { IsOptional, IsEnum, IsMobilePhone, IsDateString, IsString, MaxLength, IsBoolean, IsDecimal } from 'class-validator';
+import { CustomerType, CustomerSource, CustomerStatus, Gender, RiskTolerance } from '@prisma/client';
 
 export class UpdateCustomerDto {
   @IsOptional() @IsEnum(CustomerType) customerType?: CustomerType;
@@ -17,4 +17,10 @@ export class UpdateCustomerDto {
   @IsOptional() @IsString() contactName?: string;
   @IsOptional() @IsMobilePhone('zh-CN') contactPhone?: string;
   @IsOptional() @IsEnum(CustomerStatus) status?: CustomerStatus;
+  @IsOptional() @IsString() @MaxLength(50) legalPerson?: string;
+  @IsOptional() @IsString() @MaxLength(100) registeredCapital?: string;
+  @IsOptional() @IsString() @MaxLength(18) idCard?: string;
+  @IsOptional() @IsEnum(RiskTolerance) riskTolerance?: RiskTolerance;
+  @IsOptional() @IsBoolean() isAccreditedInvestor?: boolean;
+  @IsOptional() @IsDecimal() investmentAmount?: string;
 }

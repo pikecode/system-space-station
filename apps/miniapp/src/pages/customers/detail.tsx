@@ -27,6 +27,8 @@ const STATUS_CLASS: Record<string, string> = {
   EXPIRED: 'tag--expired', REFUND_PENDING: 'tag--pending', REFUNDED: 'tag--expired',
 };
 const EDIT_TABS = ['基本信息', '详细信息', '备注'];
+const RISK_LABELS = ['保守型', '稳健型', '积极型', '激进型'];
+const RISK_VALUES = ['CONSERVATIVE', 'MODERATE', 'AGGRESSIVE', 'SPECULATIVE'];
 
 type FormState = {
   shareCode: string; name: string; phone: string;
@@ -34,6 +36,8 @@ type FormState = {
   gender: string; birthday: string; address: string;
   wechat: string; tags: string; notes: string;
   creditCode: string; industry: string; contactName: string; contactPhone: string;
+  legalPerson: string; registeredCapital: string;
+  idCard: string; riskTolerance: string; isAccreditedInvestor: boolean; investmentAmount: string;
 };
 
 export default function CustomerDetailPage() {
@@ -53,6 +57,8 @@ export default function CustomerDetailPage() {
     gender: 'UNKNOWN', birthday: '', address: '',
     wechat: '', tags: '', notes: '',
     creditCode: '', industry: '', contactName: '', contactPhone: '',
+    legalPerson: '', registeredCapital: '',
+    idCard: '', riskTolerance: '', isAccreditedInvestor: false, investmentAmount: '',
   });
 
   useEffect(() => {
@@ -68,6 +74,9 @@ export default function CustomerDetailPage() {
           tags: data.tags ?? '', notes: data.notes ?? '',
           creditCode: data.creditCode ?? '', industry: data.industry ?? '',
           contactName: data.contactName ?? '', contactPhone: data.contactPhone ?? '',
+          legalPerson: data.legalPerson ?? '', registeredCapital: data.registeredCapital ?? '',
+          idCard: data.idCard ?? '', riskTolerance: data.riskTolerance ?? '',
+          isAccreditedInvestor: data.isAccreditedInvestor ?? false, investmentAmount: data.investmentAmount ?? '',
         });
         setLoading(false);
       }).catch(() => { Taro.showToast({ title: '加载失败', icon: 'none' }); setLoading(false); });
@@ -80,9 +89,14 @@ export default function CustomerDetailPage() {
     if (isCreate && !form.shareCode.trim()) { Taro.showToast({ title: '请填写分享码', icon: 'none' }); setActiveTab(0); return; }
     setSaving(true);
     const isCompany = form.customerType === 'COMPANY';
-    const extraFields = !isCompany
-      ? { gender: form.gender || undefined, birthday: form.birthday || undefined, address: form.address.trim() || undefined }
-      : { creditCode: form.creditCode.trim() || undefined, industry: form.industry.trim() || undefined, contactName: form.contactName.trim() || undefined, contactPhone: form.contactPhone.trim() || undefined };
+    const typeFields = !isCompany
+      ? { gender: form.gender || undefined, birthday: form.birthday || undefined, address: form.address.trim() || undefined, idCard: form.idCard.trim() || undefined }
+      : { creditCode: form.creditCode.trim() || undefined, industry: form.industry.trim() || undefined, contactName: form.contactName.trim() || undefined, contactPhone: form.contactPhone.trim() || undefined, legalPerson: form.legalPerson.trim() || undefined, registeredCapital: form.registeredCapital.trim() || undefined };
+    const investFields = {
+      riskTolerance: form.riskTolerance || undefined,
+      isAccreditedInvestor: form.isAccreditedInvestor,
+      investmentAmount: form.investmentAmount || undefined,
+    };
     try {
       if (isCreate) {
         await customersApi.create({
@@ -92,7 +106,7 @@ export default function CustomerDetailPage() {
           wechat: form.wechat.trim() || undefined,
           tags: form.tags.trim() || undefined,
           notes: form.notes.trim() || undefined,
-          ...extraFields,
+          ...typeFields, ...investFields,
         });
         Taro.showToast({ title: '创建成功', icon: 'success' });
         setTimeout(() => Taro.navigateBack(), 1500);
@@ -103,7 +117,7 @@ export default function CustomerDetailPage() {
           wechat: form.wechat.trim() || undefined,
           tags: form.tags.trim() || undefined,
           notes: form.notes.trim() || undefined,
-          ...extraFields,
+          ...typeFields, ...investFields,
         });
         Taro.showToast({ title: '保存成功', icon: 'success' });
         setEditing(false);
@@ -118,6 +132,7 @@ export default function CustomerDetailPage() {
   const typeIndex = Math.max(CUSTOMER_TYPE_VALUES.indexOf(form.customerType), 0);
   const sourceIndex = Math.max(SOURCE_OPTIONS.findIndex(s => s.value === form.source), 0);
   const genderIndex = Math.max(GENDER_VALUES.indexOf(form.gender), 0);
+  const riskIndex = Math.max(RISK_VALUES.indexOf(form.riskTolerance), 0);
   const isCompanyForm = form.customerType === 'COMPANY';
 
   if (loading) return <View className='loading'>加载中…</View>;
@@ -188,6 +203,20 @@ export default function CustomerDetailPage() {
                   <Input className='field__input' placeholder='选填' maxlength={64}
                     value={form.wechat} onInput={set('wechat')} />
                 </View>
+                {isCompanyForm && (
+                  <View className='field'>
+                    <Text className='field__label'>法人代表</Text>
+                    <Input className='field__input' placeholder='选填' maxlength={50}
+                      value={form.legalPerson} onInput={set('legalPerson')} />
+                  </View>
+                )}
+                {!isCompanyForm && (
+                  <View className='field'>
+                    <Text className='field__label'>身份证号</Text>
+                    <Input className='field__input' placeholder='选填' maxlength={18}
+                      value={form.idCard} onInput={set('idCard')} />
+                  </View>
+                )}
               </View>
             )}
 
@@ -229,6 +258,11 @@ export default function CustomerDetailPage() {
                         value={form.creditCode} onInput={set('creditCode')} />
                     </View>
                     <View className='field'>
+                      <Text className='field__label'>注册资本</Text>
+                      <Input className='field__input' placeholder='如：500万元' maxlength={50}
+                        value={form.registeredCapital} onInput={set('registeredCapital')} />
+                    </View>
+                    <View className='field'>
                       <Text className='field__label'>行业</Text>
                       <Input className='field__input' placeholder='选填' maxlength={50}
                         value={form.industry} onInput={set('industry')} />
@@ -245,6 +279,35 @@ export default function CustomerDetailPage() {
                     </View>
                   </View>
                 )}
+                {/* 投资信息（通用） */}
+                <Picker mode='selector' range={RISK_LABELS} value={riskIndex}
+                  onChange={(e) => setForm({ ...form, riskTolerance: RISK_VALUES[+e.detail.value] })}>
+                  <View className='field'>
+                    <Text className='field__label'>风险承受能力</Text>
+                    <Text style={{ flex: 1, fontSize: '28rpx', color: form.riskTolerance ? 'var(--color-text-1)' : 'var(--color-text-3)', textAlign: 'right' }}>
+                      {form.riskTolerance ? RISK_LABELS[riskIndex] : '选填'} ›
+                    </Text>
+                  </View>
+                </Picker>
+                <View className='field'>
+                  <Text className='field__label'>合格投资人</Text>
+                  <View style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '16rpx' }}>
+                    {['否', '是'].map((label, i) => (
+                      <View
+                        key={label}
+                        style={{ padding: '8rpx 24rpx', borderRadius: 'var(--radius-pill)', fontSize: '26rpx', background: form.isAccreditedInvestor === !!i ? 'var(--color-brand-light)' : 'var(--color-bg)', color: form.isAccreditedInvestor === !!i ? 'var(--color-brand)' : 'var(--color-text-2)' }}
+                        onClick={() => setForm({ ...form, isAccreditedInvestor: !!i })}
+                      >
+                        {label}
+                      </View>
+                    ))}
+                  </View>
+                </View>
+                <View className='field'>
+                  <Text className='field__label'>意向投资额(万)</Text>
+                  <Input className='field__input' type='digit' placeholder='选填' textAlign='right'
+                    value={form.investmentAmount} onInput={set('investmentAmount')} />
+                </View>
               </View>
             )}
 
@@ -327,6 +390,7 @@ export default function CustomerDetailPage() {
                 <View className='section-title'>个人信息</View>
                 <View style={{ background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', margin: '0 24rpx' }}>
                   {[
+                    { label: '身份证号', value: customer?.idCard },
                     { label: '性别', value: customer?.gender ? GENDER_LABELS[GENDER_VALUES.indexOf(customer.gender)] : undefined },
                     { label: '生日', value: customer?.birthday?.slice(0, 10) },
                     { label: '地址', value: customer?.address },
@@ -346,7 +410,9 @@ export default function CustomerDetailPage() {
                 <View className='section-title'>企业信息</View>
                 <View style={{ background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', margin: '0 24rpx' }}>
                   {[
+                    { label: '法人代表', value: customer?.legalPerson },
                     { label: '统一信用代码', value: customer?.creditCode },
+                    { label: '注册资本', value: customer?.registeredCapital },
                     { label: '行业', value: customer?.industry },
                     { label: '联系人', value: customer?.contactName },
                     { label: '联系手机', value: customer?.contactPhone },
@@ -359,6 +425,21 @@ export default function CustomerDetailPage() {
                 </View>
               </View>
             )}
+
+            {/* 投资信息 */}
+            <View className='section-title'>投资信息</View>
+            <View style={{ background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', margin: '0 24rpx' }}>
+              {[
+                { label: '风险承受能力', value: customer?.riskTolerance ? RISK_LABELS[RISK_VALUES.indexOf(customer.riskTolerance)] : undefined },
+                { label: '合格投资人', value: customer?.isAccreditedInvestor != null ? (customer.isAccreditedInvestor ? '是' : '否') : undefined },
+                { label: '意向投资额(万)', value: customer?.investmentAmount },
+              ].map(({ label, value }, i, arr) => (
+                <View key={label} className='row' style={{ padding: '24rpx 32rpx', borderBottom: i < arr.length - 1 ? '1rpx solid #f0f1f3' : 'none' }}>
+                  <Text className='row__label'>{label}</Text>
+                  <Text className='row__value' style={{ color: value ? 'var(--color-text-1)' : 'var(--color-text-3)' }}>{value || '-'}</Text>
+                </View>
+              ))}
+            </View>
 
             {/* 备注 */}
             <View className='section-title'>备注</View>

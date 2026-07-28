@@ -8,6 +8,8 @@ const GENDER_LABELS = ['男', '女', '未知'];
 const GENDER_VALUES = ['MALE', 'FEMALE', 'UNKNOWN'];
 
 const TABS = ['基本信息', '详细信息', '备注'];
+const RISK_LABELS = ['保守型', '稳健型', '积极型', '激进型'];
+const RISK_VALUES = ['CONSERVATIVE', 'MODERATE', 'AGGRESSIVE', 'SPECULATIVE'];
 
 const ROW_STYLE = { display: 'flex', alignItems: 'center', padding: '28rpx 32rpx', borderBottom: '1rpx solid #f0f1f3' };
 const LABEL_STYLE = { width: '160rpx', color: '#666', fontSize: '28rpx', flexShrink: 0 };
@@ -17,6 +19,8 @@ type FormState = {
   name: string; phone: string; wechat: string; customerType: string;
   gender: string; birthday: string; address: string;
   creditCode: string; industry: string; contactName: string; contactPhone: string;
+  legalPerson: string; registeredCapital: string;
+  idCard: string; riskTolerance: string; isAccreditedInvestor: boolean; investmentAmount: string;
   notes: string;
 };
 
@@ -32,6 +36,8 @@ export default function RegisterPage() {
     name: '', phone: '', wechat: '', customerType: 'INDIVIDUAL',
     gender: 'UNKNOWN', birthday: '', address: '',
     creditCode: '', industry: '', contactName: '', contactPhone: '',
+    legalPerson: '', registeredCapital: '',
+    idCard: '', riskTolerance: '', isAccreditedInvestor: false, investmentAmount: '',
     notes: '',
   });
 
@@ -43,6 +49,7 @@ export default function RegisterPage() {
   const set = (key: keyof FormState) => (e: any) => setForm({ ...form, [key]: e.detail.value });
   const typeIndex = CUSTOMER_TYPES.findIndex(t => t.value === form.customerType);
   const genderIndex = Math.max(GENDER_VALUES.indexOf(form.gender), 0);
+  const riskIndex = Math.max(RISK_VALUES.indexOf(form.riskTolerance), 0);
   const isCompany = form.customerType === 'COMPANY';
 
   const handleSubmit = async () => {
@@ -57,15 +64,21 @@ export default function RegisterPage() {
         phone: form.phone,
         wechat: form.wechat.trim() || undefined,
         notes: form.notes.trim() || undefined,
+        riskTolerance: form.riskTolerance || undefined,
+        isAccreditedInvestor: form.isAccreditedInvestor,
+        investmentAmount: form.investmentAmount || undefined,
         ...(!isCompany ? {
           gender: form.gender || undefined,
           birthday: form.birthday || undefined,
           address: form.address.trim() || undefined,
+          idCard: form.idCard.trim() || undefined,
         } : {
           creditCode: form.creditCode.trim() || undefined,
           industry: form.industry.trim() || undefined,
           contactName: form.contactName.trim() || undefined,
           contactPhone: form.contactPhone.trim() || undefined,
+          legalPerson: form.legalPerson.trim() || undefined,
+          registeredCapital: form.registeredCapital.trim() || undefined,
         }),
       };
       await inviteApi.register(payload);
@@ -170,15 +183,30 @@ export default function RegisterPage() {
                       <Text style={{ color: '#ccc' }}>›</Text>
                     </View>
                   </Picker>
-                  <View style={{ ...ROW_STYLE, borderBottom: 'none' }}>
+                  <View style={ROW_STYLE}>
                     <Text style={LABEL_STYLE}>地址</Text>
                     <Input style={INPUT_STYLE} placeholder='选填' placeholderStyle='color:#bbb'
                       maxlength={200} value={form.address} onInput={set('address')} />
+                  </View>
+                  <View style={ROW_STYLE}>
+                    <Text style={LABEL_STYLE}>身份证号</Text>
+                    <Input style={INPUT_STYLE} placeholder='选填' placeholderStyle='color:#bbb'
+                      maxlength={18} value={form.idCard} onInput={set('idCard')} />
                   </View>
                 </View>
               )}
               {isCompany && (
                 <View>
+                  <View style={ROW_STYLE}>
+                    <Text style={LABEL_STYLE}>法人代表</Text>
+                    <Input style={INPUT_STYLE} placeholder='选填' placeholderStyle='color:#bbb'
+                      maxlength={50} value={form.legalPerson} onInput={set('legalPerson')} />
+                  </View>
+                  <View style={ROW_STYLE}>
+                    <Text style={LABEL_STYLE}>注册资本</Text>
+                    <Input style={INPUT_STYLE} placeholder='如：500万元' placeholderStyle='color:#bbb'
+                      maxlength={50} value={form.registeredCapital} onInput={set('registeredCapital')} />
+                  </View>
                   <View style={ROW_STYLE}>
                     <Text style={LABEL_STYLE}>统一信用代码</Text>
                     <Input style={INPUT_STYLE} placeholder='选填' placeholderStyle='color:#bbb'
@@ -194,13 +222,43 @@ export default function RegisterPage() {
                     <Input style={INPUT_STYLE} placeholder='选填' placeholderStyle='color:#bbb'
                       maxlength={50} value={form.contactName} onInput={set('contactName')} />
                   </View>
-                  <View style={{ ...ROW_STYLE, borderBottom: 'none' }}>
+                  <View style={ROW_STYLE}>
                     <Text style={LABEL_STYLE}>联系手机</Text>
                     <Input style={INPUT_STYLE} type='number' placeholder='选填' placeholderStyle='color:#bbb'
                       maxlength={11} value={form.contactPhone} onInput={set('contactPhone')} />
                   </View>
                 </View>
               )}
+              {/* 投资信息（通用） */}
+              <Picker mode='selector' range={RISK_LABELS} value={riskIndex}
+                onChange={(e) => setForm({ ...form, riskTolerance: RISK_VALUES[+e.detail.value] })}>
+                <View style={ROW_STYLE}>
+                  <Text style={LABEL_STYLE}>风险承受能力</Text>
+                  <Text style={{ flex: 1, fontSize: '28rpx', color: form.riskTolerance ? '#1a1d21' : '#bbb', textAlign: 'right', marginRight: '8rpx' }}>
+                    {form.riskTolerance ? RISK_LABELS[riskIndex] : '选填'}
+                  </Text>
+                  <Text style={{ color: '#ccc' }}>›</Text>
+                </View>
+              </Picker>
+              <View style={ROW_STYLE}>
+                <Text style={LABEL_STYLE}>合格投资人</Text>
+                <View style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', gap: '16rpx' }}>
+                  {['否', '是'].map((label, i) => (
+                    <View
+                      key={label}
+                      style={{ padding: '8rpx 24rpx', borderRadius: '999rpx', fontSize: '26rpx', background: form.isAccreditedInvestor === !!i ? '#e6f4f4' : '#f5f6f8', color: form.isAccreditedInvestor === !!i ? '#007d7d' : '#888' }}
+                      onClick={() => setForm({ ...form, isAccreditedInvestor: !!i })}
+                    >
+                      {label}
+                    </View>
+                  ))}
+                </View>
+              </View>
+              <View style={{ ...ROW_STYLE, borderBottom: 'none' }}>
+                <Text style={LABEL_STYLE}>意向投资额(万)</Text>
+                <Input style={{ ...INPUT_STYLE, textAlign: 'right' }} type='digit' placeholder='选填' placeholderStyle='color:#bbb'
+                  value={form.investmentAmount} onInput={set('investmentAmount')} />
+              </View>
             </View>
           )}
 

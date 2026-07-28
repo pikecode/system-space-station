@@ -47,6 +47,13 @@ enum CustomerType {
   COMPANY
 }
 
+enum RiskTolerance {
+  CONSERVATIVE
+  MODERATE
+  AGGRESSIVE
+  SPECULATIVE
+}
+
 enum Gender {
   MALE
   FEMALE
@@ -226,6 +233,12 @@ model Customer {
   industry     String?
   contactName  String?
   contactPhone String?
+  legalPerson  String?
+  registeredCapital String?
+  idCard       String?
+  riskTolerance     RiskTolerance?
+  isAccreditedInvestor Boolean @default(false)
+  investmentAmount  Decimal? @db.Decimal(12, 2)
   assignedTo   String
   assignedUser User           @relation("AssignedCustomers", fields: [assignedTo], references: [id])
   createdBy    String

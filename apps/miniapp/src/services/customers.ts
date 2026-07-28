@@ -17,6 +17,12 @@ export interface CustomerRow {
   industry?: string;
   contactName?: string;
   contactPhone?: string;
+  legalPerson?: string;
+  registeredCapital?: string;
+  idCard?: string;
+  riskTolerance?: string;
+  isAccreditedInvestor?: boolean;
+  investmentAmount?: string;
   assignedUser?: { id: string; name: string };
   department?: { id: string; name: string };
   memberships?: MembershipSummary[];
@@ -49,6 +55,12 @@ export interface CreateCustomerPayload {
   industry?: string;
   contactName?: string;
   contactPhone?: string;
+  legalPerson?: string;
+  registeredCapital?: string;
+  idCard?: string;
+  riskTolerance?: string;
+  isAccreditedInvestor?: boolean;
+  investmentAmount?: string;
 }
 
 export const customersApi = {
