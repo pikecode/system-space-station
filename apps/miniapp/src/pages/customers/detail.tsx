@@ -375,12 +375,12 @@ export default function CustomerDetailPage() {
         {editing ? (
           <View style={{ display: 'flex', flex: 1, gap: 'var(--space-xs)' }}>
             {!isCreate && (
-              <Button style={{ flex: 1, background: 'var(--color-surface-2)', color: 'var(--color-text-2)', borderRadius: 'var(--radius-md)', height: '96rpx', fontSize: '30rpx', fontWeight: '600' }} onClick={() => { setEditing(false); setActiveTab(0); }}>取消</Button>
+              <Button style={{ flex: 1, background: 'var(--color-surface-2)', color: 'var(--color-text-2)', borderRadius: 'var(--radius-md)', height: '96rpx', lineHeight: '96rpx', padding: 0, fontSize: '30rpx', fontWeight: '600' }} onClick={() => { setEditing(false); setActiveTab(0); }}>取消</Button>
             )}
-            <Button style={{ flex: 2, background: 'linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%)', color: 'var(--color-text-inv)', borderRadius: 'var(--radius-md)', height: '96rpx', fontSize: '30rpx', fontWeight: '600' }} loading={saving} onClick={handleSave}>保存</Button>
+            <Button style={{ flex: 2, background: 'linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%)', color: 'var(--color-text-inv)', borderRadius: 'var(--radius-md)', height: '96rpx', lineHeight: '96rpx', padding: 0, fontSize: '30rpx', fontWeight: '600' }} loading={saving} onClick={handleSave}>保存</Button>
           </View>
         ) : (
-          <Button style={{ flex: 1, background: 'linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%)', color: 'var(--color-text-inv)', borderRadius: 'var(--radius-md)', height: '96rpx', fontSize: '30rpx', fontWeight: '600' }} onClick={() => { setEditing(true); setActiveTab(0); }}>编辑</Button>
+          <Button style={{ flex: 1, background: 'linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%)', color: 'var(--color-text-inv)', borderRadius: 'var(--radius-md)', height: '96rpx', lineHeight: '96rpx', padding: 0, fontSize: '30rpx', fontWeight: '600' }} onClick={() => { setEditing(true); setActiveTab(0); }}>编辑</Button>
         )}
       </View>
     </View>

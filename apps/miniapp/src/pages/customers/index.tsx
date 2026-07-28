@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import Taro from '@tarojs/taro';
+import Taro, { useDidShow } from '@tarojs/taro';
 import { View, Text, Input, ScrollView } from '@tarojs/components';
 import { customersApi, type CustomerRow } from '../../services/customers';
 import { useAuthStore } from '../../store/auth';
@@ -23,6 +23,7 @@ export default function CustomersPage() {
   };
 
   useEffect(() => { load(); }, []);
+  useDidShow(() => { load(); });
 
   const SOURCE_LABELS: Record<string, string> = {
     REFERRAL: '转介绍', SELF_DEVELOPED: '自主开发',
