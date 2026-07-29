@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
+import Taro from '@tarojs/taro';
 import { View, Text, ScrollView } from '@tarojs/components';
 import { commissionsApi, type CommissionRecord } from '../../services/commissions';
 import { useAuthStore } from '../../store/auth';
+import { useRequireLogin } from '../../hooks/useRequireLogin';
 
 const ROLE_LABELS: Record<string, string> = {
   MEMBER: '维护人', DEPT_HEAD: '部门负责人',
@@ -16,15 +18,22 @@ const STATUS_CLASS: Record<string, string> = {
 
 export default function CommissionsListPage() {
   const user = useAuthStore((s) => s.user);
+  const authorized = useRequireLogin();
   const [list, setList] = useState<CommissionRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!authorized) return;
     const fetch = user?.role === 'HEAD'
       ? commissionsApi.getDepartment()
       : commissionsApi.getMy();
-    fetch.then(setList).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+    fetch
+      .then((page) => setList(page.data))
+      .catch((e: any) => Taro.showToast({ title: e.message || '加载失败', icon: 'none' }))
+      .finally(() => setLoading(false));
+  }, [authorized, user?.role]);
+
+  if (!authorized) return <View className='page' />;
 
   const totalPending = list
     .filter((r) => r.status === 'PENDING' && r.entryType === 'EARNING')

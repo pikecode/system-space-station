@@ -3,6 +3,7 @@ import Taro, { useShareAppMessage } from '@tarojs/taro';
 import { View, Text, Button, Canvas, Image } from '@tarojs/components';
 import { useAuthStore } from '../../store/auth';
 import { authApi } from '../../services/auth';
+import { useRequireLogin } from '../../hooks/useRequireLogin';
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: '系统管理员', HEAD: '部门负责人', MEMBER: '部门成员',
@@ -23,6 +24,7 @@ function buildQRMatrix(text: string): boolean[][] {
 export default function ProfilePage() {
   const { user, logout, setAuth } = useAuthStore();
   const token = useAuthStore((s) => s.token);
+  const authorized = useRequireLogin();
   const [posterSrc, setPosterSrc] = useState('');
   const [showPoster, setShowPoster] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -174,6 +176,13 @@ export default function ProfilePage() {
     });
   };
 
+  const navItems = [
+    { title: '分成明细', desc: '查看我的分成记录', url: '/pages/commissions/list', visible: true },
+    { title: '审批待办', desc: '处理入会和退款审批', url: '/pages/approvals/index', visible: user?.role === 'HEAD' || user?.role === 'ADMIN' },
+  ].filter((item) => item.visible);
+
+  if (!authorized) return <View className='page' />;
+
   return (
     <View className='page' style={{ paddingBottom: '64rpx' }}>
       {/* 离屏 Canvas — 用于绘制海报 */}
@@ -221,6 +230,23 @@ export default function ProfilePage() {
           </View>
         </View>
       )}
+
+      {/* 常用功能 */}
+      <View style={{ margin: 'var(--space-md) var(--space-md) 0', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
+        {navItems.map((item, index) => (
+          <View
+            key={item.url}
+            style={{ padding: '28rpx 32rpx', borderBottom: index < navItems.length - 1 ? '1rpx solid var(--color-divider)' : 'none', display: 'flex', alignItems: 'center' }}
+            onClick={() => Taro.navigateTo({ url: item.url })}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={{ display: 'block', fontSize: '30rpx', fontWeight: '700', color: 'var(--color-text-1)' }}>{item.title}</Text>
+              <Text style={{ display: 'block', marginTop: '6rpx', fontSize: '24rpx', color: 'var(--color-text-3)' }}>{item.desc}</Text>
+            </View>
+            <Text style={{ color: 'var(--color-text-3)', fontSize: '36rpx' }}>›</Text>
+          </View>
+        ))}
+      </View>
 
       {/* 退出登录 */}
       <View style={{ padding: 'var(--space-xl) var(--space-md) 0', textAlign: 'center' }}>

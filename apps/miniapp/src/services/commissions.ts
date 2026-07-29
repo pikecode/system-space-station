@@ -1,27 +1,19 @@
 import { http } from './request';
+import {
+  type CommissionRecordDto,
+  type PaginatedResponse,
+} from 'shared';
+import { normalizePaginated } from './response';
 
-export interface CommissionRecord {
-  id: string;
-  amount: string;
-  ratio: string;
-  status: string;
-  receiverRole: string;
-  entryType: string;
-  createdAt: string;
-  settledAt?: string;
-  membership?: {
-    fee: string;
-    customer?: { name: string };
-  };
-}
+export type CommissionRecord = CommissionRecordDto;
 
 export const commissionsApi = {
-  getMy: async (): Promise<CommissionRecord[]> => {
-    const res = await http.get<CommissionRecord[] | { data: CommissionRecord[] }>('/commissions/my');
-    return Array.isArray(res) ? res : (res as any).data ?? [];
+  getMy: async (params?: { page?: string; pageSize?: string; status?: string }): Promise<PaginatedResponse<CommissionRecord>> => {
+    const res = await http.get<CommissionRecord[] | PaginatedResponse<CommissionRecord>>('/commissions/my', params);
+    return normalizePaginated(res);
   },
-  getDepartment: async (): Promise<CommissionRecord[]> => {
-    const res = await http.get<CommissionRecord[] | { data: CommissionRecord[] }>('/commissions/department');
-    return Array.isArray(res) ? res : (res as any).data ?? [];
+  getDepartment: async (params?: { page?: string; pageSize?: string }): Promise<PaginatedResponse<CommissionRecord>> => {
+    const res = await http.get<CommissionRecord[] | PaginatedResponse<CommissionRecord>>('/commissions/department', params);
+    return normalizePaginated(res);
   },
 };

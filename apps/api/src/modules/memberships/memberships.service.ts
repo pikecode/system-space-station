@@ -80,6 +80,32 @@ export class MembershipsService {
     });
   }
 
+  async findOne(id: string, currentUser: any) {
+    const membership = await this.prisma.membership.findUnique({
+      where: { id },
+      include: {
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            assignedTo: true,
+            departmentId: true,
+          },
+        },
+        memberLevel: { select: { id: true, name: true } },
+        submitter: { select: { id: true, name: true } },
+      },
+    });
+    if (!membership) throw new NotFoundException('会员申请不存在');
+    this.assertCustomerScope(membership.customer, currentUser);
+
+    const { assignedTo, departmentId, ...customer } = membership.customer;
+    void assignedTo;
+    void departmentId;
+    return { ...membership, customer };
+  }
+
   async create(dto: CreateMembershipDto, currentUser: any) {
     const customer = await this.prisma.customer.findUnique({ where: { id: dto.customerId } });
     if (!customer) throw new NotFoundException('客户不存在');

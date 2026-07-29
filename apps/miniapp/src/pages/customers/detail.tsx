@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import Taro, { useRouter } from '@tarojs/taro';
 import { View, Text, ScrollView, Button, Input, Textarea, Picker } from '@tarojs/components';
+import type { CustomerSource, CustomerType, Gender, RiskTolerance } from 'shared';
 import { customersApi, type CustomerRow } from '../../services/customers';
 import { useAuthStore } from '../../store/auth';
+import { useRequireLogin } from '../../hooks/useRequireLogin';
 
 const SOURCE_OPTIONS = [
   { label: '转介绍', value: 'REFERRAL' },
@@ -45,6 +47,7 @@ export default function CustomerDetailPage() {
   const { id, mode } = router.params;
   const isCreate = mode === 'create';
   const user = useAuthStore((s) => s.user);
+  const authorized = useRequireLogin();
 
   const [customer, setCustomer] = useState<CustomerRow | null>(null);
   const [loading, setLoading] = useState(!isCreate);
@@ -62,7 +65,7 @@ export default function CustomerDetailPage() {
   });
 
   useEffect(() => {
-    if (!isCreate && id) {
+    if (authorized && !isCreate && id) {
       customersApi.getOne(id).then((data) => {
         setCustomer(data);
         setForm({
@@ -81,7 +84,7 @@ export default function CustomerDetailPage() {
         setLoading(false);
       }).catch(() => { Taro.showToast({ title: '加载失败', icon: 'none' }); setLoading(false); });
     }
-  }, [id]);
+  }, [authorized, id, isCreate]);
 
   const handleSave = async () => {
     if (!form.name.trim()) { Taro.showToast({ title: '请填写姓名', icon: 'none' }); setActiveTab(0); return; }
@@ -90,10 +93,10 @@ export default function CustomerDetailPage() {
     setSaving(true);
     const isCompany = form.customerType === 'COMPANY';
     const typeFields = !isCompany
-      ? { gender: form.gender || undefined, birthday: form.birthday || undefined, address: form.address.trim() || undefined, idCard: form.idCard.trim() || undefined }
+      ? { gender: (form.gender || undefined) as Gender | undefined, birthday: form.birthday || undefined, address: form.address.trim() || undefined, idCard: form.idCard.trim() || undefined }
       : { creditCode: form.creditCode.trim() || undefined, industry: form.industry.trim() || undefined, contactName: form.contactName.trim() || undefined, contactPhone: form.contactPhone.trim() || undefined, legalPerson: form.legalPerson.trim() || undefined, registeredCapital: form.registeredCapital.trim() || undefined };
     const investFields = {
-      riskTolerance: form.riskTolerance || undefined,
+      riskTolerance: (form.riskTolerance || undefined) as RiskTolerance | undefined,
       isAccreditedInvestor: form.isAccreditedInvestor,
       investmentAmount: form.investmentAmount || undefined,
     };
@@ -101,8 +104,8 @@ export default function CustomerDetailPage() {
       if (isCreate) {
         await customersApi.create({
           shareCode: form.shareCode.trim(),
-          customerType: form.customerType as 'INDIVIDUAL' | 'COMPANY',
-          name: form.name.trim(), phone: form.phone, source: form.source,
+          customerType: form.customerType as CustomerType,
+          name: form.name.trim(), phone: form.phone, source: form.source as CustomerSource,
           wechat: form.wechat.trim() || undefined,
           tags: form.tags.trim() || undefined,
           notes: form.notes.trim() || undefined,
@@ -113,7 +116,7 @@ export default function CustomerDetailPage() {
       } else {
         await customersApi.update(id!, {
           name: form.name.trim(), phone: form.phone,
-          customerType: form.customerType, source: form.source,
+          customerType: form.customerType as CustomerType, source: form.source as CustomerSource,
           wechat: form.wechat.trim() || undefined,
           tags: form.tags.trim() || undefined,
           notes: form.notes.trim() || undefined,
@@ -135,6 +138,7 @@ export default function CustomerDetailPage() {
   const riskIndex = Math.max(RISK_VALUES.indexOf(form.riskTolerance), 0);
   const isCompanyForm = form.customerType === 'COMPANY';
 
+  if (!authorized) return <View className='page' />;
   if (loading) return <View className='loading'>加载中…</View>;
 
   return (
@@ -305,7 +309,7 @@ export default function CustomerDetailPage() {
                 </View>
                 <View className='field'>
                   <Text className='field__label'>意向投资额(万)</Text>
-                  <Input className='field__input' type='digit' placeholder='选填' textAlign='right'
+                  <Input className='field__input' type='digit' placeholder='选填' style={{ textAlign: 'right' }}
                     value={form.investmentAmount} onInput={set('investmentAmount')} />
                 </View>
               </View>
@@ -461,7 +465,10 @@ export default function CustomerDetailPage() {
             <Button style={{ flex: 2, background: 'linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%)', color: 'var(--color-text-inv)', borderRadius: 'var(--radius-md)', height: '96rpx', lineHeight: '96rpx', padding: 0, fontSize: '30rpx', fontWeight: '600' }} loading={saving} onClick={handleSave}>保存</Button>
           </View>
         ) : (
-          <Button style={{ flex: 1, background: 'linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%)', color: 'var(--color-text-inv)', borderRadius: 'var(--radius-md)', height: '96rpx', lineHeight: '96rpx', padding: 0, fontSize: '30rpx', fontWeight: '600' }} onClick={() => { setEditing(true); setActiveTab(0); }}>编辑</Button>
+          <View style={{ display: 'flex', flex: 1, gap: 'var(--space-xs)' }}>
+            <Button style={{ flex: 1, background: 'var(--color-surface-2)', color: 'var(--color-brand)', borderRadius: 'var(--radius-md)', height: '96rpx', lineHeight: '96rpx', padding: 0, fontSize: '30rpx', fontWeight: '600' }} onClick={() => Taro.navigateTo({ url: `/pages/memberships/create?customerId=${customer?.id ?? ''}&customerName=${encodeURIComponent(customer?.name ?? '')}` })}>提交会员</Button>
+            <Button style={{ flex: 1, background: 'linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%)', color: 'var(--color-text-inv)', borderRadius: 'var(--radius-md)', height: '96rpx', lineHeight: '96rpx', padding: 0, fontSize: '30rpx', fontWeight: '600' }} onClick={() => { setEditing(true); setActiveTab(0); }}>编辑</Button>
+          </View>
         )}
       </View>
     </View>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Taro, { useRouter } from '@tarojs/taro';
 import { View, Text, Input, Button, Picker, Textarea } from '@tarojs/components';
+import type { CustomerType, Gender, RiskTolerance } from 'shared';
 import { inviteApi, type InviterInfo, type RegisterPayload } from '../../services/invite';
 
 const CUSTOMER_TYPES = [{ value: 'INDIVIDUAL', label: '个人' }, { value: 'COMPANY', label: '企业' }];
@@ -59,16 +60,16 @@ export default function RegisterPage() {
     try {
       const payload: RegisterPayload = {
         shareCode,
-        customerType: form.customerType as 'INDIVIDUAL' | 'COMPANY',
+        customerType: form.customerType as CustomerType,
         name: form.name.trim(),
         phone: form.phone,
         wechat: form.wechat.trim() || undefined,
         notes: form.notes.trim() || undefined,
-        riskTolerance: form.riskTolerance || undefined,
+        riskTolerance: (form.riskTolerance || undefined) as RiskTolerance | undefined,
         isAccreditedInvestor: form.isAccreditedInvestor,
         investmentAmount: form.investmentAmount || undefined,
         ...(!isCompany ? {
-          gender: form.gender || undefined,
+          gender: (form.gender || undefined) as Gender | undefined,
           birthday: form.birthday || undefined,
           address: form.address.trim() || undefined,
           idCard: form.idCard.trim() || undefined,

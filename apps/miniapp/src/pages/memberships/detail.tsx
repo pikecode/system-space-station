@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import Taro, { useRouter } from '@tarojs/taro';
-import { View, Text, ScrollView, Button, Input } from '@tarojs/components';
+import { View, Text, ScrollView, Button, Input, Picker } from '@tarojs/components';
 import { membershipsApi, type MembershipRecord } from '../../services/memberships';
 import { useAuthStore } from '../../store/auth';
+import { useRequireLogin } from '../../hooks/useRequireLogin';
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING: '待审核', APPROVED: '有效', REJECTED: '已拒绝',
@@ -18,6 +19,7 @@ export default function MembershipDetailPage() {
   const router = useRouter();
   const { id } = router.params;
   const user = useAuthStore((s) => s.user);
+  const authorized = useRequireLogin();
 
   const [record, setRecord] = useState<MembershipRecord | null>(null);
   const [loading, setLoading] = useState(true);
@@ -30,17 +32,21 @@ export default function MembershipDetailPage() {
   const [paidAt, setPaidAt] = useState(new Date().toISOString().slice(0, 10));
 
   const load = async () => {
-    if (!id) return;
+    if (!authorized || !id) return;
+    setLoading(true);
     try {
-      const data = await membershipsApi.getAll();
-      const found = data.data?.find?.((m) => m.id === id) ?? null;
-      setRecord(found);
-    } catch { } finally { setLoading(false); }
+      const data = await membershipsApi.getOne(id);
+      setRecord(data);
+    } catch (e: any) {
+      Taro.showToast({ title: e.message || '加载失败', icon: 'none' });
+      setRecord(null);
+    } finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => { load(); }, [authorized, id]);
 
   const doApprove = async () => {
+    if (!paidAt) { Taro.showToast({ title: '请选择实际收款时间', icon: 'none' }); return; }
     setActionLoading(true);
     try {
       await membershipsApi.approve(id!, { paidAt });
@@ -86,6 +92,7 @@ export default function MembershipDetailPage() {
     } finally { setActionLoading(false); }
   };
 
+  if (!authorized) return <View className='page' />;
   if (loading) return <View className='loading'>加载中…</View>;
   if (!record) return <View className='empty'>记录不存在</View>;
 
@@ -138,6 +145,17 @@ export default function MembershipDetailPage() {
               value={refundReason}
               onInput={(e) => setRefundReason(e.detail.value)}
             />
+          </View>
+        )}
+
+        {canApprove && !showRejectInput && (
+          <View style={{ margin: '0 24rpx 16rpx' }}>
+            <Picker mode='date' value={paidAt} onChange={(e) => setPaidAt(e.detail.value)}>
+              <View className='row' style={{ background: '#fff', padding: '24rpx', borderRadius: '12rpx', borderBottom: 'none' }}>
+                <Text className='row__label'>实际收款</Text>
+                <Text className='row__value' style={{ textAlign: 'right' }}>{paidAt} ›</Text>
+              </View>
+            </Picker>
           </View>
         )}
       </ScrollView>

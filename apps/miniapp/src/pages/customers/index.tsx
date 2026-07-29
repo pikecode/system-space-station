@@ -3,10 +3,12 @@ import Taro, { useDidShow } from '@tarojs/taro';
 import { View, Text, Input, ScrollView } from '@tarojs/components';
 import { customersApi, type CustomerRow } from '../../services/customers';
 import { useAuthStore } from '../../store/auth';
+import { useRequireLogin } from '../../hooks/useRequireLogin';
 
 export default function CustomersPage() {
   const user = useAuthStore((s) => s.user);
   const token = useAuthStore((s) => s.token);
+  const authorized = useRequireLogin();
   const [list, setList] = useState<CustomerRow[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -14,8 +16,8 @@ export default function CustomersPage() {
   const load = async (name?: string) => {
     setLoading(true);
     try {
-      const data = await customersApi.getAll(name ? { name } : undefined);
-      setList(data);
+      const page = await customersApi.getAll(name ? { name } : undefined);
+      setList(page.data);
     } catch (e: any) {
       Taro.showToast({ title: e.message || '加载失败', icon: 'none' });
     } finally {
@@ -23,7 +25,9 @@ export default function CustomersPage() {
     }
   };
 
-  useDidShow(() => { if (token) load(); });
+  useDidShow(() => { if (authorized && token) load(); });
+
+  if (!authorized) return <View className='page' />;
 
   const SOURCE_LABELS: Record<string, string> = {
     REFERRAL: '转介绍', SELF_DEVELOPED: '自主开发',

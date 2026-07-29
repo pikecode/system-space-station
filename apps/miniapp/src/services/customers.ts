@@ -1,73 +1,20 @@
 import { http } from './request';
+import {
+  type CreateCustomerPayloadDto,
+  type CustomerDto,
+  type PaginatedResponse,
+  type QueryCustomersDto,
+  type UpdateCustomerPayloadDto,
+} from 'shared';
+import { normalizePaginated } from './response';
 
-export interface CustomerRow {
-  id: string;
-  name: string;
-  phone: string;
-  customerType: 'INDIVIDUAL' | 'COMPANY';
-  source: string;
-  registrationSource?: string;
-  tags?: string;
-  notes?: string;
-  wechat?: string;
-  gender?: string;
-  birthday?: string;
-  address?: string;
-  creditCode?: string;
-  industry?: string;
-  contactName?: string;
-  contactPhone?: string;
-  legalPerson?: string;
-  registeredCapital?: string;
-  idCard?: string;
-  riskTolerance?: string;
-  isAccreditedInvestor?: boolean;
-  investmentAmount?: string;
-  assignedUser?: { id: string; name: string };
-  department?: { id: string; name: string };
-  memberships?: MembershipSummary[];
-  status: string;
-}
-
-export interface MembershipSummary {
-  id: string;
-  memberNo: string;
-  status: string;
-  fee: string;
-  startDate: string;
-  endDate: string;
-  memberLevel?: { name: string };
-}
-
-export interface CreateCustomerPayload {
-  shareCode: string;
-  customerType: 'INDIVIDUAL' | 'COMPANY';
-  name: string;
-  phone: string;
-  source?: string;
-  tags?: string;
-  notes?: string;
-  wechat?: string;
-  gender?: string;
-  birthday?: string;
-  address?: string;
-  creditCode?: string;
-  industry?: string;
-  contactName?: string;
-  contactPhone?: string;
-  legalPerson?: string;
-  registeredCapital?: string;
-  idCard?: string;
-  riskTolerance?: string;
-  isAccreditedInvestor?: boolean;
-  investmentAmount?: string;
-}
+export type CustomerRow = CustomerDto;
+export type CreateCustomerPayload = CreateCustomerPayloadDto;
 
 export const customersApi = {
-  getAll: async (params?: { name?: string; phone?: string }): Promise<CustomerRow[]> => {
-    const qs = params ? new URLSearchParams(params as Record<string, string>).toString() : '';
-    const res = await http.get<CustomerRow[] | { data: CustomerRow[] }>(`/customers${qs ? `?${qs}` : ''}`);
-    return Array.isArray(res) ? res : (res as { data: CustomerRow[] }).data ?? [];
+  getAll: async (params?: QueryCustomersDto): Promise<PaginatedResponse<CustomerRow>> => {
+    const res = await http.get<CustomerRow[] | PaginatedResponse<CustomerRow>>('/customers', params);
+    return normalizePaginated(res);
   },
 
   getOne: (id: string) =>
@@ -76,6 +23,6 @@ export const customersApi = {
   create: (data: CreateCustomerPayload) =>
     http.post<CustomerRow>('/customers', data),
 
-  update: (id: string, data: unknown) =>
+  update: (id: string, data: UpdateCustomerPayloadDto) =>
     http.patch<CustomerRow>(`/customers/${id}`, data),
 };

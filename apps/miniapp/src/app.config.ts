@@ -6,6 +6,7 @@ export default {
     'pages/customers/index',
     'pages/customers/detail',
     'pages/profile/index',
+    'pages/approvals/index',
     'pages/memberships/create',
     'pages/memberships/detail',
     'pages/commissions/list',

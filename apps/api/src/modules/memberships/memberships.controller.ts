@@ -35,6 +35,11 @@ export class MembershipsController {
     return this.membershipsService.findPending(user);
   }
 
+  @Get(':id')
+  findOne(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.membershipsService.findOne(id, user);
+  }
+
   @UseGuards(RolesGuard)
   @Roles('MEMBER', 'HEAD')
   @Post()

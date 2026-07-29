@@ -81,7 +81,8 @@ export class CustomersService {
     if (owner.status !== 'ACTIVE') throw new BadRequestException('分享码用户已停用');
     if (!owner.departmentId) throw new BadRequestException('分享码用户未分配部门');
 
-    const { shareCode, birthday, source, gender, ...rest } = dto;
+    const { birthday, source, gender, ...rest } = dto;
+    delete (rest as Partial<CreateCustomerDto>).shareCode;
     const registrationSource = currentUser.role === 'ADMIN' ? 'ADMIN' : 'PARTNER';
     return this.prisma.customer.create({
       data: {

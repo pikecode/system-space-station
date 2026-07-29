@@ -3,6 +3,7 @@ import Taro from '@tarojs/taro';
 import { View, Text, ScrollView, Button } from '@tarojs/components';
 import { membershipsApi, type MembershipRecord } from '../../services/memberships';
 import { useAuthStore } from '../../store/auth';
+import { useRequireLogin } from '../../hooks/useRequireLogin';
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING: '入会审批', REFUND_PENDING: '退款审批',
@@ -10,10 +11,15 @@ const STATUS_LABELS: Record<string, string> = {
 
 export default function ApprovalsPage() {
   const user = useAuthStore((s) => s.user);
+  const authorized = useRequireLogin();
   const [list, setList] = useState<MembershipRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
+    if (!authorized || user?.role === 'MEMBER') {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const data = await membershipsApi.getPending();
@@ -25,7 +31,9 @@ export default function ApprovalsPage() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [authorized, user?.role]);
+
+  if (!authorized) return <View className='page' />;
 
   if (user?.role === 'MEMBER') {
     return (

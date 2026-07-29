@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { UserRole } from 'shared';
+import type { UserRole } from 'shared';
 import { storage } from '../utils/storage';
 
 interface UserInfo {
