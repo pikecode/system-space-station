@@ -14,7 +14,7 @@ export default defineConfig({
   outputRoot: 'dist',
   plugins: [],
   env: {
-    TARO_APP_API_URL: '"http://localhost:4100/api"',
+    TARO_APP_API_URL: JSON.stringify(process.env.TARO_APP_API_URL ?? 'http://8.130.168.178:4100/api'),
   },
   defineConstants: {},
   copy: { patterns: [], options: {} },
