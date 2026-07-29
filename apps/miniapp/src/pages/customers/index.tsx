@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Taro, { useDidShow } from '@tarojs/taro';
 import { View, Text, Input, ScrollView } from '@tarojs/components';
 import { customersApi, type CustomerRow } from '../../services/customers';
@@ -6,6 +6,7 @@ import { useAuthStore } from '../../store/auth';
 
 export default function CustomersPage() {
   const user = useAuthStore((s) => s.user);
+  const token = useAuthStore((s) => s.token);
   const [list, setList] = useState<CustomerRow[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -22,8 +23,7 @@ export default function CustomersPage() {
     }
   };
 
-  useEffect(() => { load(); }, []);
-  useDidShow(() => { load(); });
+  useDidShow(() => { if (token) load(); });
 
   const SOURCE_LABELS: Record<string, string> = {
     REFERRAL: '转介绍', SELF_DEVELOPED: '自主开发',
