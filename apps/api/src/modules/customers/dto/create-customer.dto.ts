@@ -5,7 +5,12 @@ import { CustomerType, CustomerSource, Gender, RiskTolerance } from '@prisma/cli
 
 export class CreateCustomerDto {
   @IsString()
-  shareCode: string;
+  @IsOptional()
+  shareCode?: string;
+
+  @IsString()
+  @IsOptional()
+  assignedUserId?: string;
 
   @IsEnum(CustomerType)
   customerType: CustomerType;

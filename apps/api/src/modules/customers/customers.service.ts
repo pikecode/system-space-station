@@ -73,16 +73,30 @@ export class CustomersService {
   }
 
   async create(dto: CreateCustomerDto, currentUser: any) {
-    const owner = await this.prisma.user.findUnique({
-      where: { shareCode: dto.shareCode },
-      select: { id: true, departmentId: true, status: true },
-    });
-    if (!owner) throw new BadRequestException('分享码无效');
-    if (owner.status !== 'ACTIVE') throw new BadRequestException('分享码用户已停用');
-    if (!owner.departmentId) throw new BadRequestException('分享码用户未分配部门');
+    let owner: { id: string; departmentId: string | null; status: string } | null = null;
+
+    if (currentUser.role === 'ADMIN' && dto.assignedUserId) {
+      owner = await this.prisma.user.findUnique({
+        where: { id: dto.assignedUserId },
+        select: { id: true, departmentId: true, status: true },
+      });
+      if (!owner) throw new BadRequestException('指定归属人不存在');
+      if (owner.status !== 'ACTIVE') throw new BadRequestException('归属人已停用');
+      if (!owner.departmentId) throw new BadRequestException('归属人未分配部门');
+    } else {
+      if (!dto.shareCode) throw new BadRequestException('分享码不能为空');
+      owner = await this.prisma.user.findUnique({
+        where: { shareCode: dto.shareCode },
+        select: { id: true, departmentId: true, status: true },
+      });
+      if (!owner) throw new BadRequestException('分享码无效');
+      if (owner.status !== 'ACTIVE') throw new BadRequestException('分享码用户已停用');
+      if (!owner.departmentId) throw new BadRequestException('分享码用户未分配部门');
+    }
 
     const { birthday, source, gender, ...rest } = dto;
     delete (rest as Partial<CreateCustomerDto>).shareCode;
+    delete (rest as Partial<CreateCustomerDto>).assignedUserId;
     const registrationSource = currentUser.role === 'ADMIN' ? 'ADMIN' : 'PARTNER';
     return this.prisma.customer.create({
       data: {
