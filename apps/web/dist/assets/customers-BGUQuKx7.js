@@ -1,1 +1,0 @@
-import{r as t}from"./request-9lQCnv_h.js";const c={getAll:e=>t.get("/customers",{params:e}),getOne:e=>t.get(`/customers/${e}`),create:e=>t.post("/customers",e),update:(e,s)=>t.patch(`/customers/${e}`,s),transfer:(e,s)=>t.patch(`/customers/${e}/transfer`,s),disable:e=>t.delete(`/customers/${e}`)};export{c};

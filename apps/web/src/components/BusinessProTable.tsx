@@ -34,7 +34,6 @@ function BusinessProTable<
   columns = [],
   ...rest
 }: ProTableProps<DataType, Params, ValueType>) {
-  // ready = false on first mount when there's a request to fetch
   const [ready, setReady] = useState(!request);
 
   const wrappedRequest = request
@@ -45,29 +44,27 @@ function BusinessProTable<
       }
     : undefined;
 
-  const skeletonCols = buildSkeletonCols(columns as any[]);
-
   return (
-    <ProTable<DataType, Params, ValueType>
-      {...rest}
-      columns={columns}
-      request={wrappedRequest}
-      loading={ready ? rest.loading : false}
-      tableRender={(_, defaultDom) =>
-        !ready ? (
-          <Table<{ _skid: number }>
-            rowKey="_skid"
-            size="middle"
-            columns={skeletonCols}
-            dataSource={SKELETON_ROWS}
-            pagination={false}
-            style={{ background: '#fff' }}
-          />
-        ) : (
-          defaultDom
-        )
-      }
-    />
+    <>
+      {/* 首次加载骨架屏：ProTable 隐藏但保持挂载以触发 request */}
+      {!ready && (
+        <Table<{ _skid: number }>
+          rowKey="_skid"
+          size="middle"
+          columns={buildSkeletonCols(columns as any[])}
+          dataSource={SKELETON_ROWS}
+          pagination={false}
+          style={{ background: '#fff' }}
+        />
+      )}
+      <div style={{ display: ready ? 'block' : 'none' }}>
+        <ProTable<DataType, Params, ValueType>
+          {...rest}
+          columns={columns}
+          request={wrappedRequest}
+        />
+      </div>
+    </>
   );
 }
 
