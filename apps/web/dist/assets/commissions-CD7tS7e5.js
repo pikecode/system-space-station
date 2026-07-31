@@ -1,1 +1,0 @@
-import{r as e}from"./request-B-HxZUTn.js";const o={getMy:s=>e.get("/commissions/my",{params:s}),getDepartment:s=>e.get("/commissions/department",{params:s}),getOverview:s=>e.get("/commissions/overview",{params:s}),getPeriods:s=>e.get("/commissions/periods",{params:s}),settle:s=>e.post(`/commissions/settle/${s}`)};export{o as c};

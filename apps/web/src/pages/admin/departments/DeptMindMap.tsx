@@ -6,6 +6,7 @@ interface DeptNode {
   name: string;
   type: string;
   children: DeptNode[];
+  _count?: { users: number };
 }
 
 const TYPE_COLOR: Record<string, string> = {
@@ -26,11 +27,10 @@ const BAR = 0.045;
 
 function toNode(
   node: DeptNode,
-  memberCountMap: Record<string, number>,
   membersByDept: Record<string, Array<{ name: string; role: string; userType: string }>>,
 ): object {
   const color = TYPE_COLOR[node.type] ?? '#8c8c8c';
-  const count = memberCountMap[node.id] ?? 0;
+  const count = node._count?.users ?? 0;
   const members = membersByDept[node.id] ?? [];
   return {
     name: node.name,
@@ -51,18 +51,16 @@ function toNode(
       borderWidth: 4,
     },
     children: node.children?.length
-      ? node.children.map((c) => toNode(c, memberCountMap, membersByDept))
+      ? node.children.map((c) => toNode(c, membersByDept))
       : undefined,
   };
 }
 
 export default function DeptMindMap({
   roots,
-  memberCountMap = {},
   membersByDept = {},
 }: {
   roots: DeptNode[];
-  memberCountMap?: Record<string, number>;
   membersByDept?: Record<string, Array<{ name: string; role: string; userType: string }>>;
 }) {
   const root = roots.length === 1
@@ -102,7 +100,7 @@ export default function DeptMindMap({
     series: [
       {
         type: 'tree',
-        data: [toNode(root, memberCountMap, membersByDept)],
+        data: [toNode(root, membersByDept)],
         orient: 'LR',
         roam: true,
         initialTreeDepth: 100,

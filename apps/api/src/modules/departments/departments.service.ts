@@ -16,7 +16,10 @@ export class DepartmentsService {
   async findAll() {
     return this.prisma.department.findMany({
       where: { status: 'ACTIVE' },
-      include: { head: { select: { id: true, name: true } } },
+      include: {
+        head: { select: { id: true, name: true } },
+        _count: { select: { users: { where: { status: 'ACTIVE' } } } },
+      },
       orderBy: [{ sort: 'asc' }, { createdAt: 'asc' }],
     });
   }

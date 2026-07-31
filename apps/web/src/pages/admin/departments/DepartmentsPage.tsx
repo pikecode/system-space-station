@@ -47,6 +47,7 @@ interface DeptNode {
   district?: string;
   addressDetail?: string;
   description?: string;
+  _count?: { users: number };
   key: string;
   title: string;
   children: DeptNode[];
@@ -113,19 +114,12 @@ export default function DepartmentsPage() {
     enabled: !!memberDept?.id,
   });
 
-  // 全部用户（用于人数统计 + 选择已有人员）
+  // 全部用户 — 仅在管理成员时才加载
   const { data: allUsers = [], refetch: refetchAllUsers } = useQuery<MemberRow[]>({
     queryKey: ['all-users-for-assign'],
     queryFn: () => usersApi.getAll({ status: 'ACTIVE' }) as unknown as Promise<MemberRow[]>,
+    enabled: !!memberDept,
   });
-
-  const memberCountMap = useMemo<Record<string, number>>(() => {
-    const map: Record<string, number> = {};
-    allUsers.forEach((u) => {
-      if (u.departmentId) map[u.departmentId] = (map[u.departmentId] ?? 0) + 1;
-    });
-    return map;
-  }, [allUsers]);
 
   const membersByDept = useMemo<Record<string, Array<{ name: string; role: string; userType: string }>>>(() => {
     const map: Record<string, Array<{ name: string; role: string; userType: string }>> = {};
@@ -375,7 +369,7 @@ export default function DepartmentsPage() {
       key: 'memberCount',
       width: 90,
       render: (_, record) => {
-        const count = memberCountMap[record.id] ?? 0;
+        const count = record._count?.users ?? 0;
         const cap = DEPT_CAPACITY[record.type];
         return (
           <Button
@@ -486,7 +480,7 @@ export default function DepartmentsPage() {
             >
               返回列表
             </Button>
-            <DeptMindMap roots={buildTreeData(departments)} memberCountMap={memberCountMap} membersByDept={membersByDept} />
+            <DeptMindMap roots={buildTreeData(departments)} membersByDept={membersByDept} />
           </div>
         ) : undefined}
         scroll={{ x: 1200 }}
