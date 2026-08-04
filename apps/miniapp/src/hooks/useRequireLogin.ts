@@ -5,7 +5,8 @@ import { useAuthStore } from '../store/auth';
 let navigating = false;
 
 export function useRequireLogin(): boolean {
-  const token = useAuthStore.getState().token;
+  // 响应式订阅 token，token 变化时触发 effect
+  const token = useAuthStore((s) => s.token);
 
   useEffect(() => {
     if (!token && !navigating) {
@@ -13,8 +14,7 @@ export function useRequireLogin(): boolean {
       Taro.reLaunch({ url: '/pages/login/index' });
       setTimeout(() => { navigating = false; }, 3000);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [token]); // 只在 token 变化时执行，不在每次渲染时重新注册
 
   return !!token;
 }
