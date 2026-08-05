@@ -1,5 +1,7 @@
 import { defineConfig } from '@tarojs/cli';
 
+const isDebugBuild = process.env.TARO_DEBUG === 'true';
+
 export default defineConfig({
   projectName: 'miniapp',
   date: '2026-07-21',
@@ -21,6 +23,8 @@ export default defineConfig({
   framework: 'react',
   compiler: 'webpack5',
   cache: { enable: false },
+  enableSourceMap: isDebugBuild,
+  sourceMapType: 'source-map',
   mini: {
     postcss: {
       pxtransform: { enable: true, config: {} },
@@ -29,6 +33,11 @@ export default defineConfig({
     },
     webpackChain(chain) {
       chain.resolve.alias.set('@', require('path').resolve(__dirname, '..', 'src'));
+      if (isDebugBuild) {
+        chain.mode('development');
+        chain.devtool('source-map');
+        chain.optimization.minimize(false);
+      }
     },
   },
   h5: {

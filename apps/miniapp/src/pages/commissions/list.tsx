@@ -6,14 +6,20 @@ import { useAuthStore } from '../../store/auth';
 import { useRequireLogin } from '../../hooks/useRequireLogin';
 
 const ROLE_LABELS: Record<string, string> = {
-  MEMBER: '维护人', DEPT_HEAD: '部门负责人',
-  MARKET_HEAD: '市场部负责人', COMPANY: '公司',
+  MEMBER: '维护人',
+  DEPT_HEAD: '部门负责人',
+  MARKET_HEAD: '市场部负责人',
+  COMPANY: '公司',
 };
 const STATUS_LABELS: Record<string, string> = {
-  PENDING: '待结算', PENDING_PAYMENT: '待出账', SETTLED: '已结算',
+  PENDING: '待结算',
+  PENDING_PAYMENT: '待出账',
+  SETTLED: '已结算',
 };
 const STATUS_CLASS: Record<string, string> = {
-  PENDING: 'tag--pending', PENDING_PAYMENT: 'tag--pending', SETTLED: 'tag--approved',
+  PENDING: 'tag--pending',
+  PENDING_PAYMENT: 'tag--pending',
+  SETTLED: 'tag--approved',
 };
 
 export default function CommissionsListPage() {
@@ -24,6 +30,7 @@ export default function CommissionsListPage() {
 
   useEffect(() => {
     if (!authorized) return;
+    setLoading(true);
     const fetch = user?.role === 'HEAD'
       ? commissionsApi.getDepartment()
       : commissionsApi.getMy();
@@ -33,72 +40,74 @@ export default function CommissionsListPage() {
       .finally(() => setLoading(false));
   }, [authorized, user?.role]);
 
-  if (!authorized) return <View className='page' />;
+  if (!authorized) return <View className='loading'>跳转登录中...</View>;
 
   const totalPending = list
-    .filter((r) => r.status === 'PENDING' && r.entryType === 'EARNING')
-    .reduce((s, r) => s + Number(r.amount), 0);
+    .filter((record) => record.status === 'PENDING' && record.entryType === 'EARNING')
+    .reduce((sum, record) => sum + Number(record.amount), 0);
   const totalSettled = list
-    .filter((r) => r.status === 'SETTLED' && r.entryType === 'EARNING')
-    .reduce((s, r) => s + Number(r.amount), 0);
+    .filter((record) => record.status === 'SETTLED' && record.entryType === 'EARNING')
+    .reduce((sum, record) => sum + Number(record.amount), 0);
 
   return (
     <View className='page'>
-      {/* 统计 Banner */}
-      <View style={{
-        background: 'linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%)',
-        borderRadius: '0 0 32rpx 32rpx',
-        padding: '32rpx 24rpx 40rpx',
-        display: 'flex',
-        gap: '16rpx',
-      }}>
-        <View style={{ flex: 1, textAlign: 'center' }}>
-          <Text style={{ fontSize: '24rpx', color: 'rgba(255,255,255,0.7)', display: 'block' }}>待结算</Text>
-          <Text style={{ fontSize: '56rpx', fontWeight: '800', color: '#f59e0b', display: 'block', marginTop: '8rpx' }}>
+      <View className='summary-band'>
+        <View className='metric'>
+          <Text className='metric__label'>待结算收入</Text>
+          <Text className='metric__value metric__value--warning'>
             ¥{totalPending.toLocaleString()}
           </Text>
         </View>
-        <View style={{ width: '1rpx', background: 'rgba(255,255,255,0.2)', margin: '8rpx 0' }} />
-        <View style={{ flex: 1, textAlign: 'center' }}>
-          <Text style={{ fontSize: '24rpx', color: 'rgba(255,255,255,0.7)', display: 'block' }}>已结算</Text>
-          <Text style={{ fontSize: '56rpx', fontWeight: '800', color: '#10b981', display: 'block', marginTop: '8rpx' }}>
-            ¥{totalSettled.toLocaleString()}
-          </Text>
+        <View className='metric'>
+          <Text className='metric__label'>已结算收入</Text>
+          <Text className='metric__value'>¥{totalSettled.toLocaleString()}</Text>
         </View>
       </View>
 
-      <ScrollView scrollY style={{ height: 'calc(100vh - 240rpx)' }}>
+      <ScrollView scrollY className='workflow-scroll'>
+        <View className='content-meta'>
+          <Text>{user?.role === 'HEAD' ? '部门分成明细' : '我的分成明细'}</Text>
+          <Text className='content-meta__strong'>{loading ? '--' : `${list.length} 条`}</Text>
+        </View>
+
         {loading ? (
-          <View className='loading'>加载中…</View>
+          <View className='status-panel'>
+            <Text className='status-panel__desc'>正在同步分成记录...</Text>
+          </View>
         ) : list.length === 0 ? (
-          <View className='empty'>暂无分成记录</View>
+          <View className='status-panel'>
+            <View className='status-panel__mark'>¥</View>
+            <Text className='status-panel__title'>暂无分成记录</Text>
+            <Text className='status-panel__desc'>产生会员业务后，分成明细会显示在这里</Text>
+          </View>
         ) : (
-          <View style={{ padding: 'var(--space-sm) var(--space-md)', display: 'flex', flexDirection: 'column', gap: 'var(--space-xs)' }}>
-            {list.map((item) => (
-              <View key={item.id} className='card' style={{ margin: 0 }}>
-                <View style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12rpx' }}>
-                  <Text style={{ fontWeight: '700', fontSize: '30rpx', color: 'var(--color-text-1)' }}>
-                    {item.membership?.customer?.name ?? '—'}
-                  </Text>
-                  <Text className={`tag ${STATUS_CLASS[item.status] ?? ''}`}>
-                    {STATUS_LABELS[item.status] ?? item.status}
-                  </Text>
-                </View>
-                <View style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                  <View>
-                    <Text style={{ fontSize: '26rpx', color: 'var(--color-text-2)', display: 'block' }}>
-                      {ROLE_LABELS[item.receiverRole] ?? item.receiverRole}
-                    </Text>
-                    <Text style={{ fontSize: '22rpx', color: 'var(--color-text-3)', display: 'block', marginTop: '4rpx' }}>
-                      {item.createdAt?.slice(0, 10)}
-                    </Text>
+          <View className='entity-list'>
+            {list.map((item) => {
+              const amount = Number(item.amount);
+              return (
+                <View key={item.id} className='entity-row'>
+                  <View className='entity-row__body'>
+                    <View className='entity-row__top'>
+                      <Text className='entity-row__title'>
+                        {item.membership?.customer?.name ?? '未关联客户'}
+                      </Text>
+                      <Text className={`tag ${STATUS_CLASS[item.status] ?? 'tag--neutral'}`}>
+                        {STATUS_LABELS[item.status] ?? item.status}
+                      </Text>
+                    </View>
+                    <View className='entity-row__bottom'>
+                      <Text className='entity-row__meta'>
+                        {ROLE_LABELS[item.receiverRole] ?? item.receiverRole}
+                        {item.createdAt ? ` · ${item.createdAt.slice(0, 10)}` : ''}
+                      </Text>
+                      <Text className={`entity-row__value ${amount < 0 ? 'amount--negative' : ''}`}>
+                        {amount < 0 ? '-' : ''}¥{Math.abs(amount).toLocaleString()}
+                      </Text>
+                    </View>
                   </View>
-                  <Text style={{ fontSize: '40rpx', fontWeight: '800', color: Number(item.amount) < 0 ? 'var(--color-error)' : 'var(--color-text-1)' }}>
-                    ¥{Number(item.amount).toLocaleString()}
-                  </Text>
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
       </ScrollView>

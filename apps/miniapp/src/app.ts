@@ -11,7 +11,9 @@ export default function App({ children }: PropsWithChildren) {
       if (shareCode) {
         Taro.setStorageSync('pendingShareCode', shareCode);
       }
-    } catch {}
+    } catch (error) {
+      console.warn('[miniapp launch options warning]', error);
+    }
   }, []);
   return children;
 }

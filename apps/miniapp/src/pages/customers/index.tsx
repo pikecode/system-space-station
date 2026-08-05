@@ -5,12 +5,42 @@ import { customersApi, type CustomerRow } from '../../services/customers';
 import { useAuthStore } from '../../store/auth';
 import { useRequireLogin } from '../../hooks/useRequireLogin';
 
+const SOURCE_LABELS: Record<string, string> = {
+  REFERRAL: '转介绍',
+  SELF_DEVELOPED: '自主开发',
+  ACTIVITY: '活动获客',
+  ONLINE: '线上渠道',
+  OTHER: '其他',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  PENDING: '待审核',
+  APPROVED: '有效',
+  REJECTED: '已拒绝',
+  EXPIRED: '已到期',
+};
+
+const STATUS_CLASS: Record<string, string> = {
+  PENDING: 'tag--pending',
+  APPROVED: 'tag--approved',
+  REJECTED: 'tag--rejected',
+  EXPIRED: 'tag--expired',
+};
+
+const FILTERS = [
+  { label: '全部', value: 'ALL' },
+  { label: '个人', value: 'INDIVIDUAL' },
+  { label: '企业', value: 'COMPANY' },
+] as const;
+
+type FilterValue = typeof FILTERS[number]['value'];
+
 export default function CustomersPage() {
-  const user = useAuthStore((s) => s.user);
   const token = useAuthStore((s) => s.token);
   const authorized = useRequireLogin();
   const [list, setList] = useState<CustomerRow[]>([]);
   const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<FilterValue>('ALL');
   const [loading, setLoading] = useState(true);
 
   const load = async (name?: string) => {
@@ -25,74 +55,96 @@ export default function CustomersPage() {
     }
   };
 
-  useDidShow(() => { if (authorized && token) load(); });
+  useDidShow(() => { if (authorized && token) load(search.trim() || undefined); });
 
-  if (!authorized) return <View className='page' />;
+  if (!authorized) return <View className='loading'>跳转登录中...</View>;
 
-  const SOURCE_LABELS: Record<string, string> = {
-    REFERRAL: '转介绍', SELF_DEVELOPED: '自主开发',
-    ACTIVITY: '活动', ONLINE: '线上', OTHER: '其他',
-  };
+  const visibleList = filter === 'ALL'
+    ? list
+    : list.filter((item) => item.customerType === filter);
 
   return (
     <View className='page'>
-      <View style={{ background: 'var(--color-surface)', padding: 'var(--space-sm) var(--space-md)', display: 'flex', gap: 'var(--space-xs)', boxShadow: 'var(--shadow-card)' }}>
-        <View style={{ flex: 1, background: 'var(--color-bg)', borderRadius: 'var(--radius-lg)', padding: '16rpx 24rpx', display: 'flex', alignItems: 'center', gap: '12rpx' }}>
-          <Text style={{ fontSize: '28rpx', color: 'var(--color-text-3)' }}>🔍</Text>
+      <View className='toolbar'>
+        <View className='search-box'>
           <Input
-            style={{ flex: 1, fontSize: '28rpx', color: 'var(--color-text-1)' }}
-            placeholder='搜索客户姓名'
-            placeholderStyle='color: var(--color-text-3)'
+            className='search-box__input'
+            placeholder='搜索姓名或企业名称'
+            placeholderStyle='color:#89928f'
+            confirmType='search'
             value={search}
-            onInput={(e) => setSearch(e.detail.value)}
-            onConfirm={() => load(search)}
+            onInput={(e) => {
+              const value = e.detail.value;
+              setSearch(value);
+              if (!value) load();
+            }}
+            onConfirm={() => load(search.trim() || undefined)}
           />
         </View>
         <View
-          style={{ background: 'linear-gradient(135deg, #0a4f5e 0%, #007d7d 100%)', color: 'var(--color-text-inv)', borderRadius: 'var(--radius-md)', padding: '0 28rpx', fontSize: '28rpx', fontWeight: '600', display: 'flex', alignItems: 'center' }}
+          className='icon-button'
+          aria-label='新增客户'
           onClick={() => Taro.navigateTo({ url: '/pages/customers/detail?mode=create' })}
         >
-          新增
+          +
         </View>
       </View>
 
+      <View className='segmented'>
+        {FILTERS.map((item) => (
+          <View
+            key={item.value}
+            className={`segmented__item ${filter === item.value ? 'segmented__item--active' : ''}`}
+            onClick={() => setFilter(item.value)}
+          >
+            {item.label}
+          </View>
+        ))}
+      </View>
+
+      <View className='content-meta'>
+        <Text>客户列表</Text>
+        <Text><Text className='content-meta__strong'>{visibleList.length}</Text> 位客户</Text>
+      </View>
+
       {loading ? (
-        <View className='loading'>加载中…</View>
-      ) : list.length === 0 ? (
-        <View className='empty'>
-          <Text>暂无客户记录</Text>
-          <Text style={{ fontSize: '24rpx' }}>点击右上角新增第一位客户</Text>
+        <View className='status-panel'>
+          <View className='status-panel__mark'>...</View>
+          <Text className='status-panel__title'>正在加载客户</Text>
+        </View>
+      ) : visibleList.length === 0 ? (
+        <View className='status-panel'>
+          <View className='status-panel__mark'>+</View>
+          <Text className='status-panel__title'>{search ? '没有匹配的客户' : '暂无客户记录'}</Text>
+          <Text className='status-panel__desc'>{search ? '调整搜索内容后重试' : '使用右上角新增客户'}</Text>
         </View>
       ) : (
-        <ScrollView scrollY style={{ height: 'calc(100vh - 120rpx)' }}>
-          <View style={{ padding: 'var(--space-sm) var(--space-md)', display: 'flex', flexDirection: 'column', gap: 'var(--space-xs)' }}>
-            {list.map((item) => (
+        <ScrollView scrollY style={{ height: 'calc(100vh - 246rpx)' }}>
+          <View className='entity-list'>
+            {visibleList.map((item) => (
               <View
                 key={item.id}
-                className='card'
-                style={{ margin: 0, display: 'flex', alignItems: 'flex-start', gap: 'var(--space-sm)', cursor: 'pointer' }}
+                className='entity-row'
                 onClick={() => Taro.navigateTo({ url: `/pages/customers/detail?id=${item.id}` })}
               >
-                <View className='avatar'>
-                  <Text style={{ color: 'var(--color-text-inv)', fontSize: '28rpx', fontWeight: '700' }}>
-                    {item.name?.[0] ?? '?'}
-                  </Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <View style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8rpx' }}>
-                    <Text style={{ fontSize: '32rpx', fontWeight: '700', color: 'var(--color-text-1)' }}>{item.name}</Text>
-                    <Text className={`tag ${item.customerType === 'COMPANY' ? 'tag--pending' : ''}`}>
+                <View className='avatar'>{item.name?.[0] ?? '?'}</View>
+                <View className='entity-row__body'>
+                  <View className='entity-row__top'>
+                    <Text className='entity-row__title'>{item.name}</Text>
+                    <Text className={`tag ${STATUS_CLASS[item.status] ?? 'tag--neutral'}`}>
+                      {STATUS_LABELS[item.status] ?? item.status}
+                    </Text>
+                  </View>
+                  <View className='entity-row__bottom'>
+                    <Text className='entity-row__meta'>
+                      {item.phone} · {SOURCE_LABELS[item.source] ?? item.source}
+                    </Text>
+                    <Text className='tag tag--neutral'>
                       {item.customerType === 'INDIVIDUAL' ? '个人' : '企业'}
                     </Text>
                   </View>
-                  <Text style={{ fontSize: '26rpx', color: 'var(--color-text-2)', display: 'block', marginBottom: '12rpx' }}>{item.phone}</Text>
-                  <View style={{ display: 'flex', gap: '8rpx', flexWrap: 'wrap' }}>
-                    <Text className='tag'>{SOURCE_LABELS[item.source] ?? item.source}</Text>
-                    {item.tags?.split(',').filter(Boolean).map((t) => (
-                      <Text key={t} className='tag'>{t.trim()}</Text>
-                    ))}
-                  </View>
                 </View>
+                <Text className='entity-row__arrow'>›</Text>
               </View>
             ))}
           </View>

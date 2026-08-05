@@ -13,13 +13,13 @@ export default {
   ],
   window: {
     backgroundTextStyle: 'light',
-    navigationBarBackgroundColor: '#0a4f5e',
+    navigationBarBackgroundColor: '#173f3a',
     navigationBarTitleText: '客户资源管理',
     navigationBarTextStyle: 'white',
   },
   tabBar: {
     color: '#9ea5b0',
-    selectedColor: '#007d7d',
+    selectedColor: '#176b61',
     backgroundColor: '#ffffff',
     borderStyle: 'white',
     list: [

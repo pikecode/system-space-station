@@ -6,7 +6,7 @@ import { membershipsApi, type MemberLevel } from '../../services/memberships';
 export default function MembershipCreatePage() {
   const router = useRouter();
   const { customerId, customerName } = router.params;
-  const decodedName = decodeURIComponent(customerName ?? '');
+  const decodedName = decodeURIComponent(customerName ?? '') || '未命名客户';
 
   const [levels, setLevels] = useState<MemberLevel[]>([]);
   const [form, setForm] = useState({
@@ -24,7 +24,8 @@ export default function MembershipCreatePage() {
 
   const handleSubmit = async () => {
     if (!form.fee || !form.startDate || !form.endDate) {
-      Taro.showToast({ title: '请填写会员费和有效期', icon: 'none' }); return;
+      Taro.showToast({ title: '请填写会员费和有效期', icon: 'none' });
+      return;
     }
     setSaving(true);
     try {
@@ -44,63 +45,76 @@ export default function MembershipCreatePage() {
     }
   };
 
-  const levelIndex = levels.findIndex((l) => l.id === form.memberLevelId);
+  const levelIndex = levels.findIndex((level) => level.id === form.memberLevelId);
+  const selectedLevel = levels.find((level) => level.id === form.memberLevelId)?.name;
 
   return (
-    <View className='page' style={{ paddingBottom: '160rpx' }}>
-      <View className='section-title'>客户</View>
-      <View className='field'>
-        <Text className='field__label'>客户姓名</Text>
-        <Text style={{ fontSize: '30rpx', color: '#1a1d21' }}>{decodedName}</Text>
+    <View className='page page--with-actions'>
+      <View className='identity-band'>
+        <View className='avatar avatar--large'>{decodedName.slice(0, 1)}</View>
+        <View className='identity-band__body'>
+          <Text className='identity-band__eyebrow'>申请客户</Text>
+          <Text className='identity-band__title'>{decodedName}</Text>
+          <Text className='identity-band__meta'>提交后将进入负责人审核</Text>
+        </View>
       </View>
 
-      <View className='section-title'>会员信息</View>
-      <Picker
-        mode='selector'
-        range={levels.map((l) => l.name)}
-        value={levelIndex >= 0 ? levelIndex : 0}
-        onChange={(e) => setForm({ ...form, memberLevelId: levels[+e.detail.value]?.id ?? '' })}
-      >
-        <View className='field'>
-          <Text className='field__label'>会员等级</Text>
-          <Text style={{ fontSize: '30rpx', color: form.memberLevelId ? '#1a1d21' : '#bbb' }}>
-            {form.memberLevelId ? levels.find(l => l.id === form.memberLevelId)?.name : '请选择（选填）'}
-          </Text>
-        </View>
-      </Picker>
+      <View className='section-title'>
+        <Text>会员信息</Text>
+        <Text className='section-title__hint'>带 * 为必填项</Text>
+      </View>
+      <View className='surface'>
+        <Picker
+          mode='selector'
+          range={levels.map((level) => level.name)}
+          value={levelIndex >= 0 ? levelIndex : 0}
+          onChange={(e) => setForm({ ...form, memberLevelId: levels[+e.detail.value]?.id ?? '' })}
+        >
+          <View className='field'>
+            <Text className='field__label'>会员等级</Text>
+            <View className={`field__value ${selectedLevel ? '' : 'field__value--empty'}`}>
+              <Text>{selectedLevel || '请选择（选填）'}</Text>
+              <Text className='field__arrow'>›</Text>
+            </View>
+          </View>
+        </Picker>
 
-      <View className='field'>
-        <Text className='field__label'>会员费（元）</Text>
-        <Input
-          className='field__input'
-          type='digit'
-          placeholder='请输入金额'
-          value={form.fee}
-          onInput={(e) => setForm({ ...form, fee: e.detail.value })}
-        />
+        <View className='field'>
+          <Text className='field__label'>会员费 <Text className='field__required'>*</Text></Text>
+          <Input
+            className='field__input'
+            type='digit'
+            placeholder='请输入金额（元）'
+            value={form.fee}
+            onInput={(e) => setForm({ ...form, fee: e.detail.value })}
+          />
+        </View>
+
+        <Picker mode='date' value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.detail.value })}>
+          <View className='field'>
+            <Text className='field__label'>开始日期 <Text className='field__required'>*</Text></Text>
+            <View className={`field__value ${form.startDate ? '' : 'field__value--empty'}`}>
+              <Text>{form.startDate || '请选择'}</Text>
+              <Text className='field__arrow'>›</Text>
+            </View>
+          </View>
+        </Picker>
+
+        <Picker mode='date' value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.detail.value })}>
+          <View className='field'>
+            <Text className='field__label'>结束日期 <Text className='field__required'>*</Text></Text>
+            <View className={`field__value ${form.endDate ? '' : 'field__value--empty'}`}>
+              <Text>{form.endDate || '请选择'}</Text>
+              <Text className='field__arrow'>›</Text>
+            </View>
+          </View>
+        </Picker>
       </View>
 
-      <Picker mode='date' value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.detail.value })}>
-        <View className='field'>
-          <Text className='field__label'>开始日期</Text>
-          <Text style={{ fontSize: '30rpx', color: form.startDate ? '#1a1d21' : '#bbb' }}>
-            {form.startDate || '请选择'}
-          </Text>
-        </View>
-      </Picker>
-
-      <Picker mode='date' value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.detail.value })}>
-        <View className='field'>
-          <Text className='field__label'>结束日期</Text>
-          <Text style={{ fontSize: '30rpx', color: form.endDate ? '#1a1d21' : '#bbb' }}>
-            {form.endDate || '请选择'}
-          </Text>
-        </View>
-      </Picker>
-
-      <View style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#fff', padding: '24rpx 32rpx', borderTop: '1rpx solid #f0f1f3' }}>
+      <View className='bottom-actions'>
         <Button
-          style={{ background: '#00a3a3', color: '#fff', borderRadius: '12rpx' }}
+          className='btn btn--primary'
+          disabled={saving || undefined}
           loading={saving}
           onClick={handleSubmit}
         >
