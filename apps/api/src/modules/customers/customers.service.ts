@@ -75,7 +75,8 @@ export class CustomersService {
   async create(dto: CreateCustomerDto, currentUser: any) {
     let owner: { id: string; departmentId: string | null; status: string } | null = null;
 
-    if (currentUser.role === 'ADMIN' && dto.assignedUserId) {
+    if (currentUser.role === 'ADMIN') {
+      if (!dto.assignedUserId) throw new BadRequestException('请指定客户归属人');
       owner = await this.prisma.user.findUnique({
         where: { id: dto.assignedUserId },
         select: { id: true, departmentId: true, status: true },
@@ -83,8 +84,7 @@ export class CustomersService {
       if (!owner) throw new BadRequestException('指定归属人不存在');
       if (owner.status !== 'ACTIVE') throw new BadRequestException('归属人已停用');
       if (!owner.departmentId) throw new BadRequestException('归属人未分配部门');
-    } else {
-      if (!dto.shareCode) throw new BadRequestException('分享码不能为空');
+    } else if (dto.shareCode) {
       owner = await this.prisma.user.findUnique({
         where: { shareCode: dto.shareCode },
         select: { id: true, departmentId: true, status: true },
@@ -92,12 +92,21 @@ export class CustomersService {
       if (!owner) throw new BadRequestException('分享码无效');
       if (owner.status !== 'ACTIVE') throw new BadRequestException('分享码用户已停用');
       if (!owner.departmentId) throw new BadRequestException('分享码用户未分配部门');
+    } else {
+      owner = await this.prisma.user.findUnique({
+        where: { id: currentUser.id },
+        select: { id: true, departmentId: true, status: true },
+      });
+      if (!owner || owner.status !== 'ACTIVE') throw new BadRequestException('当前账号不可用');
+      if (!owner.departmentId) throw new BadRequestException('当前账号未分配部门');
     }
 
     const { birthday, source, gender, ...rest } = dto;
     delete (rest as Partial<CreateCustomerDto>).shareCode;
     delete (rest as Partial<CreateCustomerDto>).assignedUserId;
-    const registrationSource = currentUser.role === 'ADMIN' ? 'ADMIN' : 'PARTNER';
+    const registrationSource = currentUser.role === 'ADMIN'
+      ? 'ADMIN'
+      : dto.shareCode ? 'PARTNER' : 'SELF';
     return this.prisma.customer.create({
       data: {
         ...rest,
@@ -105,7 +114,7 @@ export class CustomersService {
         ...(gender !== undefined ? { gender } : {}),
         ...(birthday ? { birthday: new Date(birthday) } : {}),
         assignedTo: owner.id,
-        referredBy: owner.id,
+        referredBy: dto.shareCode ? owner.id : null,
         departmentId: owner.departmentId as string,
         createdBy: currentUser.id,
         registrationSource,

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useDeferredValue, useRef, useState } from 'react';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import {
   App, Button, DatePicker, Drawer, Form, Input, InputNumber,
@@ -12,6 +12,12 @@ import dayjs from 'dayjs';
 import ProTable from '../../../components/BusinessProTable';
 import { customersApi } from '../../../services/customers';
 import { usersApi } from '../../../services/users';
+import {
+  CustomerStatus,
+  type CreateCustomerPayloadDto,
+  type UpdateCustomerPayloadDto,
+} from 'shared';
+import { getApiErrorMessage } from '../../../utils/apiError';
 
 const SOURCE_OPTS = [
   { label: '转介绍', value: 'REFERRAL' },
@@ -29,7 +35,7 @@ const RISK_OPTS = [
 
 interface CustomerRow {
   id: string; name: string; phone: string;
-  customerType: string; source: string; status: string;
+  customerType: string; source: string; status: CustomerStatus;
   wechat?: string; gender?: string; birthday?: string; address?: string; idCard?: string;
   creditCode?: string; industry?: string; contactName?: string; contactPhone?: string;
   legalPerson?: string; registeredCapital?: string;
@@ -46,27 +52,32 @@ export default function AdminCustomersPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [custType, setCustType] = useState<string>('INDIVIDUAL');
+  const [ownerKeyword, setOwnerKeyword] = useState('');
+  const deferredOwnerKeyword = useDeferredValue(ownerKeyword);
 
-  const { data: userOpts } = useQuery({
-    queryKey: ['users-simple'],
-    queryFn: () => usersApi.getAll({ pageSize: 200 }) as any,
-    select: (res: any) => (res?.data ?? []).map((u: any) => ({ label: `${u.name}（${u.phone}）`, value: u.id })),
+  const { data: userOpts = [], isLoading: ownerOptionsLoading } = useQuery({
+    queryKey: ['users-simple', deferredOwnerKeyword],
+    queryFn: () => usersApi.getCustomerOwners(deferredOwnerKeyword || undefined),
+    select: (users) => users.map((user) => ({
+      label: `${user.name}（${user.phone ?? '无手机号'}）`,
+      value: user.id,
+    })),
   });
 
   const createMut = useMutation({
-    mutationFn: (data: unknown) => customersApi.create(data),
+    mutationFn: (data: CreateCustomerPayloadDto) => customersApi.create(data),
     onSuccess: () => { message.success('创建成功'); closeDrawer(); actionRef.current?.reload(); },
-    onError: (e: any) => message.error(e?.response?.data?.message ?? '操作失败'),
+    onError: (error: unknown) => message.error(getApiErrorMessage(error, '操作失败')),
   });
   const updateMut = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: unknown }) => customersApi.update(id, data),
+    mutationFn: ({ id, data }: { id: string; data: UpdateCustomerPayloadDto }) => customersApi.update(id, data),
     onSuccess: () => { message.success('保存成功'); closeDrawer(); actionRef.current?.reload(); },
-    onError: (e: any) => message.error(e?.response?.data?.message ?? '操作失败'),
+    onError: (error: unknown) => message.error(getApiErrorMessage(error, '操作失败')),
   });
   const toggleMut = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) => customersApi.update(id, { status }),
+    mutationFn: ({ id, status }: { id: string; status: CustomerStatus }) => customersApi.update(id, { status }),
     onSuccess: () => { message.success('状态已更新'); actionRef.current?.reload(); },
-    onError: (e: any) => message.error(e?.response?.data?.message ?? '操作失败'),
+    onError: (error: unknown) => message.error(getApiErrorMessage(error, '操作失败')),
   });
 
   const closeDrawer = () => { setDrawerOpen(false); form.resetFields(); };
@@ -121,7 +132,12 @@ export default function AdminCustomersPage() {
           <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(row)}>编辑</Button>
           <Popconfirm
             title={row.status === 'ACTIVE' ? '确认停用？' : '确认启用？'}
-            onConfirm={() => toggleMut.mutate({ id: row.id, status: row.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' })}
+            onConfirm={() => toggleMut.mutate({
+              id: row.id,
+              status: row.status === CustomerStatus.ACTIVE
+                ? CustomerStatus.INACTIVE
+                : CustomerStatus.ACTIVE,
+            })}
           >
             <Button size="small" danger={row.status === 'ACTIVE'}
               icon={row.status === 'ACTIVE' ? <StopOutlined /> : <CheckCircleOutlined />} />
@@ -145,8 +161,8 @@ export default function AdminCustomersPage() {
           const res = await customersApi.getAll({
             name: params.name, phone: params.phone, status: params.status,
             page: params.current, pageSize: params.pageSize,
-          }) as any;
-          return { data: res?.data ?? [], total: res?.total ?? 0, success: true };
+          });
+          return { data: res.data as CustomerRow[], total: res.total, success: true };
         }}
         scroll={{ x: 900 }}
       />
@@ -211,7 +227,15 @@ export default function AdminCustomersPage() {
 
           {!editingId && (
             <Form.Item label="归属人（指定维护人）" name="assignedUserId" rules={[{ required: true, message: '请指定归属人' }]}>
-              <Select options={userOpts ?? []} showSearch optionFilterProp="label" placeholder="搜索姓名或手机号" />
+              <Select
+                options={userOpts}
+                loading={ownerOptionsLoading}
+                showSearch
+                filterOption={false}
+                onSearch={setOwnerKeyword}
+                placeholder="搜索姓名或手机号"
+                notFoundContent={ownerOptionsLoading ? '归属人加载中...' : '暂无可分配的归属人'}
+              />
             </Form.Item>
           )}
         </Form>
@@ -219,4 +243,3 @@ export default function AdminCustomersPage() {
     </>
   );
 }
-

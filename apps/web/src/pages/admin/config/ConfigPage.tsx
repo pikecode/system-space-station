@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
-import { Button, Form, InputNumber, DatePicker, Input, Card, Row, Col, App, Drawer, Statistic } from 'antd';
+import { Alert, Button, Form, InputNumber, DatePicker, Input, Card, Row, Col, App, Drawer, Space, Statistic } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useMutation } from '@tanstack/react-query';
 import { configApi } from '../../../services/config';
@@ -28,6 +28,14 @@ export default function ConfigPage() {
   const [current, setCurrent] = useState<CurrentConfig>();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [form] = Form.useForm();
+  const memberRatio = Form.useWatch('memberRatio', form);
+  const deptHeadRatio = Form.useWatch('deptHeadRatio', form);
+  const marketHeadRatio = Form.useWatch('marketHeadRatio', form);
+  const companyRatio = Form.useWatch('companyRatio', form);
+  const ratios = [memberRatio, deptHeadRatio, marketHeadRatio, companyRatio];
+  const ratioTotal = ratios.reduce<number>((sum, value) => sum + (Number(value) || 0), 0);
+  const ratioComplete = ratios.every((value) => typeof value === 'number');
+  const ratioValid = ratioComplete && Math.abs(ratioTotal - 100) < 0.001;
 
   const createMutation = useMutation({
     mutationFn: (data: { memberRatio: number; deptHeadRatio: number; marketHeadRatio: number; companyRatio: number; settlementDays: number; effectiveFrom: dayjs.Dayjs; remark?: string }) =>
@@ -151,13 +159,20 @@ export default function ConfigPage() {
         width={480}
         footer={
           <div style={{ textAlign: 'right' }}>
-            <Button
-              type="primary"
-              loading={createMutation.isPending}
-              onClick={() => form.submit()}
-            >
-              保存
-            </Button>
+            <Space>
+              <Button onClick={() => {
+                setDrawerOpen(false);
+                form.resetFields();
+              }}>取消</Button>
+              <Button
+                type="primary"
+                loading={createMutation.isPending}
+                disabled={!ratioValid}
+                onClick={() => form.submit()}
+              >
+                保存
+              </Button>
+            </Space>
           </div>
         }
       >
@@ -167,11 +182,12 @@ export default function ConfigPage() {
           onFinish={(v) => createMutation.mutate(v)}
           initialValues={{ settlementDays: 15, effectiveFrom: dayjs().add(1, 'day') }}
         >
-          <Form.Item style={{ marginBottom: 8 }}>
-            <span style={{ color: 'var(--color-ink-2)', fontSize: 'var(--text-xs)' }}>
-              四项比例之和必须等于100%，配置按生效时间自动选取
-            </span>
-          </Form.Item>
+          <Alert
+            type={ratioValid ? 'success' : 'warning'}
+            showIcon
+            message={`当前比例合计 ${ratioTotal.toFixed(2)}%，必须等于 100%`}
+            style={{ marginBottom: 16 }}
+          />
           <Form.Item name="memberRatio" label="维护人比例（%）" rules={[{ required: true }]}>
             <InputNumber min={0} max={100} precision={2} style={{ width: '100%' }} />
           </Form.Item>

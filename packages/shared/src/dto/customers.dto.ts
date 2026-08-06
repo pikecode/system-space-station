@@ -57,12 +57,13 @@ export interface QueryCustomersDto {
   status?: CustomerStatus;
   departmentId?: string;
   assignedTo?: string;
-  page?: string;
-  pageSize?: string;
+  page?: number | string;
+  pageSize?: number | string;
 }
 
 export interface CreateCustomerPayloadDto {
-  shareCode: string;
+  shareCode?: string;
+  assignedUserId?: string;
   customerType: CustomerType;
   name: string;
   phone: string;
@@ -85,7 +86,9 @@ export interface CreateCustomerPayloadDto {
   investmentAmount?: string;
 }
 
-export type UpdateCustomerPayloadDto = Partial<Omit<CreateCustomerPayloadDto, 'shareCode'>>;
+export type UpdateCustomerPayloadDto = Partial<
+  Omit<CreateCustomerPayloadDto, 'shareCode' | 'assignedUserId'>
+> & { status?: CustomerStatus };
 
 export interface PublicRegisterCustomerPayloadDto {
   shareCode: string;

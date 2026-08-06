@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useDeferredValue, useRef, useState } from 'react';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import { App, Button, DatePicker, Drawer, Form, Input, InputNumber, Modal, Select, Space, Tag, Tooltip } from 'antd';
 import { EditOutlined, PlusOutlined, RollbackOutlined } from '@ant-design/icons';
@@ -52,12 +52,17 @@ export default function MembershipsPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<MembershipRecord | null>(null);
   const [refundTarget, setRefundTarget] = useState<MembershipRecord | null>(null);
+  const [customerKeyword, setCustomerKeyword] = useState('');
+  const deferredCustomerKeyword = useDeferredValue(customerKeyword);
   const [form] = Form.useForm<MembershipFormValues>();
   const [refundForm] = Form.useForm<{ refundReason: string }>();
 
   const { data: customers } = useQuery({
-    queryKey: ['my-customers'],
-    queryFn: () => customersApi.getAll({ pageSize: 100 }),
+    queryKey: ['my-customers', deferredCustomerKeyword],
+    queryFn: () => customersApi.getAll({
+      name: deferredCustomerKeyword || undefined,
+      pageSize: 50,
+    }),
   });
   const { data: levels } = useQuery({
     queryKey: ['member-levels'],
@@ -97,8 +102,7 @@ export default function MembershipsPage() {
     onError: (error: unknown) => message.error(apiError(error, '退款申请失败')),
   });
 
-  const customerList =
-    (customers as { data?: Array<{ id: string; name: string; phone: string }> } | undefined)?.data ?? [];
+  const customerList = customers?.data ?? [];
   const levelList = Array.isArray(levels) ? (levels as Array<{ id: string; name: string }>) : [];
 
   const openCreate = () => {
@@ -201,9 +205,12 @@ export default function MembershipsPage() {
         width={480}
         footer={(
           <div style={{ textAlign: 'right' }}>
-            <Button type="primary" loading={saveMutation.isPending} onClick={() => form.submit()}>
-              {editingRecord ? '重新提交' : '提交'}
-            </Button>
+            <Space>
+              <Button onClick={closeDrawer}>取消</Button>
+              <Button type="primary" loading={saveMutation.isPending} onClick={() => form.submit()}>
+                {editingRecord ? '重新提交' : '提交'}
+              </Button>
+            </Space>
           </div>
         )}
       >
@@ -212,7 +219,9 @@ export default function MembershipsPage() {
             <Select
               disabled={!!editingRecord}
               showSearch
-              optionFilterProp="label"
+              filterOption={false}
+              onSearch={setCustomerKeyword}
+              loading={!customers}
               options={customerList.map((customer) => ({
                 value: customer.id,
                 label: `${customer.name} (${customer.phone})`,

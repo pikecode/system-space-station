@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { lazy, Suspense, useDeferredValue, useState, useMemo, useRef } from 'react';
 import {
   Table, Button, Drawer, Form, Input, Select, Space, Tag, App,
   Cascader, Modal, Tooltip, Segmented, Checkbox,
@@ -7,15 +7,18 @@ import { TableOutlined, ApartmentOutlined, TeamOutlined } from '@ant-design/icon
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import {
   PlusOutlined, EditOutlined, PlusCircleOutlined, StopOutlined, UserOutlined,
-  RightOutlined, DownOutlined,
+  RightOutlined, DownOutlined, CopyOutlined,
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ColumnsType } from 'antd/es/table';
 import { departmentsApi } from '../../../services/departments';
 import { usersApi } from '../../../services/users';
 import chinaRegions from '../../../utils/chinaRegions';
-import DeptMindMap from './DeptMindMap';
 import ProTable from '../../../components/BusinessProTable';
+import { generateTemporaryPassword } from '../../../utils/password';
+import { getApiErrorMessage } from '../../../utils/apiError';
+
+const DeptMindMap = lazy(() => import('./DeptMindMap'));
 
 const DEPT_TYPE_LABELS: Record<string, string> = {
   GOVERNANCE: '治理层',
@@ -90,6 +93,7 @@ export default function DepartmentsPage() {
   const { message, modal } = App.useApp();
   const queryClient = useQueryClient();
   const actionRef = useRef<ActionType>();
+  const expansionInitialized = useRef(false);
   const [departments, setDepartments] = useState<DeptNode[]>([]);
   const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>('table');
@@ -104,33 +108,39 @@ export default function DepartmentsPage() {
   // 选择已有人员
   const [selectUserOpen, setSelectUserOpen] = useState(false);
   const [userSearch, setUserSearch] = useState('');
+  const deferredUserSearch = useDeferredValue(userSearch);
   const [form] = Form.useForm();
   const watchedType = Form.useWatch('type', form);
 
   // 当前部门人员列表
   const { data: members = [], isLoading: membersLoading, refetch: refetchMembers } = useQuery<MemberRow[]>({
     queryKey: ['dept-members', memberDept?.id],
-    queryFn: () => usersApi.getAll({ departmentId: memberDept?.id }) as unknown as Promise<MemberRow[]>,
+    queryFn: () => usersApi.getDepartmentMembers<MemberRow>(memberDept?.id),
     enabled: !!memberDept?.id,
   });
 
-  // 全部用户 — 仅在管理成员时才加载
-  const { data: allUsers = [], refetch: refetchAllUsers } = useQuery<MemberRow[]>({
-    queryKey: ['all-users-for-assign'],
-    queryFn: () => usersApi.getAll({ status: 'ACTIVE' }) as unknown as Promise<MemberRow[]>,
-    enabled: !!memberDept,
+  const { data: organizationMembers = [], refetch: refetchOrganizationMembers } = useQuery<MemberRow[]>({
+    queryKey: ['organization-members'],
+    queryFn: () => usersApi.getOrganizationMembers<MemberRow>(),
+    enabled: viewMode === 'chart' || !!memberDept,
+  });
+
+  const { data: assignableUsers = [], refetch: refetchAssignableUsers } = useQuery<MemberRow[]>({
+    queryKey: ['assignable-members', deferredUserSearch],
+    queryFn: () => usersApi.getAssignableMembers<MemberRow>(deferredUserSearch || undefined),
+    enabled: selectUserOpen,
   });
 
   const membersByDept = useMemo<Record<string, Array<{ name: string; role: string; userType: string }>>>(() => {
     const map: Record<string, Array<{ name: string; role: string; userType: string }>> = {};
-    allUsers.forEach((u) => {
+    organizationMembers.forEach((u) => {
       if (u.departmentId) {
         if (!map[u.departmentId]) map[u.departmentId] = [];
         map[u.departmentId].push({ name: u.name, role: u.role, userType: u.userType });
       }
     });
     return map;
-  }, [allUsers]);
+  }, [organizationMembers]);
 
   const addMemberMutation = useMutation({
     mutationFn: (data: unknown) => usersApi.create(data),
@@ -139,7 +149,8 @@ export default function DepartmentsPage() {
       setAddMemberOpen(false);
       addMemberForm.resetFields();
       refetchMembers();
-      refetchAllUsers();
+      refetchOrganizationMembers();
+      refetchAssignableUsers();
       queryClient.invalidateQueries({ queryKey: ['dept-members'] });
     },
     onError: (e: unknown) => {
@@ -156,7 +167,8 @@ export default function DepartmentsPage() {
       setSelectUserOpen(false);
       setUserSearch('');
       refetchMembers();
-      refetchAllUsers();
+      refetchOrganizationMembers();
+      refetchAssignableUsers();
       queryClient.invalidateQueries({ queryKey: ['dept-members'] });
     },
     onError: (e: unknown) => {
@@ -169,8 +181,9 @@ export default function DepartmentsPage() {
     mutationFn: ({ userId, role, successorId }: { userId: string; role: string; successorId?: string }) =>
       usersApi.transfer(userId, { newDepartmentId: memberDept!.id, newRole: role, ...(successorId ? { successorId } : {}) }),
     onSuccess: () => {
+      message.success('负责人已更新');
       refetchMembers();
-      refetchAllUsers();
+      refetchOrganizationMembers();
       queryClient.invalidateQueries({ queryKey: ['dept-members'] });
     },
     onError: (e: unknown) => {
@@ -444,7 +457,10 @@ export default function DepartmentsPage() {
           const response = await departmentsApi.getAll() as unknown as DeptNode[];
           const list = Array.isArray(response) ? response : [];
           setDepartments(list);
-          setExpandedKeys(list.map((d) => d.id));
+          if (!expansionInitialized.current) {
+            setExpandedKeys(list.map((d) => d.id));
+            expansionInitialized.current = true;
+          }
           return { data: buildTreeData(list), success: true, total: list.length };
         }}
         search={false}
@@ -457,8 +473,8 @@ export default function DepartmentsPage() {
               value={viewMode}
               onChange={(v) => setViewMode(v as ViewMode)}
               options={[
-                { value: 'table', icon: <TableOutlined /> },
-                { value: 'chart', icon: <ApartmentOutlined /> },
+                { value: 'table', label: '列表', icon: <TableOutlined /> },
+                { value: 'chart', label: '架构图', icon: <ApartmentOutlined /> },
               ]}
               style={{ marginRight: 8 }}
             />,
@@ -480,7 +496,9 @@ export default function DepartmentsPage() {
             >
               返回列表
             </Button>
-            <DeptMindMap roots={buildTreeData(departments)} membersByDept={membersByDept} />
+            <Suspense fallback={<div style={{ padding: 24 }}>组织架构加载中...</div>}>
+              <DeptMindMap roots={buildTreeData(departments)} membersByDept={membersByDept} />
+            </Suspense>
           </div>
         ) : undefined}
         scroll={{ x: 1200 }}
@@ -511,16 +529,6 @@ export default function DepartmentsPage() {
                 style={{ padding: 0, width: 20, height: 20, marginRight: 4, verticalAlign: 'middle' }}
               />
             );
-            return (
-              <Button
-                type="text"
-                size="small"
-                onClick={(e) => onExpand(record, e)}
-                style={{ padding: 0, width: 16, height: 16, fontSize: 12 }}
-              >
-                {expanded ? '−' : '+'}
-              </Button>
-            );
           },
         }}
       />
@@ -543,9 +551,17 @@ export default function DepartmentsPage() {
         width={480}
         footer={
           <div style={{ textAlign: 'right' }}>
-            <Button type="primary" loading={createMutation.isPending} onClick={() => form.submit()}>
-              保存
-            </Button>
+            <Space>
+              <Button onClick={() => {
+                setDrawerOpen(false);
+                setEditTarget(null);
+                setParentContext(null);
+                form.resetFields();
+              }}>取消</Button>
+              <Button type="primary" loading={createMutation.isPending} onClick={() => form.submit()}>
+                保存
+              </Button>
+            </Space>
           </div>
         }
       >
@@ -649,6 +665,7 @@ export default function DepartmentsPage() {
                   departmentId: memberDept?.id,
                   userType: memberDept?.type === 'DIVISION' ? 'PARTNER' : 'EMPLOYEE',
                   role: 'MEMBER',
+                  password: memberDept?.type === 'DIVISION' ? undefined : generateTemporaryPassword(),
                 });
                 setAddMemberOpen(true);
               }}
@@ -724,8 +741,13 @@ export default function DepartmentsPage() {
                           okText: '确认移出',
                           okType: 'danger',
                           onOk: () => usersApi.removeFromDepartment(member.id)
-                            .then(() => { message.success('已移出'); refetchMembers(); refetchAllUsers(); })
-                            .catch((e: any) => message.error(e?.response?.data?.message ?? '操作失败')),
+                            .then(() => {
+                              message.success('已移出');
+                              refetchMembers();
+                              refetchOrganizationMembers();
+                              refetchAssignableUsers();
+                            })
+                            .catch((error: unknown) => message.error(getApiErrorMessage(error, '操作失败'))),
                         });
                       }}
                     >
@@ -756,7 +778,7 @@ export default function DepartmentsPage() {
             const isPartner = values.userType === 'PARTNER';
             addMemberMutation.mutate({
               ...values,
-              password: isPartner ? undefined : values.phone,
+              password: isPartner ? undefined : values.password,
             });
           }}
         >
@@ -764,7 +786,12 @@ export default function DepartmentsPage() {
             <Select options={[
               { value: 'EMPLOYEE', label: '员工（公司正式）' },
               { value: 'PARTNER', label: '合伙人（事业部）' },
-            ]} />
+            ]} onChange={(value) => {
+              addMemberForm.setFieldValue(
+                'password',
+                value === 'EMPLOYEE' ? generateTemporaryPassword() : undefined,
+              );
+            }} />
           </Form.Item>
           <Form.Item name="name" label="姓名" rules={[{ required: true }]}>
             <Input maxLength={50} />
@@ -774,9 +801,39 @@ export default function DepartmentsPage() {
             <Input maxLength={11} />
           </Form.Item>
           {watchedAddUserType !== 'PARTNER' && (
-            <Form.Item name="employeeNo" label="工号">
-              <Input maxLength={32} />
-            </Form.Item>
+            <>
+              <Form.Item name="employeeNo" label="工号">
+                <Input maxLength={32} />
+              </Form.Item>
+              <Form.Item
+                name="password"
+                label="初始密码"
+                extra="请通过安全渠道交给员工"
+                rules={[{ required: true, message: '请生成初始密码' }, { min: 8, message: '密码至少8位' }]}
+              >
+                <Input.Password
+                  autoComplete="new-password"
+                  suffix={(
+                    <Tooltip title="复制初始密码">
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<CopyOutlined />}
+                        aria-label="复制初始密码"
+                        onClick={() => {
+                          const password = addMemberForm.getFieldValue('password');
+                          if (password) {
+                            void navigator.clipboard.writeText(password)
+                              .then(() => message.success('初始密码已复制'))
+                              .catch(() => message.error('复制失败，请手动复制'));
+                          }
+                        }}
+                      />
+                    </Tooltip>
+                  )}
+                />
+              </Form.Item>
+            </>
           )}
           {(memberDept?.type === 'MARKET' || memberDept?.type === 'DIVISION') && (
             <Form.Item name="hasLicense" valuePropName="checked" label=" ">
@@ -809,9 +866,8 @@ export default function DepartmentsPage() {
           allowClear
         />
         <Table<MemberRow>
-          dataSource={allUsers.filter(
-            (u) => u.departmentId !== memberDept?.id &&
-              (u.name.includes(userSearch) || u.phone.includes(userSearch)),
+          dataSource={assignableUsers.filter(
+            (u) => u.departmentId !== memberDept?.id,
           )}
           rowKey="id"
           size="small"

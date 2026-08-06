@@ -71,30 +71,24 @@ export default function DeptMindMap({
     backgroundColor: '#f5f7fa',
     tooltip: {
       trigger: 'item',
+      renderMode: 'richText',
       backgroundColor: '#fff',
       borderColor: '#e5e8ef',
       borderWidth: 1,
       padding: [8, 12],
       formatter: (params: any) => {
         const type = TYPE_LABEL[params.data?.value] ?? '';
-        const color = TYPE_COLOR[params.data?.value] ?? '#999';
         const members: Array<{ name: string; role: string; userType: string }> = params.data?.members ?? [];
         const heads = members.filter((m) => m.role === 'HEAD');
         const others = members.filter((m) => m.role !== 'HEAD');
         const memberRows = [
-          ...heads.map((m) => `<span style="color:#1677ff;font-size:11px">● ${m.name}（负责人）</span>`),
+          ...heads.map((m) => `${m.name}（负责人）`),
           ...others.map((m) => {
             const label = m.userType === 'PARTNER' ? '合伙人' : '成员';
-            return `<span style="color:#595959;font-size:11px">· ${m.name}（${label}）</span>`;
+            return `${m.name}（${label}）`;
           }),
-        ].join('<br/>');
-        return `<b style="color:#1d2129">${params.name}</b><br/>
-          <span style="display:inline-block;width:8px;height:8px;border-radius:2px;
-            background:${color};margin-right:5px;vertical-align:middle"></span>
-          <span style="color:#86909c;font-size:11px">${type}</span>
-          ${members.length > 0
-            ? `<div style="margin-top:6px;padding-top:6px;border-top:1px solid #f0f0f0">${memberRows}</div>`
-            : '<br/><span style="color:#bfbfbf;font-size:11px">暂无成员</span>'}`;
+        ];
+        return [params.name, type, ...(memberRows.length > 0 ? memberRows : ['暂无成员'])].join('\n');
       },
     },
     series: [

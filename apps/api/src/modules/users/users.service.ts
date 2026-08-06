@@ -6,11 +6,21 @@ import {
 } from '@nestjs/common';
 import { DepartmentType, Prisma, UserRole, UserStatus, UserType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { randomInt } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { TransferUserDto } from './dto/transfer-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { QueryUserDto } from './dto/query-user.dto';
 import { SensitiveDataService } from '../../common/security/sensitive-data.service';
+
+const ADMIN_STATUS_LOCK_KEY = 8_120_260;
+
+function positiveInteger(value: string | undefined, fallback: number, max?: number) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) return fallback;
+  return max === undefined ? parsed : Math.min(parsed, max);
+}
 
 const safeUserSelect = {
   id: true,
@@ -54,19 +64,13 @@ export class UsersService {
     private sensitiveData: SensitiveDataService,
   ) {}
 
-  async findAll(query: {
-    departmentId?: string;
-    role?: string;
-    status?: string;
-    employeeNo?: string;
-    username?: string;
-    name?: string;
-    phone?: string;
-    userType?: string;
-  }) {
+  async findAll(query: QueryUserDto) {
+    const page = positiveInteger(query.page, 1);
+    const pageSize = positiveInteger(query.pageSize, 20, 100);
     const where: Prisma.UserWhereInput = {};
     if (query.departmentId) where.departmentId = query.departmentId;
     if (query.role) where.role = query.role as UserRole;
+    if (query.excludeRole) where.role = { not: query.excludeRole as UserRole };
     if (query.status) where.status = query.status as UserStatus;
     if (query.userType) where.userType = query.userType as UserType;
     if (query.employeeNo) where.employeeNo = { contains: query.employeeNo, mode: 'insensitive' };
@@ -74,11 +78,17 @@ export class UsersService {
     if (query.name) where.name = { contains: query.name, mode: 'insensitive' };
     if (query.phone) where.phone = { contains: query.phone };
 
-    return this.prisma.user.findMany({
-      where,
-      select: safeUserSelect,
-      orderBy: { createdAt: 'desc' },
-    });
+    const [total, data] = await this.prisma.$transaction([
+      this.prisma.user.count({ where }),
+      this.prisma.user.findMany({
+        where,
+        select: safeUserSelect,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ]);
+    return { total, page, pageSize, data };
   }
 
   async findOne(id: string): Promise<SafeUser> {
@@ -96,10 +106,68 @@ export class UsersService {
       select: {
         id: true,
         name: true,
+        phone: true,
+        employeeNo: true,
+        userType: true,
+        hasLicense: true,
+        shareCode: true,
         role: true,
+        status: true,
         departmentId: true,
       },
       orderBy: { name: 'asc' },
+    });
+  }
+
+  findCustomerOwners(keyword?: string) {
+    return this.prisma.user.findMany({
+      where: {
+        status: UserStatus.ACTIVE,
+        role: { in: [UserRole.HEAD, UserRole.MEMBER] },
+        departmentId: { not: null },
+        ...(keyword ? {
+          OR: [
+            { name: { contains: keyword, mode: 'insensitive' as const } },
+            { phone: { contains: keyword } },
+          ],
+        } : {}),
+      },
+      select: { id: true, name: true, phone: true, role: true, departmentId: true },
+      orderBy: [{ name: 'asc' }, { createdAt: 'asc' }],
+      take: 50,
+    });
+  }
+
+  findAssignableMembers(keyword?: string) {
+    return this.prisma.user.findMany({
+      where: {
+        status: UserStatus.ACTIVE,
+        role: UserRole.MEMBER,
+        ...(keyword ? {
+          OR: [
+            { name: { contains: keyword, mode: 'insensitive' as const } },
+            { phone: { contains: keyword } },
+          ],
+        } : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        userType: true,
+        role: true,
+        departmentId: true,
+      },
+      orderBy: [{ name: 'asc' }, { createdAt: 'asc' }],
+      take: 50,
+    });
+  }
+
+  findOrganizationMembers() {
+    return this.prisma.user.findMany({
+      where: { status: UserStatus.ACTIVE, departmentId: { not: null } },
+      select: { id: true, name: true, userType: true, role: true, departmentId: true },
+      orderBy: [{ departmentId: 'asc' }, { name: 'asc' }],
     });
   }
 
@@ -224,6 +292,8 @@ export class UsersService {
     if (dto.name !== undefined) updateData.name = dto.name;
     if (dto.username !== undefined) updateData.username = dto.username;
     if (dto.phone !== undefined) updateData.phone = dto.phone;
+    if (dto.hasLicense !== undefined) updateData.hasLicense = dto.hasLicense;
+    if (dto.licenseNo !== undefined) updateData.licenseNo = dto.licenseNo || null;
     if (dto.employeeNo !== undefined) updateData.employeeNo = dto.employeeNo || null;
     if (dto.gender !== undefined) updateData.gender = dto.gender;
     if (dto.birthDate !== undefined) updateData.birthDate = new Date(dto.birthDate);
@@ -272,6 +342,9 @@ export class UsersService {
 
   async transfer(id: string, dto: TransferUserDto, operatorId: string) {
     const user = await this.findOne(id);
+    if (user.role === UserRole.ADMIN) {
+      throw new BadRequestException('系统管理员不能加入业务部门');
+    }
     const newRole = dto.newRole ?? user.role;
 
     return this.prisma.$transaction(async (tx) => {
@@ -350,7 +423,20 @@ export class UsersService {
     operatorId: string,
   ) {
     const user = await this.findOne(id);
+    if (user.role === UserRole.ADMIN && status === UserStatus.INACTIVE && id === operatorId) {
+      throw new BadRequestException('不能禁用当前登录的管理员账号');
+    }
     return this.prisma.$transaction(async (tx) => {
+      if (user.role === UserRole.ADMIN && status === UserStatus.INACTIVE) {
+        await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(${ADMIN_STATUS_LOCK_KEY})`);
+        const activeAdminCount = await tx.user.count({
+          where: { role: UserRole.ADMIN, status: UserStatus.ACTIVE },
+        });
+        if (activeAdminCount <= 1) {
+          throw new ConflictException('至少需要保留一个启用状态的系统管理员');
+        }
+      }
+
       if (user.headOf && status === UserStatus.INACTIVE) {
         const successor = await this.requireSuccessor(tx, user, successorId);
         await tx.department.update({
@@ -395,7 +481,7 @@ export class UsersService {
         },
       });
       return updated;
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
   private async requireSuccessor(
@@ -499,7 +585,7 @@ export class UsersService {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     for (let i = 0; i < 10; i++) {
       const code = Array.from({ length: 6 }, () =>
-        chars[Math.floor(Math.random() * chars.length)],
+        chars[randomInt(chars.length)],
       ).join('');
       const exists = await tx.user.findUnique({ where: { shareCode: code } });
       if (!exists) return code;

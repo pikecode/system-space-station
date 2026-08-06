@@ -6,6 +6,7 @@ import { useMutation } from '@tanstack/react-query';
 import request from '../../services/request';
 import { useAuthStore } from '../../store/auth';
 import type { LoginDto, LoginResponseDto } from 'shared';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 /* Hallmark · genre: modern-minimal · macrostructure: Workbench (centered card)
  * design-system: design.md · designed-as-app · page: login
@@ -31,7 +32,7 @@ export default function LoginPage() {
       setAuth(res.token, res.user);
       navigate('/', { replace: true });
     },
-    onError: () => setLoginError('账号或密码错误，请重新输入'),
+    onError: (error: unknown) => setLoginError(getApiErrorMessage(error, '账号或密码错误，请重新输入')),
   });
 
   return (

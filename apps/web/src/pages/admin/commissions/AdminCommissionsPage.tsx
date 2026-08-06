@@ -1,38 +1,35 @@
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import { Button, Tag, Card, Row, Col, Statistic, App } from 'antd';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { commissionsApi } from '../../../services/commissions';
 import ProTable from '../../../components/BusinessProTable';
+import { getApiErrorMessage } from '../../../utils/apiError';
 
 const PERIOD_STATUS_LABELS: Record<string, string> = { OPEN: '进行中', PENDING_PAYMENT: '待出账', SETTLED: '已结算' };
 const PERIOD_STATUS_COLORS: Record<string, string> = { OPEN: 'blue', PENDING_PAYMENT: 'orange', SETTLED: 'green' };
 
-interface CommissionOverviewRecord {
-  status: string;
-  amount: string | number;
-}
-
 export default function AdminCommissionsPage() {
   const { message, modal } = App.useApp();
+  const queryClient = useQueryClient();
   const actionRef = useRef<ActionType>();
-  const [overviewData, setOverviewData] = useState<CommissionOverviewRecord[]>([]);
+  const { data: summary } = useQuery({
+    queryKey: ['admin-commission-summary'],
+    queryFn: commissionsApi.getOverviewSummary,
+  });
 
   const settleMutation = useMutation({
     mutationFn: (periodId: string) => commissionsApi.settle(periodId),
     onSuccess: () => {
       message.success('结算成功');
       actionRef.current?.reload();
+      queryClient.invalidateQueries({ queryKey: ['admin-commission-summary'] });
     },
-    onError: (e: any) => message.error(e?.response?.data?.message ?? '结算失败'),
+    onError: (error: unknown) => message.error(getApiErrorMessage(error, '结算失败')),
   });
 
-  const totalPending = overviewData
-    .filter((record) => record.status === 'PENDING_PAYMENT')
-    .reduce((sum, record) => sum + Number(record.amount), 0);
-  const totalSettled = overviewData
-    .filter((record) => record.status === 'SETTLED')
-    .reduce((sum, record) => sum + Number(record.amount), 0);
+  const totalPending = Number(summary?.pendingPayment ?? 0);
+  const totalSettled = Number(summary?.settled ?? 0);
 
   const periodColumns: ProColumns[] = [
     { title: '开始日期', dataIndex: 'startDate', width: 110, render: (_, r) => r.startDate?.slice(0, 10) },
@@ -62,24 +59,17 @@ export default function AdminCommissionsPage() {
 
   return (
     <>
-      <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={6}><Card><Statistic title="待出账" value={totalPending} prefix="¥" precision={2} valueStyle={{ color: '#fa8c16' }} /></Card></Col>
-        <Col span={6}><Card><Statistic title="已结算" value={totalSettled} prefix="¥" precision={2} valueStyle={{ color: '#52c41a' }} /></Card></Col>
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} sm={12}><Card><Statistic title="待出账" value={totalPending} prefix="¥" precision={2} valueStyle={{ color: '#fa8c16' }} /></Card></Col>
+        <Col xs={24} sm={12}><Card><Statistic title="已结算" value={totalSettled} prefix="¥" precision={2} valueStyle={{ color: '#52c41a' }} /></Card></Col>
       </Row>
       <ProTable
         actionRef={actionRef}
         rowKey="id"
         columns={periodColumns}
         request={async () => {
-          const [periodsResponse, overviewResponse] = await Promise.all([
-            commissionsApi.getPeriods({}),
-            commissionsApi.getOverview({ pageSize: '100' }),
-          ]);
+          const periodsResponse = await commissionsApi.getPeriods({});
           const periods = Array.isArray(periodsResponse) ? periodsResponse : [];
-          const overview = (overviewResponse as unknown as {
-            data?: CommissionOverviewRecord[];
-          })?.data ?? [];
-          setOverviewData(overview);
           return { data: periods, success: true, total: periods.length };
         }}
         search={false}

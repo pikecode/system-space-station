@@ -2,12 +2,13 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { LoginResponseDto } from 'shared';
 
-type UserInfo = LoginResponseDto['user'];
+export type UserInfo = LoginResponseDto['user'];
 
 interface AuthState {
   token: string | null;
   user: UserInfo | null;
   setAuth: (token: string, user: UserInfo) => void;
+  setUser: (user: UserInfo) => void;
   logout: () => void;
 }
 
@@ -17,6 +18,7 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       user: null,
       setAuth: (token, user) => set({ token, user }),
+      setUser: (user) => set({ user }),
       logout: () => set({ token: null, user: null }),
     }),
     { name: 'auth-storage' },

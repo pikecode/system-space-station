@@ -9,9 +9,14 @@ const SKELETON_ROWS = Array.from({ length: 8 }, (_, i) => ({ _skid: i }));
 function buildSkeletonCols(columns: any[]): ColumnsType<{ _skid: number }> {
   return columns
     .filter((c) => c.hideInTable !== true)
-    .map((c) => ({
+    .map((c, index) => ({
       title: c.title,
-      key: String(c.key ?? c.dataIndex ?? c.title ?? Math.random()),
+      key: String(
+        c.key ??
+        (Array.isArray(c.dataIndex) ? c.dataIndex.join('.') : c.dataIndex) ??
+        c.title ??
+        `skeleton-${index}`,
+      ),
       width: c.width,
       fixed: c.fixed,
       render: () => (
@@ -38,9 +43,12 @@ function BusinessProTable<
 
   const wrappedRequest = request
     ? async (...args: Parameters<NonNullable<typeof request>>) => {
-        const result = await request(...args);
-        setReady(true);
-        return result;
+        try {
+          return await request(...args);
+        } finally {
+          // 请求失败时也必须显示 ProTable 自身的错误/空状态，不能永久停在骨架屏。
+          setReady(true);
+        }
       }
     : undefined;
 

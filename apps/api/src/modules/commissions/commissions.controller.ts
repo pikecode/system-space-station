@@ -15,16 +15,33 @@ export class CommissionsController {
     return this.service.findMy(user.id, query);
   }
 
+  @Get('my-summary')
+  getMySummary(@CurrentUser() user: any) {
+    return this.service.getSummary({ receiverUserId: user.id });
+  }
+
   @UseGuards(RolesGuard) @Roles('HEAD', 'ADMIN')
   @Get('department')
   findDepartment(@CurrentUser() user: any, @Query() query: any) {
     return this.service.findDepartment(user.departmentId, query);
   }
 
+  @UseGuards(RolesGuard) @Roles('HEAD', 'ADMIN')
+  @Get('department-summary')
+  getDepartmentSummary(@CurrentUser() user: any) {
+    return this.service.getSummary({ departmentId: user.departmentId });
+  }
+
   @UseGuards(RolesGuard) @Roles('ADMIN')
   @Get('overview')
   findOverview(@Query() query: any) {
     return this.service.findOverview(query);
+  }
+
+  @UseGuards(RolesGuard) @Roles('ADMIN')
+  @Get('overview-summary')
+  getOverviewSummary() {
+    return this.service.getSummary({});
   }
 
   @UseGuards(RolesGuard) @Roles('ADMIN')

@@ -11,6 +11,8 @@ import {
 import { useMutation } from '@tanstack/react-query';
 import { usersApi } from '../../../services/users';
 import ProTable from '../../../components/BusinessProTable';
+import { generateTemporaryPassword } from '../../../utils/password';
+import { useAuthStore } from '../../../store/auth';
 
 interface AdminRow {
   id: string;
@@ -22,23 +24,11 @@ interface AdminRow {
 
 export default function AdminsPage() {
   const { message, modal } = App.useApp();
+  const currentUserId = useAuthStore((state) => state.user?.id);
   const actionRef = useRef<ActionType>();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<AdminRow | null>(null);
   const [form] = Form.useForm();
-
-  const generatePassword = () => {
-    const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-    const lower = 'abcdefghjkmnpqrstuvwxyz';
-    const digits = '23456789';
-    const all = upper + lower + digits;
-    let pwd =
-      upper[Math.floor(Math.random() * upper.length)] +
-      lower[Math.floor(Math.random() * lower.length)] +
-      digits[Math.floor(Math.random() * digits.length)];
-    for (let i = 3; i < 12; i++) pwd += all[Math.floor(Math.random() * all.length)];
-    return pwd.split('').sort(() => Math.random() - 0.5).join('');
-  };
 
   const saveMutation = useMutation({
     mutationFn: (data: unknown) =>
@@ -128,11 +118,13 @@ export default function AdminsPage() {
           <Tooltip title="编辑">
             <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(record)} />
           </Tooltip>
-          <Tooltip title={record.status === 'ACTIVE' ? '禁用' : '启用'}>
+          <Tooltip title={record.id === currentUserId ? '当前账号不能禁用' : record.status === 'ACTIVE' ? '禁用' : '启用'}>
             <Button
               size="small"
               danger={record.status === 'ACTIVE'}
               icon={record.status === 'ACTIVE' ? <StopOutlined /> : <CheckCircleOutlined />}
+              disabled={record.id === currentUserId}
+              aria-label={record.id === currentUserId ? '当前账号不能禁用' : record.status === 'ACTIVE' ? '禁用管理员' : '启用管理员'}
               onClick={() => changeStatus(record)}
             />
           </Tooltip>
@@ -154,8 +146,10 @@ export default function AdminsPage() {
             name: params.name,
             phone: params.phone,
             status: params.status,
-          }) as unknown as AdminRow[];
-          return { data: response, success: true, total: response.length };
+            page: params.current,
+            pageSize: params.pageSize,
+          });
+          return { data: response.data as AdminRow[], success: true, total: response.total };
         }}
         toolbar={{
           actions: [
@@ -165,7 +159,7 @@ export default function AdminsPage() {
               icon={<PlusOutlined />}
               onClick={() => {
                 setEditTarget(null);
-                const pwd = generatePassword();
+                const pwd = generateTemporaryPassword();
                 form.resetFields();
                 form.setFieldValue('password', pwd);
                 setDrawerOpen(true);
@@ -184,9 +178,12 @@ export default function AdminsPage() {
         width={440}
         footer={
           <div style={{ textAlign: 'right' }}>
-            <Button type="primary" loading={saveMutation.isPending} onClick={() => form.submit()}>
-              保存
-            </Button>
+            <Space>
+              <Button onClick={closeDrawer}>取消</Button>
+              <Button type="primary" loading={saveMutation.isPending} onClick={() => form.submit()}>
+                保存
+              </Button>
+            </Space>
           </div>
         }
       >

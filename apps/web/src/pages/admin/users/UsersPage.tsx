@@ -29,11 +29,13 @@ import {
   SwapOutlined,
   CheckCircleOutlined,
   EditOutlined,
+  CopyOutlined,
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usersApi } from '../../../services/users';
 import { departmentsApi } from '../../../services/departments';
 import { positionsApi } from '../../../services/positions';
+import { generateTemporaryPassword } from '../../../utils/password';
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: '系统管理员',
@@ -129,14 +131,16 @@ export default function UsersPage() {
     queryKey: ['positions'],
     queryFn: () => positionsApi.getAll() as unknown as Promise<OptionItem[]>,
   });
-  const { data: userOptions = [] } = useQuery<UserRow[]>({
-    queryKey: ['users-options'],
-    queryFn: () => usersApi.getAll() as unknown as Promise<UserRow[]>,
+  const successorDepartmentId = transferTarget?.departmentId ?? disableTarget?.departmentId;
+  const { data: successorOptions = [] } = useQuery<UserRow[]>({
+    queryKey: ['department-members', successorDepartmentId],
+    queryFn: () => usersApi.getDepartmentMembers<UserRow>(successorDepartmentId),
+    enabled: !!successorDepartmentId,
   });
 
   const refreshUsers = () => {
     actionRef.current?.reload();
-    queryClient.invalidateQueries({ queryKey: ['users-options'] });
+    queryClient.invalidateQueries({ queryKey: ['department-members'] });
     queryClient.invalidateQueries({ queryKey: ['departments'] });
   };
 
@@ -184,6 +188,8 @@ export default function UsersPage() {
       userType: record.userType,
       name: record.name,
       phone: record.phone,
+      hasLicense: record.hasLicense,
+      licenseNo: record.licenseNo,
       employeeNo: record.employeeNo,
       gender: record.gender,
       birthDate: record.birthDate ? dayjs(record.birthDate) : undefined,
@@ -209,6 +215,7 @@ export default function UsersPage() {
     form.setFieldsValue({
       userType: activeTab,
       gender: activeTab === 'EMPLOYEE' ? 'UNKNOWN' : undefined,
+      password: activeTab === 'EMPLOYEE' ? generateTemporaryPassword() : undefined,
     });
     setDrawerOpen(true);
   };
@@ -222,7 +229,7 @@ export default function UsersPage() {
   };
 
   const successorsFor = (record: UserRow | null) =>
-    userOptions.filter((user) =>
+    successorOptions.filter((user) =>
       user.id !== record?.id &&
       user.departmentId === record?.departmentId &&
       user.status === 'ACTIVE',
@@ -375,9 +382,11 @@ export default function UsersPage() {
             role: params.role && params.role !== 'ADMIN' ? params.role : undefined,
             status: params.status,
             userType: activeTab,
-          }) as unknown as UserRow[];
-          const users = response.filter((u) => u.role !== 'ADMIN');
-          return { data: users, success: true, total: users.length };
+            excludeRole: 'ADMIN',
+            page: params.current,
+            pageSize: params.pageSize,
+          });
+          return { data: response.data as UserRow[], success: true, total: response.total };
         }}
         headerTitle="人员管理"
         toolbar={{
@@ -417,9 +426,12 @@ export default function UsersPage() {
         width={680}
         footer={(
           <div style={{ textAlign: 'right' }}>
-            <Button type="primary" loading={saveMutation.isPending} onClick={() => form.submit()}>
-              保存
-            </Button>
+            <Space>
+              <Button onClick={closeDrawer}>取消</Button>
+              <Button type="primary" loading={saveMutation.isPending} onClick={() => form.submit()}>
+                保存
+              </Button>
+            </Space>
           </div>
         )}
       >
@@ -440,7 +452,7 @@ export default function UsersPage() {
             };
             const payload = editTarget
               ? normalized
-              : { ...normalized, password: isPartner ? undefined : values.phone };
+              : { ...normalized, password: isPartner ? undefined : values.password };
             saveMutation.mutate(payload);
           }}
         >
@@ -460,18 +472,18 @@ export default function UsersPage() {
 
           <Row gutter={16}>
             {!isPartnerForm && (
-              <Col span={12}>
+              <Col xs={24} md={12}>
                 <Form.Item name="employeeNo" label="工号">
                   <Input maxLength={32} />
                 </Form.Item>
               </Col>
             )}
-            <Col span={12}>
+            <Col xs={24} md={12}>
               <Form.Item name="name" label="姓名" rules={[{ required: true }]}>
                 <Input maxLength={50} />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col xs={24} md={12}>
               <Form.Item
                 name="phone"
                 label="手机号"
@@ -480,25 +492,25 @@ export default function UsersPage() {
                 <Input maxLength={11} />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col xs={24} md={12}>
               <Form.Item name="hasLicense" valuePropName="checked" label="持有资格证">
                 <Checkbox>是（负责人必须持证）</Checkbox>
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col xs={24} md={12}>
               <Form.Item name="licenseNo" label="证件编号">
                 <Input maxLength={50} placeholder="可选" />
               </Form.Item>
             </Col>
             {!isPartnerForm && (
               <>
-                <Col span={12}>
+                <Col xs={24} md={12}>
                   <Form.Item name="alternatePhone" label="备用电话"
                     rules={[{ pattern: /^1\d{10}$/, message: '请输入正确的备用电话' }]}>
                     <Input maxLength={11} />
                   </Form.Item>
                 </Col>
-                <Col span={12}>
+                <Col xs={24} md={12}>
                   <Form.Item name="gender" label="性别">
                     <Select options={[
                       { value: 'MALE', label: '男' },
@@ -507,27 +519,27 @@ export default function UsersPage() {
                     ]} />
                   </Form.Item>
                 </Col>
-                <Col span={12}>
+                <Col xs={24} md={12}>
                   <Form.Item name="birthDate" label="出生日期">
                     <DatePicker style={{ width: '100%' }} />
                   </Form.Item>
                 </Col>
-                <Col span={12}>
+                <Col xs={24} md={12}>
                   <Form.Item name="wechat" label="微信号">
                     <Input maxLength={64} />
                   </Form.Item>
                 </Col>
-                <Col span={12}>
+                <Col xs={24} md={12}>
                   <Form.Item name="email" label="邮箱" rules={[{ type: 'email', message: '请输入正确的邮箱' }]}>
                     <Input maxLength={100} />
                   </Form.Item>
                 </Col>
-                <Col span={12}>
+                <Col xs={24} md={12}>
                   <Form.Item name="positionId" label="岗位">
                     <Select allowClear options={positions.map((item) => ({ value: item.id, label: item.name }))} />
                   </Form.Item>
                 </Col>
-                <Col span={12}>
+                <Col xs={24} md={12}>
                   <Form.Item name="idCardNo" label="身份证号码"
                     rules={[{ pattern: /^\d{17}[\dXx]$/, message: '身份证号码格式不正确' }]}>
                     <Input maxLength={18} autoComplete="off"
@@ -538,7 +550,7 @@ export default function UsersPage() {
             )}
             {!editTarget && (
               <>
-                <Col span={12}>
+                <Col xs={24} md={12}>
                   <Form.Item name="role" label="角色" rules={[{ required: true }]}>
                     <Select options={[
                       { value: 'HEAD', label: '部门负责人' },
@@ -546,7 +558,7 @@ export default function UsersPage() {
                     ]} />
                   </Form.Item>
                 </Col>
-                <Col span={12}>
+                <Col xs={24} md={12}>
                   <Form.Item
                     name="departmentId"
                     label="部门"
@@ -561,8 +573,43 @@ export default function UsersPage() {
                 </Col>
               </>
             )}
+            {!editTarget && !isPartnerForm && (
+              <Col xs={24} md={12}>
+                <Form.Item
+                  name="password"
+                  label="初始密码"
+                  extra="请通过安全渠道交给员工，不再使用手机号作为默认密码"
+                  rules={[
+                    { required: true, message: '请生成初始密码' },
+                    { min: 8, message: '密码至少8位' },
+                  ]}
+                >
+                  <Input.Password
+                    autoComplete="new-password"
+                    suffix={(
+                      <Tooltip title="复制初始密码">
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<CopyOutlined />}
+                          aria-label="复制初始密码"
+                          onClick={() => {
+                            const password = form.getFieldValue('password');
+                            if (password) {
+                              void navigator.clipboard.writeText(password)
+                                .then(() => message.success('初始密码已复制'))
+                                .catch(() => message.error('复制失败，请手动复制'));
+                            }
+                          }}
+                        />
+                      </Tooltip>
+                    )}
+                  />
+                </Form.Item>
+              </Col>
+            )}
             {editTarget && !isPartnerForm && (
-              <Col span={12}>
+              <Col xs={24} md={12}>
                 <Form.Item name="newPassword" label="修改密码（不填则不修改）"
                   rules={[{ min: 8, message: '密码至少8位' }]}>
                   <Input.Password />
@@ -570,19 +617,19 @@ export default function UsersPage() {
               </Col>
             )}
             {editTarget?.shareCode && (
-              <Col span={12}>
+              <Col xs={24} md={12}>
                 <Form.Item label="分享码">
                   <Input readOnly value={editTarget.shareCode}
                     style={{ fontFamily: 'monospace', letterSpacing: 2, background: '#fafafa' }} />
                 </Form.Item>
               </Col>
             )}
-            <Col span={12}>
+            <Col xs={24} md={12}>
               <Form.Item name="address" label="省市区">
                 <Cascader options={chinaRegions} placeholder="请选择省/市/区" showSearch expandTrigger="hover" />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col xs={24} md={12}>
               <Form.Item name="addressDetail" label="详细地址">
                 <Input placeholder="街道/楼栋/门牌号" maxLength={200} />
               </Form.Item>

@@ -1,5 +1,6 @@
 import {
   IsDateString,
+  IsBoolean,
   IsEmail,
   IsEnum,
   IsMobilePhone,
@@ -29,6 +30,15 @@ export class UpdateUserDto {
   @IsMobilePhone('zh-CN')
   @IsOptional()
   phone?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  hasLicense?: boolean;
+
+  @IsString()
+  @MaxLength(50)
+  @IsOptional()
+  licenseNo?: string;
 
   @IsString()
   @IsOptional()

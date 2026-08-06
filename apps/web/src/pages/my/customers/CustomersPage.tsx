@@ -7,6 +7,7 @@ import { customersApi } from '../../../services/customers';
 import { usersApi } from '../../../services/users';
 import { useAuthStore } from '../../../store/auth';
 import ProTable from '../../../components/BusinessProTable';
+import type { CreateCustomerPayloadDto, UpdateCustomerPayloadDto } from 'shared';
 
 const SOURCE_LABELS: Record<string, string> = {
   REFERRAL: '转介绍',
@@ -49,8 +50,10 @@ export default function CustomersPage() {
   });
 
   const saveMutation = useMutation({
-    mutationFn: (data: unknown) =>
-      editTarget ? customersApi.update(editTarget.id, data) : customersApi.create(data),
+    mutationFn: (data: CreateCustomerPayloadDto | UpdateCustomerPayloadDto) =>
+      editTarget
+        ? customersApi.update(editTarget.id, data as UpdateCustomerPayloadDto)
+        : customersApi.create(data as CreateCustomerPayloadDto),
     onSuccess: () => {
       message.success('保存成功');
       setDrawerOpen(false);
@@ -150,16 +153,13 @@ export default function CustomersPage() {
         rowKey="id"
         columns={columns}
         request={async (params) => {
-          const res = (await customersApi.getAll({
+          const res = await customersApi.getAll({
             name: params.name,
             phone: params.phone,
             page: params.current,
             pageSize: params.pageSize,
-          })) as { data?: CustomerRow[]; total?: number } | CustomerRow[];
-          if (Array.isArray(res)) {
-            return { data: res, success: true, total: res.length };
-          }
-          return { data: res.data ?? [], success: true, total: res.total ?? 0 };
+          });
+          return { data: res.data as CustomerRow[], success: true, total: res.total };
         }}
         toolbar={{
           actions: [
@@ -191,13 +191,20 @@ export default function CustomersPage() {
         width={520}
         footer={
           <div style={{ textAlign: 'right' }}>
-            <Button
-              type="primary"
-              loading={saveMutation.isPending}
-              onClick={() => form.submit()}
-            >
-              保存
-            </Button>
+            <Space>
+              <Button onClick={() => {
+                setDrawerOpen(false);
+                form.resetFields();
+                setEditTarget(null);
+              }}>取消</Button>
+              <Button
+                type="primary"
+                loading={saveMutation.isPending}
+                onClick={() => form.submit()}
+              >
+                保存
+              </Button>
+            </Space>
           </div>
         }
       >

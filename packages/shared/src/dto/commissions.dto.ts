@@ -18,3 +18,9 @@ export interface CommissionRecordDto {
     } | null;
   } | null;
 }
+
+export interface CommissionSummaryDto {
+  pending: string;
+  pendingPayment: string;
+  settled: string;
+}

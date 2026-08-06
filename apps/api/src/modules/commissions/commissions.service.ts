@@ -5,10 +5,32 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { CommissionStatus, Prisma } from '@prisma/client';
 
 @Injectable()
 export class CommissionsService {
   constructor(private prisma: PrismaService) {}
+
+  async getSummary(where: Prisma.CommissionRecordWhereInput) {
+    const rows = await this.prisma.commissionRecord.groupBy({
+      by: ['status'],
+      where,
+      _sum: { amount: true },
+    });
+    const totals: Record<CommissionStatus, string> = {
+      PENDING: '0',
+      PENDING_PAYMENT: '0',
+      SETTLED: '0',
+    };
+    rows.forEach((row) => {
+      totals[row.status] = row._sum.amount?.toString() ?? '0';
+    });
+    return {
+      pending: totals.PENDING,
+      pendingPayment: totals.PENDING_PAYMENT,
+      settled: totals.SETTLED,
+    };
+  }
 
   async findMy(userId: string, query: { page?: string; pageSize?: string; status?: string }) {
     const page = parseInt(query.page ?? '1', 10);

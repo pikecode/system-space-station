@@ -1,6 +1,6 @@
-import { useState } from 'react';
 import type { ProColumns } from '@ant-design/pro-components';
 import { Tag, Statistic, Row, Col, Card } from 'antd';
+import { useQuery } from '@tanstack/react-query';
 import { commissionsApi } from '../../../services/commissions';
 import ProTable from '../../../components/BusinessProTable';
 
@@ -26,7 +26,7 @@ interface CommissionRecord {
   id: string;
   status: string;
   amount: string | number;
-  ratio: number;
+  ratio: string | number;
   receiverRole: string;
   createdAt: string;
   membership?: {
@@ -36,15 +36,15 @@ interface CommissionRecord {
 }
 
 export default function CommissionsPage({ scope = 'my' }: { scope?: 'my' | 'department' }) {
-  const [list, setList] = useState<CommissionRecord[]>([]);
+  const { data: summary } = useQuery({
+    queryKey: ['commission-summary', scope],
+    queryFn: () => scope === 'department'
+      ? commissionsApi.getDepartmentSummary()
+      : commissionsApi.getMySummary(),
+  });
 
-  const totalPending = list
-    .filter((r) => r.status === 'PENDING')
-    .reduce((s, r) => s + Number(r.amount), 0);
-
-  const totalSettled = list
-    .filter((r) => r.status === 'SETTLED')
-    .reduce((s, r) => s + Number(r.amount), 0);
+  const totalPending = Number(summary?.pending ?? 0);
+  const totalSettled = Number(summary?.settled ?? 0);
 
   const columns: ProColumns<CommissionRecord>[] = [
     {
@@ -103,8 +103,8 @@ export default function CommissionsPage({ scope = 'my' }: { scope?: 'my' | 'depa
 
   return (
     <>
-      <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={8}>
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} sm={12}>
           <Card>
             <Statistic
               title="待结算"
@@ -115,7 +115,7 @@ export default function CommissionsPage({ scope = 'my' }: { scope?: 'my' | 'depa
             />
           </Card>
         </Col>
-        <Col span={8}>
+        <Col xs={24} sm={12}>
           <Card>
             <Statistic
               title="已结算"
@@ -131,17 +131,19 @@ export default function CommissionsPage({ scope = 'my' }: { scope?: 'my' | 'depa
         rowKey="id"
         columns={columns}
         params={{ scope }}
-        request={async () => {
+        request={async (params) => {
           const response = scope === 'department'
-            ? await commissionsApi.getDepartment({ page: 1, pageSize: 100 })
-            : await commissionsApi.getMy({ page: 1, pageSize: 100 });
-          const records = (response as unknown as { data?: CommissionRecord[] })?.data ?? [];
-          setList(records);
-          return { data: records, success: true, total: records.length };
+            ? await commissionsApi.getDepartment({ page: params.current, pageSize: params.pageSize })
+            : await commissionsApi.getMy({ page: params.current, pageSize: params.pageSize });
+          return {
+            data: response.data as CommissionRecord[],
+            success: true,
+            total: response.total,
+          };
         }}
         headerTitle={scope === 'department' ? '部门分成明细' : '个人分成明细'}
         search={false}
-        pagination={{ pageSize: 20 }}
+        pagination={{ pageSize: 20, showSizeChanger: true }}
         scroll={{ x: 'max-content' }}
       />
     </>

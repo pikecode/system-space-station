@@ -27,9 +27,8 @@
   --font-body:    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono:    "JetBrains Mono", "SF Mono", Consolas, monospace;
 
-  /* Letter-spacing — design.md specifies -0.02em for display text;
-     this was defined but never applied anywhere before */
-  --tracking-display: -0.02em;
+  /* 中文后台统一使用默认字距，避免紧缩字距降低可读性。 */
+  --tracking-display: 0;
   --tracking-body:    0em;
 
   /* Spacing scale (4pt base) */
@@ -97,6 +96,13 @@ body {
   line-height: 1.6;
   color: var(--color-ink);
   background: var(--color-paper);
+}
+
+.app-session-state {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-md);
 }
 
 /* ── Global focus ring ─────────────────────────────────────────────────────
@@ -177,10 +183,13 @@ body {
     line-height: 1.5;
   }
 
-  /* Touch targets — all buttons get 44px minimum, including sm variants.
-     Previous rule excluded .ant-btn-sm which broke table actions on mobile. */
-  .ant-btn {
+  /* 普通操作保持触控命中面积，表格小按钮维持紧凑密度。 */
+  .ant-btn:not(.ant-btn-sm) {
     min-height: 44px;
+  }
+
+  .ant-btn-sm {
+    min-height: 32px;
   }
 
   /* ProLayout — compact header and sider */
@@ -257,9 +266,7 @@ body {
     margin: var(--space-md);
   }
 
-  .ant-modal-header,
-  .ant-modal-body,
-  .ant-modal-footer {
+  .ant-modal-content {
     padding: var(--space-md) !important;
   }
 

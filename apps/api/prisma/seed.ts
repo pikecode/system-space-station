@@ -84,7 +84,7 @@ async function main() {
     { id: 'dept-dev-ip',        name: '知识产权处', sort: 43 },
     { id: 'dept-dev-capital',   name: '资本运作处', sort: 44 },
     { id: 'dept-dev-brand',     name: '品牌建设部', sort: 45 },
-    { id: 'dept-dev-academy',   name: '商学院',     sort: 46 },
+    { id: 'dept-dev-academy',   name: '勤公学院',   sort: 46 },
   ];
   for (const u of devUnits) {
     await prisma.department.upsert({

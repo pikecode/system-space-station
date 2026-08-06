@@ -18,6 +18,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { UserStatus } from '@prisma/client';
 import { IsEnum, IsOptional, IsString } from 'class-validator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { QueryUserDto } from './dto/query-user.dto';
 
 class SetStatusDto {
   @IsEnum(UserStatus)
@@ -35,19 +36,8 @@ export class UsersController {
   constructor(private usersService: UsersService) {}
 
   @Get()
-  findAll(
-    @Query('departmentId') departmentId?: string,
-    @Query('role') role?: string,
-    @Query('status') status?: string,
-    @Query('employeeNo') employeeNo?: string,
-    @Query('username') username?: string,
-    @Query('name') name?: string,
-    @Query('phone') phone?: string,
-    @Query('userType') userType?: string,
-  ) {
-    return this.usersService.findAll({
-      departmentId, role, status, employeeNo, username, name, phone, userType,
-    });
+  findAll(@Query() query: QueryUserDto) {
+    return this.usersService.findAll(query);
   }
 
   @Roles('HEAD', 'ADMIN')
@@ -59,6 +49,21 @@ export class UsersController {
     const targetDepartmentId = currentUser.role === 'ADMIN' ? departmentId : currentUser.departmentId;
     if (!targetDepartmentId) return [];
     return this.usersService.findDepartmentMembers(targetDepartmentId);
+  }
+
+  @Get('customer-owners')
+  findCustomerOwners(@Query('keyword') keyword?: string) {
+    return this.usersService.findCustomerOwners(keyword);
+  }
+
+  @Get('assignable-members')
+  findAssignableMembers(@Query('keyword') keyword?: string) {
+    return this.usersService.findAssignableMembers(keyword);
+  }
+
+  @Get('organization-members')
+  findOrganizationMembers() {
+    return this.usersService.findOrganizationMembers();
   }
 
   @Get(':id')

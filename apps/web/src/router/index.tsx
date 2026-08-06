@@ -1,8 +1,11 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
-import { lazy, Suspense } from 'react';
-import AppLayout from '../layouts/AppLayout';
-import { useAuthStore } from '../store/auth';
+import { lazy, Suspense, useEffect } from 'react';
+import { Button, Result, Spin } from 'antd';
+import { useQuery } from '@tanstack/react-query';
+import { useAuthStore, type UserInfo } from '../store/auth';
+import request from '../services/request';
 
+const AppLayout = lazy(() => import('../layouts/AppLayout'));
 const LoginPage = lazy(() => import('../pages/login/LoginPage'));
 const DepartmentsPage = lazy(() => import('../pages/admin/departments/DepartmentsPage'));
 const UsersPage = lazy(() => import('../pages/admin/users/UsersPage'));
@@ -17,7 +20,39 @@ const ApprovalsPage = lazy(() => import('../pages/dept/approvals/ApprovalsPage')
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
+  const user = useAuthStore((s) => s.user);
+  const setUser = useAuthStore((s) => s.setUser);
+  const session = useQuery({
+    queryKey: ['auth-session', token],
+    queryFn: () => request.get<UserInfo, UserInfo>('/auth/me'),
+    enabled: !!token,
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (session.data) setUser(session.data);
+  }, [session.data, setUser]);
+
   if (!token) return <Navigate to="/login" replace />;
+  if (session.isPending || (session.data && user !== session.data)) {
+    return (
+      <div className="app-session-state">
+        <Spin size="large" />
+      </div>
+    );
+  }
+  if (session.isError || !session.data) {
+    return (
+      <div className="app-session-state">
+        <Result
+          status="warning"
+          title="暂时无法连接服务"
+          subTitle="请检查网络连接后重试"
+          extra={<Button type="primary" onClick={() => session.refetch()}>重新连接</Button>}
+        />
+      </div>
+    );
+  }
   return <>{children}</>;
 }
 
@@ -55,7 +90,9 @@ export const router = createBrowserRouter([
     path: '/',
     element: (
       <RequireAuth>
-        <AppLayout />
+        <Suspense fallback={Fallback}>
+          <AppLayout />
+        </Suspense>
       </RequireAuth>
     ),
     children: [

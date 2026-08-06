@@ -5,4 +5,9 @@ export interface PaginatedResponse<T> {
   data: T[];
 }
 
+export interface PaginationQuery {
+  page?: number | string;
+  pageSize?: number | string;
+}
+
 export type MaybePaginated<T> = T[] | PaginatedResponse<T>;
