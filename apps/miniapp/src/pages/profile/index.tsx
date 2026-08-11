@@ -167,19 +167,6 @@ export default function ProfilePage() {
       ctx.fillStyle = '#007d7d';
       ctx.fillText(user.shareCode, W / 2, 700);
 
-      // ── 分割线 ────────────────────────────────────
-      ctx.strokeStyle = '#e4eaf0';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(80, 738);
-      ctx.lineTo(W - 80, 738);
-      ctx.stroke();
-
-      // ── 品牌底部 ──────────────────────────────────
-      ctx.font = '22px sans-serif';
-      ctx.fillStyle = '#9ea5b0';
-      ctx.fillText('客户资源管理系统 · zganquandao.com', W / 2, 770);
-
       // type='2d' 是同步的，直接显示
       setShowPoster(true);
       setGenerating(false);
