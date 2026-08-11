@@ -209,8 +209,7 @@ export default function ProfilePage() {
 
   return (
     <View className='page profile-page'>
-      {/* Canvas 仅在生成中时挂载，完成后立即销毁，避免原生组件泄漏 */}
-      {generating && <Canvas canvasId='poster-canvas' className='poster-canvas' />}
+      <Canvas canvasId='poster-canvas' className='poster-canvas' />
 
       <View className='identity-band'>
         <View className='avatar avatar--large'>{user?.name?.[0] ?? '?'}</View>
@@ -270,11 +269,13 @@ export default function ProfilePage() {
 
       {showPoster && (
         <View className='poster-mask'>
-          <Image
-            src={posterSrc}
-            style={{ width: '540rpx', borderRadius: '16rpx' }}
-            mode='widthFix'
-          />
+          <View style={{ width: '540rpx', height: '810rpx', borderRadius: '16rpx', overflow: 'hidden', flexShrink: 0 }}>
+            <Image
+              src={posterSrc}
+              style={{ width: '100%', height: '100%' }}
+              mode='scaleToFill'
+            />
+          </View>
           <Text className='poster-mask__hint'>长按图片也可保存</Text>
           <View className='poster-actions'>
             <Button className='btn btn--primary' onClick={savePoster}>保存到相册</Button>
