@@ -79,93 +79,111 @@ export default function ProfilePage() {
         return;
       }
 
-      // 设置物理像素尺寸（坐标系以此为准）
-      canvas.width = W;
-      canvas.height = H;
+      // 设置物理像素尺寸（2x 输出，坐标系同步放大）
+      const S = 2; // 缩放倍数，画布物理像素 = CSS 像素 × S
+      canvas.width = W * S;
+      canvas.height = H * S;
       const ctx: CanvasRenderingContext2D = canvas.getContext('2d');
+      ctx.scale(S, S);
 
       // ── 背景 ──────────────────────────────────────
-      ctx.fillStyle = '#f4f7fa';
+      ctx.fillStyle = '#f0f4f8';
       ctx.fillRect(0, 0, W, H);
 
-      // ── 头部渐变 ─────────────────────────────────
+      // ── 头部色块（深色 + 中色，更紧凑）─────────────
+      const HEADER_H = 240;
       ctx.fillStyle = '#0a4f5e';
-      ctx.fillRect(0, 0, W, 200);
-      ctx.fillStyle = '#086070';
-      ctx.fillRect(0, 200, W, 60);
-      ctx.fillStyle = '#007d7d';
-      ctx.fillRect(0, 240, W, 60);
+      ctx.fillRect(0, 0, W, HEADER_H);
+      // 底部轻微过渡
+      const grad = ctx.createLinearGradient(0, HEADER_H - 60, 0, HEADER_H);
+      grad.addColorStop(0, '#0a4f5e');
+      grad.addColorStop(1, '#006b6b');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, HEADER_H - 60, W, 60);
 
-      // ── 头像圆圈 ─────────────────────────────────
+      // ── 头像圆 ───────────────────────────────────
+      const AV_CY = 110;
+      const AV_R = 62;
       ctx.beginPath();
-      ctx.arc(W / 2, 118, 72, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      ctx.arc(W / 2, AV_CY, AV_R + 6, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.12)';
       ctx.fill();
       ctx.beginPath();
-      ctx.arc(W / 2, 118, 72, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-      ctx.lineWidth = 3;
+      ctx.arc(W / 2, AV_CY, AV_R, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.18)';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(W / 2, AV_CY, AV_R, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+      ctx.lineWidth = 2.5;
       ctx.stroke();
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 56px sans-serif';
+      ctx.font = 'bold 52px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(user.name?.[0] ?? '?', W / 2, 118);
+      ctx.fillText(user.name?.[0] ?? '?', W / 2, AV_CY);
 
-      // ── 姓名 & 角色 ───────────────────────────────
-      ctx.font = '36px sans-serif';
+      // ── 姓名 & 角色（紧凑间距）───────────────────
+      ctx.font = 'bold 34px sans-serif';
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(user.name ?? '', W / 2, 222);
-      ctx.font = '23px sans-serif';
-      ctx.fillStyle = 'rgba(255,255,255,0.7)';
-      ctx.fillText(ROLE_LABELS[user.role ?? ''] ?? user.role ?? '', W / 2, 262);
+      ctx.fillText(user.name ?? '', W / 2, 195);
+      ctx.font = '22px sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.72)';
+      ctx.fillText(ROLE_LABELS[user.role ?? ''] ?? user.role ?? '', W / 2, 226);
 
-      // ── 白色主卡片 ───────────────────────────────
+      // ── 白色主卡片（圆角 20px 模拟）────────────────
+      const CARD_Y = HEADER_H + 16;
+      const CARD_X = 20;
+      const CARD_W = W - 40;
+      const CARD_H = H - CARD_Y - 20;
+      const R = 20;
+      // 填充主体
       ctx.fillStyle = '#ffffff';
-      ctx.fillRect(24, 294, W - 48, H - 318);
-      ctx.fillStyle = '#f4f7fa';
-      ctx.fillRect(24, 294, 20, 20);
-      ctx.fillRect(W - 44, 294, 20, 20);
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.arc(44, 314, 20, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(W - 44, 314, 20, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillRect(24, 294, W - 48, 22);
+      ctx.fillRect(CARD_X + R, CARD_Y, CARD_W - R * 2, CARD_H);
+      ctx.fillRect(CARD_X, CARD_Y + R, CARD_W, CARD_H - R * 2);
+      // 四角圆弧
+      [[CARD_X + R, CARD_Y + R], [CARD_X + CARD_W - R, CARD_Y + R],
+       [CARD_X + R, CARD_Y + CARD_H - R], [CARD_X + CARD_W - R, CARD_Y + CARD_H - R]]
+        .forEach(([cx, cy]) => {
+          ctx.beginPath();
+          ctx.arc(cx, cy, R, 0, Math.PI * 2);
+          ctx.fill();
+        });
 
       // ── 邀请语 ────────────────────────────────────
-      ctx.font = '27px sans-serif';
-      ctx.fillStyle = '#5c6470';
+      ctx.font = '24px sans-serif';
+      ctx.fillStyle = '#7a8694';
       ctx.textAlign = 'center';
-      ctx.fillText('扫描二维码，登记客户信息', W / 2, 348);
+      ctx.fillText('扫描下方二维码，登记客户信息', W / 2, CARD_Y + 44);
 
-      // ── QR 码 ────────────────────────────────────
-      const qrSize = 230;
+      // ── QR 码（居中，留足边距）───────────────────
+      const qrSize = 260;
       const qrX = (W - qrSize) / 2;
-      const qrY = 378;
+      const qrY = CARD_Y + 72;
       const ms = qrSize / matrix.length;
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(qrX - 14, qrY - 14, qrSize + 28, qrSize + 28);
-      ctx.strokeStyle = '#e4eaf0';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(qrX - 14, qrY - 14, qrSize + 28, qrSize + 28);
+      // QR 背景框
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(qrX - 16, qrY - 16, qrSize + 32, qrSize + 32);
+      ctx.strokeStyle = '#dde4ec';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(qrX - 16, qrY - 16, qrSize + 32, qrSize + 32);
+      // QR 模块
       ctx.fillStyle = '#0a4f5e';
       matrix.forEach((row, r) => {
         row.forEach((dark, c) => {
           if (!dark) return;
-          ctx.fillRect(qrX + c * ms, qrY + r * ms, ms, ms);
+          ctx.fillRect(qrX + c * ms, qrY + r * ms, ms - 0.5, ms - 0.5);
         });
       });
 
-      // ── 分享码 ────────────────────────────────────
-      ctx.font = '22px sans-serif';
+      // ── 分享码区块 ────────────────────────────────
+      const codeY = qrY + qrSize + 52;
+      ctx.font = '21px sans-serif';
       ctx.fillStyle = '#9ea5b0';
-      ctx.fillText('我的分享码', W / 2, 644);
-      ctx.font = 'bold 52px monospace';
+      ctx.fillText('我的分享码', W / 2, codeY);
+      ctx.font = 'bold 54px "Courier New", monospace';
       ctx.fillStyle = '#007d7d';
-      ctx.fillText(user.shareCode, W / 2, 700);
+      ctx.fillText(user.shareCode, W / 2, codeY + 56);
 
       // type='2d' 是同步的，直接显示
       setShowPoster(true);
