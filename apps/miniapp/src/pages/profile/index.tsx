@@ -80,30 +80,32 @@ export default function ProfilePage() {
       }
 
       // 设置物理像素尺寸（2x 输出，坐标系同步放大）
-      const S = 2; // 缩放倍数，画布物理像素 = CSS 像素 × S
+      const S = 2;
       canvas.width = W * S;
       canvas.height = H * S;
       const ctx: CanvasRenderingContext2D = canvas.getContext('2d');
       ctx.scale(S, S);
 
+      // WeChat canvas 字体：PingFang SC 比 sans-serif 清晰
+      const FONT = 'PingFang SC, sans-serif';
+
       // ── 背景 ──────────────────────────────────────
       ctx.fillStyle = '#f0f4f8';
       ctx.fillRect(0, 0, W, H);
 
-      // ── 头部色块（深色 + 中色，更紧凑）─────────────
-      const HEADER_H = 240;
+      // ── 头部色块 ──────────────────────────────────
+      const HEADER_H = 260;
       ctx.fillStyle = '#0a4f5e';
       ctx.fillRect(0, 0, W, HEADER_H);
-      // 底部轻微过渡
       const grad = ctx.createLinearGradient(0, HEADER_H - 60, 0, HEADER_H);
       grad.addColorStop(0, '#0a4f5e');
       grad.addColorStop(1, '#006b6b');
       ctx.fillStyle = grad;
       ctx.fillRect(0, HEADER_H - 60, W, 60);
 
-      // ── 头像圆 ───────────────────────────────────
-      const AV_CY = 110;
-      const AV_R = 62;
+      // ── 头像圆（圆心上移，给名字留足空间）──────────
+      const AV_CY = 100;
+      const AV_R = 58;
       ctx.beginPath();
       ctx.arc(W / 2, AV_CY, AV_R + 6, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(255,255,255,0.12)';
@@ -118,30 +120,29 @@ export default function ProfilePage() {
       ctx.lineWidth = 2.5;
       ctx.stroke();
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 52px sans-serif';
+      ctx.font = `bold 48px ${FONT}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(user.name?.[0] ?? '?', W / 2, AV_CY);
 
-      // ── 姓名 & 角色（紧凑间距）───────────────────
-      ctx.font = 'bold 34px sans-serif';
+      // ── 姓名（头像底部 + 18px 间距）─────────────────
+      const NAME_Y = AV_CY + AV_R + 28;
+      ctx.font = `bold 34px ${FONT}`;
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(user.name ?? '', W / 2, 195);
-      ctx.font = '22px sans-serif';
+      ctx.fillText(user.name ?? '', W / 2, NAME_Y);
+      ctx.font = `22px ${FONT}`;
       ctx.fillStyle = 'rgba(255,255,255,0.72)';
-      ctx.fillText(ROLE_LABELS[user.role ?? ''] ?? user.role ?? '', W / 2, 226);
+      ctx.fillText(ROLE_LABELS[user.role ?? ''] ?? user.role ?? '', W / 2, NAME_Y + 36);
 
-      // ── 白色主卡片（圆角 20px 模拟）────────────────
+      // ── 白色主卡片 ────────────────────────────────
       const CARD_Y = HEADER_H + 16;
       const CARD_X = 20;
       const CARD_W = W - 40;
       const CARD_H = H - CARD_Y - 20;
       const R = 20;
-      // 填充主体
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(CARD_X + R, CARD_Y, CARD_W - R * 2, CARD_H);
       ctx.fillRect(CARD_X, CARD_Y + R, CARD_W, CARD_H - R * 2);
-      // 四角圆弧
       [[CARD_X + R, CARD_Y + R], [CARD_X + CARD_W - R, CARD_Y + R],
        [CARD_X + R, CARD_Y + CARD_H - R], [CARD_X + CARD_W - R, CARD_Y + CARD_H - R]]
         .forEach(([cx, cy]) => {
@@ -150,24 +151,22 @@ export default function ProfilePage() {
           ctx.fill();
         });
 
-      // ── 邀请语 ────────────────────────────────────
-      ctx.font = '24px sans-serif';
+      // ── 邀请语（卡片顶 + 52px 间距）──────────────
+      ctx.font = `24px ${FONT}`;
       ctx.fillStyle = '#7a8694';
       ctx.textAlign = 'center';
-      ctx.fillText('扫描下方二维码，登记客户信息', W / 2, CARD_Y + 44);
+      ctx.fillText('扫描下方二维码，登记客户信息', W / 2, CARD_Y + 52);
 
-      // ── QR 码（居中，留足边距）───────────────────
-      const qrSize = 260;
+      // ── QR 码（邀请语下方 + 28px 间距）──────────
+      const qrSize = 256;
       const qrX = (W - qrSize) / 2;
-      const qrY = CARD_Y + 72;
+      const qrY = CARD_Y + 52 + 28;
       const ms = qrSize / matrix.length;
-      // QR 背景框
       ctx.fillStyle = '#f8fafc';
       ctx.fillRect(qrX - 16, qrY - 16, qrSize + 32, qrSize + 32);
       ctx.strokeStyle = '#dde4ec';
       ctx.lineWidth = 1.5;
       ctx.strokeRect(qrX - 16, qrY - 16, qrSize + 32, qrSize + 32);
-      // QR 模块
       ctx.fillStyle = '#0a4f5e';
       matrix.forEach((row, r) => {
         row.forEach((dark, c) => {
@@ -176,9 +175,14 @@ export default function ProfilePage() {
         });
       });
 
-      // ── 分享码区块 ────────────────────────────────
-      const codeY = qrY + qrSize + 52;
-      ctx.font = '21px sans-serif';
+      // ── 分享码 ────────────────────────────────────
+      const codeY = qrY + qrSize + 48;
+      ctx.font = `21px ${FONT}`;
+      ctx.fillStyle = '#9ea5b0';
+      ctx.fillText('我的分享码', W / 2, codeY);
+      ctx.font = `bold 54px "Courier New", monospace`;
+      ctx.fillStyle = '#007d7d';
+      ctx.fillText(user.shareCode, W / 2, codeY + 58);
       ctx.fillStyle = '#9ea5b0';
       ctx.fillText('我的分享码', W / 2, codeY);
       ctx.font = 'bold 54px "Courier New", monospace';
