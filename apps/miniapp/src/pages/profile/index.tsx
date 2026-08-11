@@ -269,13 +269,11 @@ export default function ProfilePage() {
 
       {showPoster && (
         <View className='poster-mask'>
-          <View style={{ width: '560rpx', overflow: 'hidden', borderRadius: '16rpx' }}>
-            <Image
-              src={posterSrc}
-              style={{ width: '560rpx', display: 'block' }}
-              mode='widthFix'
-            />
-          </View>
+          <Image
+            src={posterSrc}
+            style={{ width: '540rpx', height: '810rpx', borderRadius: '16rpx', display: 'block' }}
+            mode='scaleToFill'
+          />
           <Text className='poster-mask__hint'>长按图片也可保存</Text>
           <View className='poster-actions'>
             <Button className='btn btn--primary' onClick={savePoster}>保存到相册</Button>
