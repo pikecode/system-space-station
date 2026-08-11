@@ -176,18 +176,10 @@ export default function ProfilePage() {
       });
 
       // ── 分享码 ────────────────────────────────────
-      const codeY = qrY + qrSize + 48;
-      ctx.font = `21px ${FONT}`;
-      ctx.fillStyle = '#9ea5b0';
-      ctx.fillText('我的分享码', W / 2, codeY);
-      ctx.font = `bold 54px "Courier New", monospace`;
+      const codeY = qrY + qrSize + 52;
+      ctx.font = `bold 56px "Courier New", monospace`;
       ctx.fillStyle = '#007d7d';
-      ctx.fillText(user.shareCode, W / 2, codeY + 58);
-      ctx.fillStyle = '#9ea5b0';
-      ctx.fillText('我的分享码', W / 2, codeY);
-      ctx.font = 'bold 54px "Courier New", monospace';
-      ctx.fillStyle = '#007d7d';
-      ctx.fillText(user.shareCode, W / 2, codeY + 56);
+      ctx.fillText(user.shareCode, W / 2, codeY);
 
       // type='2d' 是同步的，直接显示
       setShowPoster(true);
