@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Taro, { useShareAppMessage } from '@tarojs/taro';
-import { View, Text, Button, Canvas, Image } from '@tarojs/components';
+import { View, Text, Button, Canvas } from '@tarojs/components';
 import { useAuthStore } from '../../store/auth';
 import { authApi } from '../../services/auth';
 import { useRequireLogin } from '../../hooks/useRequireLogin';
@@ -27,7 +27,6 @@ export default function ProfilePage() {
   const { user, logout, setAuth } = useAuthStore();
   const token = useAuthStore((state) => state.token);
   const authorized = useRequireLogin();
-  const [posterSrc, setPosterSrc] = useState('');
   const [showPoster, setShowPoster] = useState(false);
   const [generating, setGenerating] = useState(false);
 
@@ -69,134 +68,149 @@ export default function ProfilePage() {
     const W = 600;
     const H = 900;
     const matrix = buildQRMatrix(user.shareCode);
-    const ctx = Taro.createCanvasContext('poster-canvas');
 
-    // ── 背景 ──────────────────────────────────────
-    ctx.setFillStyle('#f4f7fa');
-    ctx.fillRect(0, 0, W, H);
+    // type='2d' canvas — 用 SelectorQuery 获取 canvas node
+    const query = Taro.createSelectorQuery();
+    query.select('#poster-canvas').node().exec((res: any[]) => {
+      const canvas = res[0]?.node;
+      if (!canvas) {
+        setGenerating(false);
+        Taro.showToast({ title: '画布初始化失败', icon: 'none' });
+        return;
+      }
 
-    // ── 头部渐变（两段矩形模拟渐变）─────────────────
-    ctx.setFillStyle('#0a4f5e');
-    ctx.fillRect(0, 0, W, 200);
-    ctx.setFillStyle('#086070');
-    ctx.fillRect(0, 200, W, 60);
-    ctx.setFillStyle('#007d7d');
-    ctx.fillRect(0, 240, W, 60);
+      // 设置物理像素尺寸（坐标系以此为准）
+      canvas.width = W;
+      canvas.height = H;
+      const ctx: CanvasRenderingContext2D = canvas.getContext('2d');
 
-    // ── 头像圆圈 ─────────────────────────────────
-    ctx.beginPath();
-    ctx.arc(W / 2, 118, 72, 0, Math.PI * 2);
-    ctx.setFillStyle('rgba(255,255,255,0.15)');
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(W / 2, 118, 72, 0, Math.PI * 2);
-    ctx.setStrokeStyle('rgba(255,255,255,0.4)');
-    ctx.setLineWidth(3);
-    ctx.stroke();
-    ctx.setFillStyle('#ffffff');
-    ctx.setFontSize(56);
-    ctx.setTextAlign('center');
-    ctx.setTextBaseline('middle');
-    ctx.fillText(user.name?.[0] ?? '?', W / 2, 118);
+      // ── 背景 ──────────────────────────────────────
+      ctx.fillStyle = '#f4f7fa';
+      ctx.fillRect(0, 0, W, H);
 
-    // ── 姓名 & 角色 ───────────────────────────────
-    ctx.setFontSize(36);
-    ctx.setFillStyle('#ffffff');
-    ctx.fillText(user.name ?? '', W / 2, 222);
-    ctx.setFontSize(23);
-    ctx.setFillStyle('rgba(255,255,255,0.7)');
-    ctx.fillText(ROLE_LABELS[user.role ?? ''] ?? user.role ?? '', W / 2, 262);
+      // ── 头部渐变 ─────────────────────────────────
+      ctx.fillStyle = '#0a4f5e';
+      ctx.fillRect(0, 0, W, 200);
+      ctx.fillStyle = '#086070';
+      ctx.fillRect(0, 200, W, 60);
+      ctx.fillStyle = '#007d7d';
+      ctx.fillRect(0, 240, W, 60);
 
-    // ── 白色主卡片（圆角用覆盖模拟）─────────────────
-    ctx.setFillStyle('#ffffff');
-    ctx.fillRect(24, 294, W - 48, H - 318);
-    // 圆角效果：在顶部盖两个小矩形遮住直角
-    ctx.setFillStyle('#f4f7fa');
-    ctx.fillRect(24, 294, 20, 20);
-    ctx.fillRect(W - 44, 294, 20, 20);
-    ctx.setFillStyle('#ffffff');
-    ctx.beginPath();
-    ctx.arc(44, 314, 20, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(W - 44, 314, 20, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillRect(24, 294, W - 48, 22);
+      // ── 头像圆圈 ─────────────────────────────────
+      ctx.beginPath();
+      ctx.arc(W / 2, 118, 72, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(W / 2, 118, 72, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 56px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(user.name?.[0] ?? '?', W / 2, 118);
 
-    // ── 邀请语 ────────────────────────────────────
-    ctx.setFontSize(27);
-    ctx.setFillStyle('#5c6470');
-    ctx.setTextAlign('center');
-    ctx.fillText('扫描二维码，登记客户信息', W / 2, 348);
+      // ── 姓名 & 角色 ───────────────────────────────
+      ctx.font = '36px sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(user.name ?? '', W / 2, 222);
+      ctx.font = '23px sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.fillText(ROLE_LABELS[user.role ?? ''] ?? user.role ?? '', W / 2, 262);
 
-    // ── QR 码 ────────────────────────────────────
-    const qrSize = 230;
-    const qrX = (W - qrSize) / 2;
-    const qrY = 378;
-    const ms = qrSize / matrix.length;
-    // QR 白色底框
-    ctx.setFillStyle('#ffffff');
-    ctx.fillRect(qrX - 14, qrY - 14, qrSize + 28, qrSize + 28);
-    // QR 外边框
-    ctx.setStrokeStyle('#e4eaf0');
-    ctx.setLineWidth(2);
-    ctx.strokeRect(qrX - 14, qrY - 14, qrSize + 28, qrSize + 28);
-    // QR 模块
-    matrix.forEach((row, r) => {
-      row.forEach((dark, c) => {
-        if (!dark) return;
-        ctx.setFillStyle('#0a4f5e');
-        ctx.fillRect(qrX + c * ms, qrY + r * ms, ms, ms);
+      // ── 白色主卡片 ───────────────────────────────
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(24, 294, W - 48, H - 318);
+      ctx.fillStyle = '#f4f7fa';
+      ctx.fillRect(24, 294, 20, 20);
+      ctx.fillRect(W - 44, 294, 20, 20);
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(44, 314, 20, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(W - 44, 314, 20, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillRect(24, 294, W - 48, 22);
+
+      // ── 邀请语 ────────────────────────────────────
+      ctx.font = '27px sans-serif';
+      ctx.fillStyle = '#5c6470';
+      ctx.textAlign = 'center';
+      ctx.fillText('扫描二维码，登记客户信息', W / 2, 348);
+
+      // ── QR 码 ────────────────────────────────────
+      const qrSize = 230;
+      const qrX = (W - qrSize) / 2;
+      const qrY = 378;
+      const ms = qrSize / matrix.length;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(qrX - 14, qrY - 14, qrSize + 28, qrSize + 28);
+      ctx.strokeStyle = '#e4eaf0';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(qrX - 14, qrY - 14, qrSize + 28, qrSize + 28);
+      ctx.fillStyle = '#0a4f5e';
+      matrix.forEach((row, r) => {
+        row.forEach((dark, c) => {
+          if (!dark) return;
+          ctx.fillRect(qrX + c * ms, qrY + r * ms, ms, ms);
+        });
       });
-    });
 
-    // ── 分享码 ────────────────────────────────────
-    ctx.setFontSize(22);
-    ctx.setFillStyle('#9ea5b0');
-    ctx.fillText('我的分享码', W / 2, 644);
-    ctx.setFontSize(52);
-    ctx.setFillStyle('#007d7d');
-    ctx.fillText(user.shareCode, W / 2, 700);
+      // ── 分享码 ────────────────────────────────────
+      ctx.font = '22px sans-serif';
+      ctx.fillStyle = '#9ea5b0';
+      ctx.fillText('我的分享码', W / 2, 644);
+      ctx.font = 'bold 52px monospace';
+      ctx.fillStyle = '#007d7d';
+      ctx.fillText(user.shareCode, W / 2, 700);
 
-    // ── 分割线 ────────────────────────────────────
-    ctx.setStrokeStyle('#e4eaf0');
-    ctx.setLineWidth(1);
-    ctx.beginPath();
-    ctx.moveTo(80, 738);
-    ctx.lineTo(W - 80, 738);
-    ctx.stroke();
+      // ── 分割线 ────────────────────────────────────
+      ctx.strokeStyle = '#e4eaf0';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(80, 738);
+      ctx.lineTo(W - 80, 738);
+      ctx.stroke();
 
-    // ── 品牌底部 ──────────────────────────────────
-    ctx.setFontSize(22);
-    ctx.setFillStyle('#9ea5b0');
-    ctx.fillText('客户资源管理系统 · zganquandao.com', W / 2, 770);
+      // ── 品牌底部 ──────────────────────────────────
+      ctx.font = '22px sans-serif';
+      ctx.fillStyle = '#9ea5b0';
+      ctx.fillText('客户资源管理系统 · zganquandao.com', W / 2, 770);
 
-    ctx.draw(false, () => {
-      Taro.canvasToTempFilePath({
-        canvasId: 'poster-canvas',
-        x: 0, y: 0, width: W, height: H,
-        destWidth: W, destHeight: H,
-        success: (result) => { setPosterSrc(result.tempFilePath); setShowPoster(true); setGenerating(false); },
-        fail: () => { setGenerating(false); Taro.showToast({ title: '生成失败', icon: 'none' }); },
-      });
+      // type='2d' 是同步的，直接显示
+      setShowPoster(true);
+      setGenerating(false);
     });
   };
 
   const savePoster = () => {
-    if (!posterSrc) return;
-    Taro.saveImageToPhotosAlbum({
-      filePath: posterSrc,
-      success: () => Taro.showToast({ title: '已保存到相册', icon: 'success' }),
-      fail: (error) => {
-        if (String(error?.errMsg).includes('auth')) {
-          Taro.showModal({
-            title: '需要相册权限',
-            content: '请在设置中允许访问相册',
-            confirmText: '去设置',
-            success: ({ confirm }) => { if (confirm) Taro.openSetting(); },
+    const query = Taro.createSelectorQuery();
+    query.select('#poster-canvas').node().exec((res: any[]) => {
+      const canvas = res[0]?.node;
+      if (!canvas) return;
+      Taro.canvasToTempFilePath({
+        canvas,
+        success: (result) => {
+          Taro.saveImageToPhotosAlbum({
+            filePath: result.tempFilePath,
+            success: () => Taro.showToast({ title: '已保存到相册', icon: 'success' }),
+            fail: (error) => {
+              if (String(error?.errMsg).includes('auth')) {
+                Taro.showModal({
+                  title: '需要相册权限',
+                  content: '请在设置中允许访问相册',
+                  confirmText: '去设置',
+                  success: ({ confirm }) => { if (confirm) Taro.openSetting(); },
+                });
+              }
+            },
           });
-        }
-      },
+        },
+        fail: () => Taro.showToast({ title: '导出失败', icon: 'none' }),
+      });
     });
   };
 
@@ -209,8 +223,6 @@ export default function ProfilePage() {
 
   return (
     <View className='page profile-page'>
-      <Canvas canvasId='poster-canvas' className='poster-canvas' />
-
       <View className='identity-band'>
         <View className='avatar avatar--large'>{user?.name?.[0] ?? '?'}</View>
         <View className='identity-band__body'>
@@ -267,22 +279,19 @@ export default function ProfilePage() {
 
       <View className='logout-action' onClick={handleLogout}>退出登录</View>
 
-      {showPoster && (
-        <View className='poster-mask'>
-          <View style={{ width: '540rpx', height: '810rpx', borderRadius: '16rpx', overflow: 'hidden', flexShrink: 0 }}>
-            <Image
-              src={posterSrc}
-              style={{ width: '100%', height: '100%' }}
-              mode='scaleToFill'
-            />
-          </View>
-          <Text className='poster-mask__hint'>长按图片也可保存</Text>
-          <View className='poster-actions'>
-            <Button className='btn btn--primary' onClick={savePoster}>保存到相册</Button>
-            <Button className='btn poster-close' onClick={() => setShowPoster(false)}>关闭</Button>
-          </View>
+      {/* 海报弹层：Canvas type='2d' 是普通组件，不是原生组件，CSS 尺寸完全可控 */}
+      <View className={`poster-mask${showPoster ? ' poster-mask--show' : ''}`}>
+        <Canvas
+          type='2d'
+          id='poster-canvas'
+          style={{ width: '540rpx', height: '810rpx', borderRadius: '16rpx', flexShrink: 0 }}
+        />
+        <Text className='poster-mask__hint'>长按图片也可保存</Text>
+        <View className='poster-actions'>
+          <Button className='btn btn--primary' onClick={savePoster}>保存到相册</Button>
+          <Button className='btn poster-close' onClick={() => setShowPoster(false)}>关闭</Button>
         </View>
-      )}
+      </View>
     </View>
   );
 }
