@@ -29,6 +29,7 @@ export default function ProfilePage() {
   const authorized = useRequireLogin();
   const [showPoster, setShowPoster] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [posterTempPath, setPosterTempPath] = useState('');
 
   useEffect(() => {
     if (!token) return;
@@ -37,10 +38,29 @@ export default function ProfilePage() {
     }).catch(() => {});
   }, []);
 
-  useShareAppMessage(() => ({
-    title: `${user?.name ?? ''} 邀请您登记信息`,
-    path: `/pages/register/index?shareCode=${user?.shareCode ?? ''}`,
-  }));
+  // 导出 canvas 为临时文件，供分享缩略图使用
+  const exportPosterTemp = (): Promise<string> => new Promise((resolve) => {
+    const query = Taro.createSelectorQuery();
+    query.select('#poster-canvas').node().exec((res: any[]) => {
+      const canvas = res[0]?.node;
+      if (!canvas) { resolve(''); return; }
+      Taro.canvasToTempFilePath({
+        canvas,
+        success: (r) => { setPosterTempPath(r.tempFilePath); resolve(r.tempFilePath); },
+        fail: () => resolve(''),
+      });
+    });
+  });
+
+  useShareAppMessage(async () => {
+    // 如果已生成海报，带上缩略图
+    const imageUrl = posterTempPath || await exportPosterTemp();
+    return {
+      title: `${user?.name ?? '我'} 邀请您扫码登记客户信息`,
+      path: `/pages/register/index?shareCode=${user?.shareCode ?? ''}`,
+      ...(imageUrl ? { imageUrl } : {}),
+    };
+  });
 
   const handleCopyCode = () => {
     if (!user?.shareCode) return;
@@ -181,35 +201,41 @@ export default function ProfilePage() {
       ctx.fillStyle = '#007d7d';
       ctx.fillText(user.shareCode, W / 2, codeY);
 
-      // type='2d' 是同步的，直接显示
+      // type='2d' 是同步的，直接显示；同时导出 temp 供分享缩略图用
+      exportPosterTemp();
       setShowPoster(true);
       setGenerating(false);
     });
   };
 
   const savePoster = () => {
+    // 优先用已缓存的 tempFilePath，避免重复导出
+    const save = (filePath: string) => {
+      Taro.saveImageToPhotosAlbum({
+        filePath,
+        success: () => Taro.showToast({ title: '已保存到相册', icon: 'success' }),
+        fail: (error) => {
+          if (String(error?.errMsg).includes('auth')) {
+            Taro.showModal({
+              title: '需要相册权限',
+              content: '请在设置中允许访问相册',
+              confirmText: '去设置',
+              success: ({ confirm }) => { if (confirm) Taro.openSetting(); },
+            });
+          }
+        },
+      });
+    };
+
+    if (posterTempPath) { save(posterTempPath); return; }
+
     const query = Taro.createSelectorQuery();
     query.select('#poster-canvas').node().exec((res: any[]) => {
       const canvas = res[0]?.node;
       if (!canvas) return;
       Taro.canvasToTempFilePath({
         canvas,
-        success: (result) => {
-          Taro.saveImageToPhotosAlbum({
-            filePath: result.tempFilePath,
-            success: () => Taro.showToast({ title: '已保存到相册', icon: 'success' }),
-            fail: (error) => {
-              if (String(error?.errMsg).includes('auth')) {
-                Taro.showModal({
-                  title: '需要相册权限',
-                  content: '请在设置中允许访问相册',
-                  confirmText: '去设置',
-                  success: ({ confirm }) => { if (confirm) Taro.openSetting(); },
-                });
-              }
-            },
-          });
-        },
+        success: (result) => { setPosterTempPath(result.tempFilePath); save(result.tempFilePath); },
         fail: () => Taro.showToast({ title: '导出失败', icon: 'none' }),
       });
     });

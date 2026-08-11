@@ -35,10 +35,13 @@ const FILTERS = [
 
 type FilterValue = typeof FILTERS[number]['value'];
 
+interface Stats { total: number; approved: number; pending: number }
+
 export default function CustomersPage() {
   const token = useAuthStore((s) => s.token);
   const authorized = useRequireLogin();
   const [list, setList] = useState<CustomerRow[]>([]);
+  const [stats, setStats] = useState<Stats>({ total: 0, approved: 0, pending: 0 });
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterValue>('ALL');
   const [loading, setLoading] = useState(true);
@@ -46,8 +49,13 @@ export default function CustomersPage() {
   const load = async (name?: string) => {
     setLoading(true);
     try {
-      const page = await customersApi.getAll(name ? { name } : undefined);
-      setList(page.data);
+      const [all, approved, pending] = await Promise.all([
+        customersApi.getAll(name ? { name } : undefined),
+        customersApi.getAll({ status: 'APPROVED', ...(name ? { name } : {}) }),
+        customersApi.getAll({ status: 'PENDING', ...(name ? { name } : {}) }),
+      ]);
+      setList(all.data);
+      setStats({ total: all.total, approved: approved.total, pending: pending.total });
     } catch (e: any) {
       Taro.showToast({ title: e.message || '加载失败', icon: 'none' });
     } finally {
@@ -65,6 +73,24 @@ export default function CustomersPage() {
 
   return (
     <View className='page'>
+      {/* 统计看板 */}
+      <View className='summary-band'>
+        <View className='metric'>
+          <Text className='metric__label'>全部客户</Text>
+          <Text className='metric__value'>{stats.total}</Text>
+        </View>
+        <View className='metric'>
+          <Text className='metric__label'>有效客户</Text>
+          <Text className='metric__value'>{stats.approved}</Text>
+        </View>
+        <View className='metric'>
+          <Text className='metric__label'>待审核</Text>
+          <Text className={`metric__value ${stats.pending > 0 ? 'metric__value--warning' : ''}`}>
+            {stats.pending}
+          </Text>
+        </View>
+      </View>
+
       <View className='toolbar'>
         <View className='search-box'>
           <Input
@@ -119,7 +145,7 @@ export default function CustomersPage() {
           <Text className='status-panel__desc'>{search ? '调整搜索内容后重试' : '使用右上角新增客户'}</Text>
         </View>
       ) : (
-        <ScrollView scrollY style={{ height: 'calc(100vh - 246rpx)' }}>
+        <ScrollView scrollY style={{ height: 'calc(100vh - 420rpx)' }}>
           <View className='entity-list'>
             {visibleList.map((item) => (
               <View
@@ -153,3 +179,4 @@ export default function CustomersPage() {
     </View>
   );
 }
+
