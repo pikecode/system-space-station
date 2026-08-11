@@ -175,7 +175,7 @@ export default function ProfilePage() {
       Taro.canvasToTempFilePath({
         canvasId: 'poster-canvas',
         x: 0, y: 0, width: W, height: H,
-        destWidth: W * 2, destHeight: H * 2,
+        destWidth: W, destHeight: H,
         success: (result) => { setPosterSrc(result.tempFilePath); setShowPoster(true); setGenerating(false); },
         fail: () => { setGenerating(false); Taro.showToast({ title: '生成失败', icon: 'none' }); },
       });
@@ -209,7 +209,8 @@ export default function ProfilePage() {
 
   return (
     <View className='page profile-page'>
-      <Canvas canvasId='poster-canvas' className='poster-canvas' />
+      {/* Canvas 仅在生成中时挂载，完成后立即销毁，避免原生组件泄漏 */}
+      {generating && <Canvas canvasId='poster-canvas' className='poster-canvas' />}
 
       <View className='identity-band'>
         <View className='avatar avatar--large'>{user?.name?.[0] ?? '?'}</View>
@@ -271,8 +272,8 @@ export default function ProfilePage() {
         <View className='poster-mask'>
           <Image
             src={posterSrc}
-            style={{ width: '540rpx', height: '810rpx', borderRadius: '16rpx', display: 'block' }}
-            mode='scaleToFill'
+            style={{ width: '540rpx', borderRadius: '16rpx' }}
+            mode='widthFix'
           />
           <Text className='poster-mask__hint'>长按图片也可保存</Text>
           <View className='poster-actions'>
