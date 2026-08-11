@@ -49,13 +49,18 @@ export default function CustomersPage() {
   const load = async (name?: string) => {
     setLoading(true);
     try {
-      const [all, approved, pending] = await Promise.all([
+      // CustomerStatus 只有 ACTIVE / INACTIVE，没有 APPROVED/PENDING
+      // 有效客户 = ACTIVE，非活跃 = INACTIVE，前端 list 的 status label 是会员状态
+      const [all, inactive] = await Promise.all([
         customersApi.getAll(name ? { name } : undefined),
-        customersApi.getAll({ status: 'APPROVED', ...(name ? { name } : {}) }),
-        customersApi.getAll({ status: 'PENDING', ...(name ? { name } : {}) }),
+        customersApi.getAll({ status: 'INACTIVE' as any, ...(name ? { name } : {}) }),
       ]);
       setList(all.data);
-      setStats({ total: all.total, approved: approved.total, pending: pending.total });
+      setStats({
+        total: all.total,
+        approved: all.total - inactive.total,
+        pending: inactive.total,
+      });
     } catch (e: any) {
       Taro.showToast({ title: e.message || '加载失败', icon: 'none' });
     } finally {
@@ -80,11 +85,11 @@ export default function CustomersPage() {
           <Text className='metric__value'>{stats.total}</Text>
         </View>
         <View className='metric'>
-          <Text className='metric__label'>有效客户</Text>
+          <Text className='metric__label'>活跃客户</Text>
           <Text className='metric__value'>{stats.approved}</Text>
         </View>
         <View className='metric'>
-          <Text className='metric__label'>待审核</Text>
+          <Text className='metric__label'>非活跃</Text>
           <Text className={`metric__value ${stats.pending > 0 ? 'metric__value--warning' : ''}`}>
             {stats.pending}
           </Text>
