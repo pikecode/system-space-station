@@ -699,14 +699,6 @@ button::after {
   padding-bottom: var(--space-xl);
 }
 
-.poster-canvas {
-  position: fixed;
-  top: 0;
-  left: -800px;
-  width: 600px;
-  height: 900px;
-}
-
 .invite-code {
   display: flex;
   align-items: center;
