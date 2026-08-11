@@ -66,99 +66,118 @@ export default function ProfilePage() {
     if (!user?.shareCode) return;
     setGenerating(true);
 
-    const width = 600;
-    const height = 900;
+    const W = 600;
+    const H = 900;
     const matrix = buildQRMatrix(user.shareCode);
-    const context = Taro.createCanvasContext('poster-canvas');
+    const ctx = Taro.createCanvasContext('poster-canvas');
 
-    // 使用纯色分区保证真机 Canvas 渲染稳定，并与小程序设计令牌保持一致。
-    context.setFillStyle('#f3f5f4');
-    context.fillRect(0, 0, width, height);
-    context.setFillStyle('#173f3a');
-    context.fillRect(0, 0, width, 292);
+    // ── 背景 ──────────────────────────────────────
+    ctx.setFillStyle('#f4f7fa');
+    ctx.fillRect(0, 0, W, H);
 
-    context.beginPath();
-    context.arc(width / 2, 106, 62, 0, Math.PI * 2);
-    context.setFillStyle('rgba(255,255,255,0.14)');
-    context.fill();
-    context.beginPath();
-    context.arc(width / 2, 106, 62, 0, Math.PI * 2);
-    context.setStrokeStyle('rgba(255,255,255,0.35)');
-    context.setLineWidth(3);
-    context.stroke();
-    context.setFillStyle('#ffffff');
-    context.setFontSize(50);
-    context.setTextAlign('center');
-    context.setTextBaseline('middle');
-    context.fillText(user.name?.[0] ?? '?', width / 2, 106);
+    // ── 头部渐变（两段矩形模拟渐变）─────────────────
+    ctx.setFillStyle('#0a4f5e');
+    ctx.fillRect(0, 0, W, 200);
+    ctx.setFillStyle('#086070');
+    ctx.fillRect(0, 200, W, 60);
+    ctx.setFillStyle('#007d7d');
+    ctx.fillRect(0, 240, W, 60);
 
-    context.setFontSize(34);
-    context.setFillStyle('#ffffff');
-    context.fillText(user.name ?? '', width / 2, 194);
-    context.setFontSize(22);
-    context.setFillStyle('rgba(255,255,255,0.68)');
-    context.fillText(ROLE_LABELS[user.role ?? ''] ?? user.role ?? '', width / 2, 236);
+    // ── 头像圆圈 ─────────────────────────────────
+    ctx.beginPath();
+    ctx.arc(W / 2, 118, 72, 0, Math.PI * 2);
+    ctx.setFillStyle('rgba(255,255,255,0.15)');
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(W / 2, 118, 72, 0, Math.PI * 2);
+    ctx.setStrokeStyle('rgba(255,255,255,0.4)');
+    ctx.setLineWidth(3);
+    ctx.stroke();
+    ctx.setFillStyle('#ffffff');
+    ctx.setFontSize(56);
+    ctx.setTextAlign('center');
+    ctx.setTextBaseline('middle');
+    ctx.fillText(user.name?.[0] ?? '?', W / 2, 118);
 
-    context.setFillStyle('#ffffff');
-    context.fillRect(32, 268, width - 64, height - 300);
-    context.setFontSize(26);
-    context.setFillStyle('#56615e');
-    context.fillText('扫码登记客户信息', width / 2, 320);
+    // ── 姓名 & 角色 ───────────────────────────────
+    ctx.setFontSize(36);
+    ctx.setFillStyle('#ffffff');
+    ctx.fillText(user.name ?? '', W / 2, 222);
+    ctx.setFontSize(23);
+    ctx.setFillStyle('rgba(255,255,255,0.7)');
+    ctx.fillText(ROLE_LABELS[user.role ?? ''] ?? user.role ?? '', W / 2, 262);
 
-    const qrSize = 220;
-    const qrX = (width - qrSize) / 2;
-    const qrY = 356;
-    const moduleSize = qrSize / matrix.length;
-    context.setFillStyle('#ffffff');
-    context.fillRect(qrX - 12, qrY - 12, qrSize + 24, qrSize + 24);
-    matrix.forEach((row, rowIndex) => {
-      row.forEach((isDark, columnIndex) => {
-        if (!isDark) return;
-        context.setFillStyle('#173f3a');
-        context.fillRect(
-          qrX + columnIndex * moduleSize,
-          qrY + rowIndex * moduleSize,
-          moduleSize,
-          moduleSize
-        );
+    // ── 白色主卡片（圆角用覆盖模拟）─────────────────
+    ctx.setFillStyle('#ffffff');
+    ctx.fillRect(24, 294, W - 48, H - 318);
+    // 圆角效果：在顶部盖两个小矩形遮住直角
+    ctx.setFillStyle('#f4f7fa');
+    ctx.fillRect(24, 294, 20, 20);
+    ctx.fillRect(W - 44, 294, 20, 20);
+    ctx.setFillStyle('#ffffff');
+    ctx.beginPath();
+    ctx.arc(44, 314, 20, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(W - 44, 314, 20, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillRect(24, 294, W - 48, 22);
+
+    // ── 邀请语 ────────────────────────────────────
+    ctx.setFontSize(27);
+    ctx.setFillStyle('#5c6470');
+    ctx.setTextAlign('center');
+    ctx.fillText('扫描二维码，登记客户信息', W / 2, 348);
+
+    // ── QR 码 ────────────────────────────────────
+    const qrSize = 230;
+    const qrX = (W - qrSize) / 2;
+    const qrY = 378;
+    const ms = qrSize / matrix.length;
+    // QR 白色底框
+    ctx.setFillStyle('#ffffff');
+    ctx.fillRect(qrX - 14, qrY - 14, qrSize + 28, qrSize + 28);
+    // QR 外边框
+    ctx.setStrokeStyle('#e4eaf0');
+    ctx.setLineWidth(2);
+    ctx.strokeRect(qrX - 14, qrY - 14, qrSize + 28, qrSize + 28);
+    // QR 模块
+    matrix.forEach((row, r) => {
+      row.forEach((dark, c) => {
+        if (!dark) return;
+        ctx.setFillStyle('#0a4f5e');
+        ctx.fillRect(qrX + c * ms, qrY + r * ms, ms, ms);
       });
     });
 
-    context.setFontSize(22);
-    context.setFillStyle('#89928f');
-    context.fillText('分享码', width / 2, 618);
-    context.setFontSize(50);
-    context.setFillStyle('#176b61');
-    context.fillText(user.shareCode, width / 2, 676);
+    // ── 分享码 ────────────────────────────────────
+    ctx.setFontSize(22);
+    ctx.setFillStyle('#9ea5b0');
+    ctx.fillText('我的分享码', W / 2, 644);
+    ctx.setFontSize(52);
+    ctx.setFillStyle('#007d7d');
+    ctx.fillText(user.shareCode, W / 2, 700);
 
-    context.setStrokeStyle('#dfe5e2');
-    context.setLineWidth(1);
-    context.beginPath();
-    context.moveTo(80, 716);
-    context.lineTo(width - 80, 716);
-    context.stroke();
-    context.setFontSize(22);
-    context.setFillStyle('#89928f');
-    context.fillText('客户资源管理系统', width / 2, 756);
+    // ── 分割线 ────────────────────────────────────
+    ctx.setStrokeStyle('#e4eaf0');
+    ctx.setLineWidth(1);
+    ctx.beginPath();
+    ctx.moveTo(80, 738);
+    ctx.lineTo(W - 80, 738);
+    ctx.stroke();
 
-    context.draw(false, () => {
+    // ── 品牌底部 ──────────────────────────────────
+    ctx.setFontSize(22);
+    ctx.setFillStyle('#9ea5b0');
+    ctx.fillText('客户资源管理系统 · zganquandao.com', W / 2, 770);
+
+    ctx.draw(false, () => {
       Taro.canvasToTempFilePath({
         canvasId: 'poster-canvas',
-        x: 0,
-        y: 0,
-        width,
-        height,
-        destWidth: width * 2,
-        destHeight: height * 2,
-        success: (result) => {
-          setPosterSrc(result.tempFilePath);
-          setShowPoster(true);
-          setGenerating(false);
-        },
-        fail: () => {
-          setGenerating(false);
-          Taro.showToast({ title: '生成失败', icon: 'none' });
-        },
+        x: 0, y: 0, width: W, height: H,
+        destWidth: W * 2, destHeight: H * 2,
+        success: (result) => { setPosterSrc(result.tempFilePath); setShowPoster(true); setGenerating(false); },
+        fail: () => { setGenerating(false); Taro.showToast({ title: '生成失败', icon: 'none' }); },
       });
     });
   };
