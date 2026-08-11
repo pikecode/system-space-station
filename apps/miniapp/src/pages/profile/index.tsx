@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import Taro, { useShareAppMessage } from '@tarojs/taro';
+import Taro, { useShareAppMessage, useShareTimeline } from '@tarojs/taro';
 import { View, Text, Button, Canvas } from '@tarojs/components';
 import { useAuthStore } from '../../store/auth';
 import { authApi } from '../../services/auth';
@@ -53,7 +53,6 @@ export default function ProfilePage() {
   });
 
   useShareAppMessage(async () => {
-    // 如果已生成海报，带上缩略图
     const imageUrl = posterTempPath || await exportPosterTemp();
     return {
       title: `${user?.name ?? '我'} 邀请您扫码登记客户信息`,
@@ -61,6 +60,13 @@ export default function ProfilePage() {
       ...(imageUrl ? { imageUrl } : {}),
     };
   });
+
+  // 分享到朋友圈
+  useShareTimeline(() => ({
+    title: `${user?.name ?? '我'} 邀请您扫码登记信息`,
+    query: `shareCode=${user?.shareCode ?? ''}`,
+    ...(posterTempPath ? { imageUrl: posterTempPath } : {}),
+  }));
 
   const handleCopyCode = () => {
     if (!user?.shareCode) return;

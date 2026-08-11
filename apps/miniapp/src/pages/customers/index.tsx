@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import Taro, { useDidShow } from '@tarojs/taro';
+import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/taro';
 import { View, Text, Input, ScrollView } from '@tarojs/components';
 import { customersApi, type CustomerRow } from '../../services/customers';
 import { useAuthStore } from '../../store/auth';
@@ -70,6 +70,16 @@ export default function CustomersPage() {
 
   useDidShow(() => { if (authorized && token) load(search.trim() || undefined); });
 
+  // 分享给朋友：带分享码
+  useShareAppMessage(() => ({
+    title: '欢迎登记客户信息',
+    path: '/pages/customers/index',
+  }));
+
+  // 分享到朋友圈
+  useShareTimeline(() => ({
+    title: '客户资源管理 · 高效跟进每一位客户',
+  }));
   if (!authorized) return <View className='loading'>跳转登录中...</View>;
 
   const visibleList = filter === 'ALL'
