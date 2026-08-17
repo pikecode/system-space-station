@@ -25,7 +25,7 @@ describe('DepartmentsService', () => {
     )).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('拒绝通过修改类型创建第八个市场部', async () => {
+  it('拒绝通过修改类型创建第九个市场部', async () => {
     const existing = {
       id: 'direct-1',
       name: '直属部门',
@@ -44,7 +44,7 @@ describe('DepartmentsService', () => {
           status: 'ACTIVE',
           parentId: null,
         }),
-        count: vi.fn().mockResolvedValue(7),
+        count: vi.fn().mockResolvedValue(8),
       },
     };
     const prisma = {

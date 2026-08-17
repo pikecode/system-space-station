@@ -5,8 +5,14 @@ import { storage } from '../utils/storage';
 interface UserInfo {
   id: string;
   name: string;
+  employeeNo?: string | null;
   role: UserRole;
   departmentId?: string | null;
+  department?: {
+    id: string;
+    name: string;
+    type: string;
+  } | null;
   avatar?: string | null;
   shareCode?: string | null;
 }

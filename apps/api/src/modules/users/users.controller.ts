@@ -16,7 +16,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserStatus } from '@prisma/client';
-import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { QueryUserDto } from './dto/query-user.dto';
 
@@ -27,6 +27,10 @@ class SetStatusDto {
   @IsString()
   @IsOptional()
   successorId?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  releaseEmployeeNo?: boolean;
 }
 
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -93,6 +97,6 @@ export class UsersController {
 
   @Patch(':id/status')
   setStatus(@Param('id') id: string, @Body() dto: SetStatusDto, @CurrentUser() operator: any) {
-    return this.usersService.setStatus(id, dto.status, dto.successorId, operator.id);
+    return this.usersService.setStatus(id, dto.status, dto.successorId, operator.id, dto.releaseEmployeeNo);
   }
 }

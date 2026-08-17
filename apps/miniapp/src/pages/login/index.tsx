@@ -8,7 +8,7 @@ import './index.css';
 export default function LoginPage() {
   const setAuth = useAuthStore((s) => s.setAuth);
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
-  const [account, setAccount] = useState('');
+  const [employeeNo, setEmployeeNo] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -21,13 +21,13 @@ export default function LoginPage() {
 
   const handleLogin = async () => {
     setErrorMessage('');
-    if (!account.trim() || !password.trim()) {
-      setErrorMessage('请填写账号和密码');
+    if (!employeeNo.trim() || !password.trim()) {
+      setErrorMessage('请填写编号和密码');
       return;
     }
     setLoading(true);
     try {
-      const res = await authApi.login({ account: account.trim(), password });
+      const res = await authApi.login({ employeeNo: employeeNo.trim(), password });
       setAuth(res.token, res.user);
       Taro.switchTab({ url: '/pages/customers/index' });
     } catch (e: any) {
@@ -54,13 +54,13 @@ export default function LoginPage() {
 
       <View className='login-form'>
         <View className='login-field'>
-          <Text className='login-field__label'>账号</Text>
+          <Text className='login-field__label'>编号</Text>
           <View className='login-field__control'>
             <Input
               className='login-field__input'
-              placeholder='用户名或手机号'
-              value={account}
-              onInput={(e) => { setAccount(e.detail.value); setErrorMessage(''); }}
+              placeholder='请输入员工编号'
+              value={employeeNo}
+              onInput={(e) => { setEmployeeNo(e.detail.value); setErrorMessage(''); }}
             />
           </View>
         </View>

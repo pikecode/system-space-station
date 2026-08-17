@@ -38,10 +38,12 @@ export const ALLOWED_CHILD_TYPES: Record<DepartmentType, DepartmentType[]> = {
 
 export const DEPARTMENT_CAPACITY: Partial<Record<DepartmentType, number>> = {
   [DepartmentType.MARKET]: 3,
-  [DepartmentType.DIVISION]: 7,
+  [DepartmentType.DIVISION]: 8,
 };
 
-export const MAX_MARKET_DEPARTMENTS = 7;
+export const MAX_MARKET_DEPARTMENTS = 8;
+
+export const MINIAPP_LOGIN_CENTER_NAMES = ['发展中心', '营销中心', '服务中心'] as const;
 
 export function getDepartmentCapacity(type: DepartmentType | string | null | undefined): number | undefined {
   return type ? DEPARTMENT_CAPACITY[type as DepartmentType] : undefined;
@@ -49,4 +51,18 @@ export function getDepartmentCapacity(type: DepartmentType | string | null | und
 
 export function canDepartmentGenerateShareCode(type: DepartmentType | string | null | undefined): boolean {
   return type === DepartmentType.MARKET || type === DepartmentType.DIVISION;
+}
+
+export function canDepartmentLoginMiniApp(
+  type: DepartmentType | string | null | undefined,
+  name?: string | null,
+): boolean {
+  if (!type) return false;
+  if (type === DepartmentType.MARKET || type === DepartmentType.DIVISION) return true;
+  if (type !== DepartmentType.CENTER || !name) return false;
+
+  const normalizedName = name.trim();
+  return MINIAPP_LOGIN_CENTER_NAMES.some(
+    (centerName) => normalizedName === centerName || normalizedName.endsWith(centerName),
+  );
 }

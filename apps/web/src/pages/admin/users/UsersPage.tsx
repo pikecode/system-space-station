@@ -165,11 +165,12 @@ export default function UsersPage() {
   });
 
   const statusMutation = useMutation({
-    mutationFn: ({ id, status, successorId }: {
+    mutationFn: ({ id, status, successorId, releaseEmployeeNo }: {
       id: string;
       status: string;
       successorId?: string;
-    }) => usersApi.setStatus(id, { status, successorId }),
+      releaseEmployeeNo?: boolean;
+    }) => usersApi.setStatus(id, { status, successorId, releaseEmployeeNo }),
     onSuccess: () => {
       message.success('状态更新成功');
       setDisableTarget(null);
@@ -245,14 +246,10 @@ export default function UsersPage() {
       });
       return;
     }
-    if (record.headOf) {
-      setDisableTarget(record);
-      disableForm.resetFields();
-      return;
-    }
-    modal.confirm({
-      title: '确认禁用？',
-      onOk: () => statusMutation.mutate({ id: record.id, status: 'INACTIVE' }),
+    setDisableTarget(record);
+    disableForm.resetFields();
+    disableForm.setFieldsValue({
+      releaseEmployeeNo: false,
     });
   };
 
@@ -677,7 +674,7 @@ export default function UsersPage() {
       </Modal>
 
       <Modal
-        title={`禁用负责人：${disableTarget?.name ?? ''}`}
+        title={`禁用人员：${disableTarget?.name ?? ''}`}
         open={!!disableTarget}
         confirmLoading={statusMutation.isPending}
         onCancel={() => {
@@ -693,14 +690,43 @@ export default function UsersPage() {
             id: disableTarget!.id,
             status: 'INACTIVE',
             successorId: values.successorId,
+            releaseEmployeeNo: values.releaseEmployeeNo,
           })}
         >
-          <Form.Item name="successorId" label="接任负责人" rules={[{ required: true }]}>
-            <Select
-              options={successorsFor(disableTarget).map((user) => ({ value: user.id, label: user.name }))}
-              notFoundContent="该部门无其他在职员工可接任，请先调入新成员"
-            />
-          </Form.Item>
+          <Alert
+            type="warning"
+            showIcon
+            message="禁用后该人员不能继续登录，正在使用的登录态会失效"
+            style={{ marginBottom: 16 }}
+          />
+          {disableTarget?.headOf && (
+            <Form.Item name="successorId" label="接任负责人" rules={[{ required: true }]}>
+              <Select
+                options={successorsFor(disableTarget).map((user) => ({ value: user.id, label: user.name }))}
+                notFoundContent="该部门无其他在职员工可接任，请先调入新成员"
+              />
+            </Form.Item>
+          )}
+          {disableTarget?.employeeNo && (() => {
+            const deptType = disableTarget.department?.type;
+            const isManaged = deptType === 'MARKET' || deptType === 'DIVISION';
+            if (isManaged) {
+              return (
+                <Form.Item extra={`编号 ${disableTarget.employeeNo} 将自动归还给部门槽位，可分配给下一位入职人员。`}>
+                  <span style={{ color: '#8c8c8c', fontSize: 13 }}>槽位编号将自动释放</span>
+                </Form.Item>
+              );
+            }
+            return (
+              <Form.Item
+                name="releaseEmployeeNo"
+                valuePropName="checked"
+                extra={`释放后，编号 ${disableTarget.employeeNo} 可分配给新入职人员；该人员档案会保留但不再占用编号。`}
+              >
+                <Checkbox>同时释放工号</Checkbox>
+              </Form.Item>
+            );
+          })()}
         </Form>
       </Modal>
     </>

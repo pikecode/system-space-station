@@ -2,8 +2,9 @@ import { Injectable, UnauthorizedException, NotFoundException } from '@nestjs/co
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import { canDepartmentLoginMiniApp } from 'shared';
 import { PrismaService } from '../../prisma/prisma.service';
-import { LoginDto } from './dto/login.dto';
+import { LoginDto, MiniAppLoginDto } from './dto/login.dto';
 
 @Injectable()
 export class AuthService {
@@ -64,6 +65,42 @@ export class AuthService {
     };
   }
 
+  async miniAppLogin(dto: MiniAppLoginDto) {
+    const employeeNo = dto.employeeNo.trim().toUpperCase();
+    if (!employeeNo) throw new UnauthorizedException('编号或密码错误');
+
+    const user = await this.prisma.user.findUnique({
+      where: { employeeNo },
+      select: {
+        id: true,
+        name: true,
+        employeeNo: true,
+        role: true,
+        departmentId: true,
+        authVersion: true,
+        status: true,
+        avatar: true,
+        shareCode: true,
+        passwordHash: true,
+        department: { select: { id: true, name: true, type: true, status: true, parentId: true } },
+      },
+    });
+    if (!user) throw new UnauthorizedException('编号或密码错误');
+    if (user.status === 'INACTIVE') throw new UnauthorizedException('账号已禁用');
+    if (!user.passwordHash) throw new UnauthorizedException('该账号不支持小程序登录');
+
+    const valid = await bcrypt.compare(dto.password, user.passwordHash);
+    if (!valid) throw new UnauthorizedException('编号或密码错误');
+    await this.ensureMiniAppDepartmentAccess(user.department);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    return this.buildLoginResponse(user);
+  }
+
   async me(userId: string) {
     return this.prisma.user.findUnique({
       where: { id: userId },
@@ -72,6 +109,7 @@ export class AuthService {
         name: true,
         username: true,
         phone: true,
+        employeeNo: true,
         role: true,
         departmentId: true,
         avatar: true,
@@ -92,10 +130,29 @@ export class AuthService {
     });
   }
 
-  private buildLoginResponse(user: { id: string; name: string; role: string; departmentId: string | null; avatar: string | null; authVersion: number; shareCode?: string | null }) {
+  private buildLoginResponse(user: {
+    id: string;
+    name: string;
+    employeeNo?: string | null;
+    role: string;
+    departmentId: string | null;
+    avatar: string | null;
+    authVersion: number;
+    shareCode?: string | null;
+    department?: { id: string; name: string; type: string } | null;
+  }) {
     return {
       token: this.signToken(user),
-      user: { id: user.id, name: user.name, role: user.role, departmentId: user.departmentId, avatar: user.avatar, shareCode: user.shareCode ?? null },
+      user: {
+        id: user.id,
+        name: user.name,
+        employeeNo: user.employeeNo ?? null,
+        role: user.role,
+        departmentId: user.departmentId,
+        department: user.department ?? null,
+        avatar: user.avatar,
+        shareCode: user.shareCode ?? null,
+      },
     };
   }
 
@@ -113,26 +170,74 @@ export class AuthService {
     const openid = await this.fetchWechatOpenId(code);
     const user = await this.prisma.user.findUnique({
       where: { wechatOpenId: openid },
-      select: { id: true, name: true, role: true, departmentId: true, avatar: true, authVersion: true, status: true, shareCode: true },
+      select: {
+        id: true,
+        name: true,
+        employeeNo: true,
+        role: true,
+        departmentId: true,
+        avatar: true,
+        authVersion: true,
+        status: true,
+        shareCode: true,
+        department: { select: { id: true, name: true, type: true, status: true, parentId: true } },
+      },
     });
     if (!user) throw new NotFoundException('微信未绑定账号，请先绑定');
     if (user.status === 'INACTIVE') throw new UnauthorizedException('账号已禁用');
+    await this.ensureMiniAppDepartmentAccess(user.department);
     return this.buildLoginResponse(user);
   }
 
   async bindWechat(code: string, account: string, password: string) {
     const openid = await this.fetchWechatOpenId(code);
     const trimmed = account.trim();
+    const employeeNo = trimmed.toUpperCase();
     const user = await this.prisma.user.findFirst({
-      where: { OR: [{ phone: trimmed }, { username: trimmed.toLowerCase() }] },
-      select: { id: true, name: true, role: true, departmentId: true, avatar: true, authVersion: true, status: true, passwordHash: true },
+      where: { OR: [{ employeeNo }, { phone: trimmed }, { username: trimmed.toLowerCase() }] },
+      select: {
+        id: true,
+        name: true,
+        employeeNo: true,
+        role: true,
+        departmentId: true,
+        avatar: true,
+        authVersion: true,
+        status: true,
+        shareCode: true,
+        passwordHash: true,
+        department: { select: { id: true, name: true, type: true, status: true, parentId: true } },
+      },
     });
     if (!user) throw new UnauthorizedException('账号或密码错误');
     if (user.status === 'INACTIVE') throw new UnauthorizedException('账号已禁用');
     if (!user.passwordHash) throw new UnauthorizedException('该账号不支持系统登录');
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) throw new UnauthorizedException('账号或密码错误');
+    await this.ensureMiniAppDepartmentAccess(user.department);
     await this.prisma.user.update({ where: { id: user.id }, data: { wechatOpenId: openid } });
     return this.buildLoginResponse(user);
+  }
+
+  private async ensureMiniAppDepartmentAccess(
+    department: { id: string; name: string; type: string; status: string; parentId?: string | null } | null,
+  ) {
+    if (!department || department.status !== 'ACTIVE') {
+      throw new UnauthorizedException('当前账号未分配可用部门');
+    }
+    if (canDepartmentLoginMiniApp(department.type, department.name)) return;
+
+    let parentId = department.parentId;
+    for (let depth = 0; parentId && depth < 8; depth += 1) {
+      const parent = await this.prisma.department.findUnique({
+        where: { id: parentId },
+        select: { id: true, name: true, type: true, status: true, parentId: true },
+      });
+      if (!parent || parent.status !== 'ACTIVE') break;
+      if (canDepartmentLoginMiniApp(parent.type, parent.name)) return;
+      parentId = parent.parentId;
+    }
+
+    throw new UnauthorizedException('当前账号无小程序登录权限');
   }
 }

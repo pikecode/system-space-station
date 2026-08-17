@@ -21,3 +21,14 @@ export class LoginDto {
   @MaxLength(128)
   password: string;
 }
+
+export class MiniAppLoginDto {
+  @IsString()
+  @MaxLength(32)
+  employeeNo: string;
+
+  @IsString()
+  @MinLength(6)
+  @MaxLength(128)
+  password: string;
+}

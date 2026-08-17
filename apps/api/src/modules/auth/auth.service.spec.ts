@@ -16,13 +16,19 @@ async function createFixture() {
     avatar: null,
     passwordHash,
   });
+  const findUnique = vi.fn();
+  const findUniqueDepartment = vi.fn();
+  const update = vi.fn();
   const sign = vi.fn().mockReturnValue('jwt-token');
   const service = new AuthService(
-    { user: { findFirst } } as never,
+    {
+      user: { findFirst, findUnique, update },
+      department: { findUnique: findUniqueDepartment },
+    } as never,
     { sign } as never,
     { getOrThrow: vi.fn() } as never,
   );
-  return { service, findFirst };
+  return { service, findFirst, findUnique, findUniqueDepartment, update, passwordHash };
 }
 
 describe('AuthService', () => {
@@ -41,5 +47,82 @@ describe('AuthService', () => {
     await service.login({ phone: '13800000000', password: 'Admin123456' });
 
     expect(findFirst.mock.calls[0][0].where.OR).toContainEqual({ phone: '13800000000' });
+  });
+
+  it('小程序允许营销体系人员使用编号和密码登录', async () => {
+    const { service, findUnique, update } = await createFixture();
+    findUnique.mockResolvedValue({
+      id: 'user-1',
+      name: '营销人员',
+      employeeNo: 'YX0001',
+      role: 'MEMBER',
+      departmentId: 'dept-1',
+      authVersion: 1,
+      status: 'ACTIVE',
+      avatar: null,
+      shareCode: 'ABC123',
+      passwordHash: await bcrypt.hash('User123456', 4),
+      department: { id: 'dept-1', name: '营销一部', type: 'MARKET', status: 'ACTIVE', parentId: null },
+    });
+
+    const response = await service.miniAppLogin({ employeeNo: ' yx0001 ', password: 'User123456' });
+
+    expect(response.token).toBe('jwt-token');
+    expect(response.user.employeeNo).toBe('YX0001');
+    expect(findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { employeeNo: 'YX0001' } }));
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'user-1' },
+      data: expect.objectContaining({ lastLoginAt: expect.any(Date) }),
+    }));
+  });
+
+  it('小程序拒绝非授权中心人员登录', async () => {
+    const { service, findUnique } = await createFixture();
+    findUnique.mockResolvedValue({
+      id: 'user-2',
+      name: '总部人员',
+      employeeNo: 'HQ0001',
+      role: 'MEMBER',
+      departmentId: 'dept-2',
+      authVersion: 1,
+      status: 'ACTIVE',
+      avatar: null,
+      shareCode: null,
+      passwordHash: await bcrypt.hash('User123456', 4),
+      department: { id: 'dept-2', name: '总经办', type: 'HQ', status: 'ACTIVE', parentId: null },
+    });
+
+    await expect(
+      service.miniAppLogin({ employeeNo: 'HQ0001', password: 'User123456' }),
+    ).rejects.toThrow('当前账号无小程序登录权限');
+  });
+
+  it('小程序允许授权中心下属部门人员登录', async () => {
+    const { service, findUnique, findUniqueDepartment } = await createFixture();
+    findUnique.mockResolvedValue({
+      id: 'user-3',
+      name: '服务专员',
+      employeeNo: 'FW0001',
+      role: 'MEMBER',
+      departmentId: 'dept-3',
+      authVersion: 1,
+      status: 'ACTIVE',
+      avatar: null,
+      shareCode: null,
+      passwordHash: await bcrypt.hash('User123456', 4),
+      department: { id: 'dept-3', name: '客户服务组', type: 'DIRECT', status: 'ACTIVE', parentId: 'center-1' },
+    });
+    findUniqueDepartment.mockResolvedValue({
+      id: 'center-1',
+      name: '服务中心',
+      type: 'CENTER',
+      status: 'ACTIVE',
+      parentId: null,
+    });
+
+    const response = await service.miniAppLogin({ employeeNo: 'FW0001', password: 'User123456' });
+
+    expect(response.user.departmentId).toBe('dept-3');
+    expect(findUniqueDepartment).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'center-1' } }));
   });
 });

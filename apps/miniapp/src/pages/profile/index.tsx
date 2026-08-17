@@ -76,7 +76,7 @@ export default function ProfilePage() {
   const handleLogout = () => {
     Taro.showModal({
       title: '退出登录',
-      content: '退出后需要重新输入账号和密码，确认退出吗？',
+      content: '退出后需要重新输入编号和密码，确认退出吗？',
       confirmColor: '#b83b3b',
       success: ({ confirm }) => {
         if (confirm) {
@@ -89,11 +89,12 @@ export default function ProfilePage() {
 
   const generatePoster = () => {
     if (!user?.shareCode) return;
+    const shareCode = user.shareCode;
     setGenerating(true);
 
     const W = 600;
     const H = 900;
-    const matrix = buildQRMatrix(user.shareCode);
+    const matrix = buildQRMatrix(shareCode);
 
     // type='2d' canvas — 用 SelectorQuery 获取 canvas node
     const query = Taro.createSelectorQuery();
@@ -205,7 +206,7 @@ export default function ProfilePage() {
       const codeY = qrY + qrSize + 52;
       ctx.font = `bold 56px "Courier New", monospace`;
       ctx.fillStyle = '#007d7d';
-      ctx.fillText(user.shareCode, W / 2, codeY);
+      ctx.fillText(shareCode, W / 2, codeY);
 
       // type='2d' 是同步的，直接显示；同时导出 temp 供分享缩略图用
       exportPosterTemp();

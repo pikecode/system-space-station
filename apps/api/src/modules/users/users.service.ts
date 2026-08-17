@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, UserRole, UserStatus, UserType } from '@prisma/client';
+import { DepartmentType, Prisma, UserRole, UserStatus, UserType } from '@prisma/client';
 import { canDepartmentGenerateShareCode, getDepartmentCapacity } from 'shared';
 import * as bcrypt from 'bcrypt';
 import { randomInt } from 'node:crypto';
@@ -144,6 +144,7 @@ export class UsersService {
       where: {
         status: UserStatus.ACTIVE,
         role: UserRole.MEMBER,
+        departmentId: null,
         ...(keyword ? {
           OR: [
             { name: { contains: keyword, mode: 'insensitive' as const } },
@@ -167,7 +168,15 @@ export class UsersService {
   findOrganizationMembers() {
     return this.prisma.user.findMany({
       where: { status: UserStatus.ACTIVE, departmentId: { not: null } },
-      select: { id: true, name: true, userType: true, role: true, departmentId: true },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        employeeNo: true,
+        userType: true,
+        role: true,
+        departmentId: true,
+      },
       orderBy: [{ departmentId: 'asc' }, { name: 'asc' }],
     });
   }
@@ -188,6 +197,9 @@ export class UsersService {
     if (!isPartner && !dto.password) {
       throw new BadRequestException('员工必须设置密码');
     }
+    if (isPartner && dto.employeeNo && !dto.password) {
+      throw new BadRequestException('有编号的合伙人必须设置密码');
+    }
 
     const protectedIdentityCard = dto.idCardNo
       ? this.sensitiveData.protectIdentityCard(dto.idCardNo)
@@ -195,21 +207,33 @@ export class UsersService {
     await this.ensureUniqueFields({
       phone: dto.phone,
       username: dto.username,
-      employeeNo: dto.employeeNo,
       idCardHash: protectedIdentityCard?.hash,
     });
 
-    const passwordHash = isPartner ? null : await bcrypt.hash(dto.password!, 12);
-
     return this.prisma.$transaction(async (tx) => {
       let department = null;
+      let employeeNo = dto.employeeNo?.trim().toUpperCase() || undefined;
       if (dto.departmentId) {
-        department = await tx.department.findUnique({ where: { id: dto.departmentId } });
+        department = await tx.department.findUnique({
+          where: { id: dto.departmentId },
+          select: { id: true, type: true, status: true, code: true },
+        });
         if (!department || department.status !== 'ACTIVE') {
           throw new NotFoundException('所属部门不存在或已停用');
         }
-        await this.validateDepartmentCapacity(tx, dto.departmentId, department.type);
+        if (this.requiresManagedEmployeeNo(department.type)) {
+          employeeNo = employeeNo ?? await this.generateNextEmployeeNo(tx, department);
+          this.validateEmployeeNoForDepartment(employeeNo, department);
+        }
+        if (employeeNo) {
+          await this.ensureEmployeeNoAvailable(tx, employeeNo);
+          await this.validateDepartmentCapacity(tx, dto.departmentId, department.type);
+        }
       }
+      if (isPartner && employeeNo && !dto.password) {
+        throw new BadRequestException('有编号的合伙人必须设置密码');
+      }
+      const passwordHash = dto.password ? await bcrypt.hash(dto.password, 12) : null;
 
       // 营销中心成员（MARKET/DIVISION部门）自动生成分享码
       const needsShareCode = canDepartmentGenerateShareCode(department?.type);
@@ -220,7 +244,7 @@ export class UsersService {
           name: dto.name,
           username: dto.username,
           phone: dto.phone,
-          employeeNo: dto.employeeNo,
+          employeeNo,
           userType,
           hasLicense: dto.hasLicense ?? false,
           licenseNo: dto.licenseNo,
@@ -321,6 +345,13 @@ export class UsersService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      if (dto.employeeNo && existing.departmentId) {
+        const department = await tx.department.findUnique({
+          where: { id: existing.departmentId },
+          select: { type: true, code: true },
+        });
+        if (department) this.validateEmployeeNoForDepartment(dto.employeeNo, department);
+      }
       const user = await tx.user.update({
         where: { id },
         data: updateData,
@@ -350,12 +381,34 @@ export class UsersService {
     return this.prisma.$transaction(async (tx) => {
       const targetDepartment = await tx.department.findUnique({
         where: { id: dto.newDepartmentId },
+        select: { id: true, type: true, status: true, code: true },
       });
       if (!targetDepartment || targetDepartment.status !== 'ACTIVE') {
         throw new NotFoundException('目标部门不存在或已停用');
       }
-      if (user.departmentId !== dto.newDepartmentId) {
+      const isChangingDept = user.departmentId !== dto.newDepartmentId;
+      const enteringManaged = isChangingDept && this.requiresManagedEmployeeNo(targetDepartment.type);
+
+      if (enteringManaged) {
         await this.validateDepartmentCapacity(tx, dto.newDepartmentId, targetDepartment.type);
+      }
+
+      let nextEmployeeNo: string | null | undefined = user.employeeNo;
+      if (isChangingDept) {
+        if (enteringManaged) {
+          nextEmployeeNo = await this.generateNextEmployeeNo(tx, targetDepartment, id);
+        } else {
+          // 离开管控部门（MARKET/DIVISION）时，编号归还给部门槽位
+          const sourceDept = user.departmentId
+            ? await tx.department.findUnique({
+                where: { id: user.departmentId },
+                select: { type: true },
+              })
+            : null;
+          if (sourceDept && this.requiresManagedEmployeeNo(sourceDept.type)) {
+            nextEmployeeNo = null;
+          }
+        }
       }
 
       const leavingHeadPosition =
@@ -400,6 +453,7 @@ export class UsersService {
         where: { id },
         data: {
           departmentId: dto.newDepartmentId,
+          employeeNo: nextEmployeeNo,
           role: newRole,
           authVersion: { increment: 1 },
         },
@@ -424,6 +478,7 @@ export class UsersService {
     status: UserStatus,
     successorId: string | undefined,
     operatorId: string,
+    releaseEmployeeNo = false,
   ) {
     const user = await this.findOne(id);
     if (user.role === UserRole.ADMIN && status === UserStatus.INACTIVE && id === operatorId) {
@@ -454,7 +509,12 @@ export class UsersService {
         }
       }
 
-      if (status === UserStatus.ACTIVE && user.status !== UserStatus.ACTIVE && user.departmentId) {
+      if (
+        status === UserStatus.ACTIVE &&
+        user.status !== UserStatus.ACTIVE &&
+        user.departmentId &&
+        user.employeeNo
+      ) {
         const department = await tx.department.findUnique({
           where: { id: user.departmentId },
           select: { id: true, type: true, status: true },
@@ -479,9 +539,25 @@ export class UsersService {
         });
       }
 
+      const shouldReleaseSlot =
+        status === UserStatus.INACTIVE &&
+        user.departmentId &&
+        user.employeeNo &&
+        (() => {
+          // 管控部门（MARKET/DIVISION）离职时强制释放槽位编号
+          const dept = user.department;
+          return dept && this.requiresManagedEmployeeNo(dept.type);
+        })();
+
       const updated = await tx.user.update({
         where: { id },
-        data: { status, authVersion: { increment: 1 } },
+        data: {
+          status,
+          ...(shouldReleaseSlot || (status === UserStatus.INACTIVE && releaseEmployeeNo)
+            ? { employeeNo: null }
+            : {}),
+          authVersion: { increment: 1 },
+        },
         select: safeUserSelect,
       });
       await tx.auditLog.create({
@@ -563,9 +639,16 @@ export class UsersService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      const dept = user.department;
+      const releaseNo = dept && this.requiresManagedEmployeeNo(dept.type);
       const updated = await tx.user.update({
         where: { id },
-        data: { departmentId: null, role: UserRole.MEMBER, authVersion: { increment: 1 } },
+        data: {
+          departmentId: null,
+          role: UserRole.MEMBER,
+          ...(releaseNo ? { employeeNo: null } : {}),
+          authVersion: { increment: 1 },
+        },
         select: safeUserSelect,
       });
       await tx.auditLog.create({
@@ -590,11 +673,81 @@ export class UsersService {
     const limit = getDepartmentCapacity(deptType);
     if (!limit) return;
 
-    const count = await tx.user.count({ where: { departmentId, status: 'ACTIVE' } });
+    const count = await tx.user.count({
+      where: { departmentId, status: 'ACTIVE', employeeNo: { not: null } },
+    });
     if (count >= limit) {
-      const label = deptType === 'MARKET' ? '市场部（1+2模式，上限3人）' : '事业部（1+6模式，上限7人）';
+      const label = deptType === 'MARKET' ? '市场部（1+2模式，上限3人）' : '事业部（7+1模式，上限8人）';
       throw new BadRequestException(`${label}已满员，无法继续加入`);
     }
+  }
+
+  private requiresManagedEmployeeNo(deptType: string) {
+    return deptType === DepartmentType.MARKET || deptType === DepartmentType.DIVISION;
+  }
+
+  private validateEmployeeNoForDepartment(
+    employeeNo: string,
+    department: { type: string; code: string | null },
+  ) {
+    if (!this.requiresManagedEmployeeNo(department.type)) return;
+    if (!department.code) throw new BadRequestException('部门未配置编号规则，无法分配编号');
+
+    const expectedPattern =
+      department.type === DepartmentType.MARKET
+        ? /^MKT\d{4}$/
+        : /^DIV\d{6}$/;
+    if (!expectedPattern.test(employeeNo) || !employeeNo.startsWith(department.code)) {
+      throw new BadRequestException(`编号必须以 ${department.code} 开头，并符合当前部门编号规则`);
+    }
+  }
+
+  private async ensureEmployeeNoAvailable(
+    tx: Prisma.TransactionClient,
+    employeeNo: string,
+    excludedUserId?: string,
+  ) {
+    const conflict = await tx.user.findFirst({
+      where: {
+        employeeNo,
+        ...(excludedUserId ? { id: { not: excludedUserId } } : {}),
+      },
+      select: { id: true },
+    });
+    if (conflict) throw new ConflictException('该工号已被使用');
+  }
+
+  private async generateNextEmployeeNo(
+    tx: Prisma.TransactionClient,
+    department: { id: string; type: string; code: string | null },
+    excludedUserId?: string,
+  ) {
+    if (!department.code) throw new BadRequestException('部门未配置编号规则，无法自动生成编号');
+
+    const limit = getDepartmentCapacity(department.type);
+    if (!limit) throw new BadRequestException('当前部门不支持自动生成编号');
+
+    const existing = await tx.user.findMany({
+      where: {
+        departmentId: department.id,
+        employeeNo: { startsWith: department.code },
+        ...(excludedUserId ? { id: { not: excludedUserId } } : {}),
+      },
+      select: { employeeNo: true },
+    });
+    const usedSeats = new Set(
+      existing
+        .map((user) => user.employeeNo?.slice(department.code!.length))
+        .filter((seat): seat is string => !!seat && /^\d{2}$/.test(seat)),
+    );
+
+    for (let seat = 1; seat <= limit; seat += 1) {
+      const nextSeat = String(seat).padStart(2, '0');
+      if (!usedSeats.has(nextSeat)) return `${department.code}${nextSeat}`;
+    }
+
+    const label = department.type === DepartmentType.MARKET ? '市场部（1+2模式，上限3人）' : '事业部（7+1模式，上限8人）';
+    throw new BadRequestException(`${label}已满员，无法继续加入`);
   }
 
   private async generateShareCode(tx: Prisma.TransactionClient): Promise<string> {

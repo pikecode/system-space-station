@@ -1,7 +1,17 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, UserType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
+
+type SeedEmployee = {
+  phone: string;
+  name: string;
+  employeeNo: string;
+  role: 'HEAD' | 'MEMBER';
+  departmentId: string;
+  positionId: string;
+  userType?: UserType;
+};
 
 async function main() {
   console.log('开始初始化种子数据...');
@@ -112,35 +122,50 @@ async function main() {
 
   // ── 7. 营销中心下属市场部（MARKET）────────────────────────────────────────
   const marketDepts = [
-    { id: 'dept-market-1', name: '市场部一部', sort: 60 },
-    { id: 'dept-market-2', name: '市场部二部', sort: 61 },
-    { id: 'dept-market-3', name: '市场部三部', sort: 62 },
-    { id: 'dept-market-5', name: '市场部五部', sort: 63 },
-    { id: 'dept-market-6', name: '市场部六部', sort: 64 },
-    { id: 'dept-market-7', name: '市场部七部', sort: 65 },
-    { id: 'dept-market-8', name: '市场部八部', sort: 66 },
+    { id: 'dept-market-center', name: '市场部中心部', seq: '01', sort: 60 },
+    { id: 'dept-market-1', name: '市场部一部', seq: '02', sort: 61 },
+    { id: 'dept-market-2', name: '市场部二部', seq: '03', sort: 62 },
+    { id: 'dept-market-3', name: '市场部三部', seq: '04', sort: 63 },
+    { id: 'dept-market-5', name: '市场部五部', seq: '05', sort: 64 },
+    { id: 'dept-market-6', name: '市场部六部', seq: '06', sort: 65 },
+    { id: 'dept-market-7', name: '市场部七部', seq: '07', sort: 66 },
+    { id: 'dept-market-8', name: '市场部八部', seq: '08', sort: 67 },
   ];
   for (const m of marketDepts) {
+    const marketDept = { id: m.id, name: m.name, code: `MKT${m.seq}`, sort: m.sort };
     await prisma.department.upsert({
       where: { id: m.id },
-      update: {},
-      create: { ...m, type: 'MARKET', parentId: marketing.id },
+      update: { name: m.name, code: marketDept.code, sort: m.sort, parentId: marketing.id, type: 'MARKET' },
+      create: { ...marketDept, type: 'MARKET', parentId: marketing.id },
     });
   }
 
-  // ── 8. 事业部（DIVISION，分配到对应市场部）───────────────────────────────
-  const divisionDepts = [
-    { id: 'dept-div-1', name: '事业1部', parentId: 'dept-market-1', sort: 70 },
-    { id: 'dept-div-2', name: '事业2部', parentId: 'dept-market-2', sort: 71 },
-    { id: 'dept-div-3', name: '事业3部', parentId: 'dept-market-3', sort: 72 },
-    { id: 'dept-div-5', name: '事业5部', parentId: 'dept-market-5', sort: 73 },
-    { id: 'dept-div-6', name: '事业6部', parentId: 'dept-market-6', sort: 74 },
-  ];
+  // ── 8. 事业部（DIVISION，每个市场部下固定事业1部、事业2部）────────────────
+  const legacyDivisionOneIds: Record<string, string> = {
+    '02': 'dept-div-1',
+    '03': 'dept-div-2',
+    '04': 'dept-div-3',
+    '05': 'dept-div-5',
+    '06': 'dept-div-6',
+  };
+  const divisionDepts = marketDepts.flatMap((marketDept, marketIndex) =>
+    ['01', '02'].map((divisionSeq, divisionIndex) => ({
+      id: divisionSeq === '01'
+        ? legacyDivisionOneIds[marketDept.seq] ?? `dept-${marketDept.id.replace('dept-', '')}-div-1`
+        : `dept-${marketDept.id.replace('dept-', '')}-div-2`,
+      name: `事业${Number(divisionSeq)}部`,
+      code: `DIV${marketDept.seq}${divisionSeq}`,
+      marketSeq: marketDept.seq,
+      divisionSeq,
+      parentId: marketDept.id,
+      sort: 70 + marketIndex * 2 + divisionIndex,
+    })),
+  );
   for (const d of divisionDepts) {
     await prisma.department.upsert({
       where: { id: d.id },
-      update: {},
-      create: { id: d.id, name: d.name, type: 'DIVISION', parentId: d.parentId, sort: d.sort },
+      update: { name: d.name, code: d.code, type: 'DIVISION', parentId: d.parentId, sort: d.sort, status: 'ACTIVE' },
+      create: { id: d.id, name: d.name, code: d.code, type: 'DIVISION', parentId: d.parentId, sort: d.sort },
     });
   }
 
@@ -170,11 +195,20 @@ async function main() {
   const headPwd = await bcrypt.hash('Head123456', 12);
   const marketHead = await prisma.user.upsert({
     where: { phone: '13800000001' },
-    update: { employeeNo: 'MKT001' },
+    update: {
+      employeeNo: 'MKT0201',
+      passwordHash: headPwd,
+      role: 'HEAD',
+      departmentId: 'dept-market-1',
+      positionId: pos.id,
+      userType: 'EMPLOYEE',
+      status: 'ACTIVE',
+      authVersion: { increment: 1 },
+    },
     create: {
       name: '王市场',
       phone: '13800000001',
-      employeeNo: 'MKT001',
+      employeeNo: 'MKT0201',
       passwordHash: headPwd,
       role: 'HEAD',
       departmentId: 'dept-market-1',
@@ -188,12 +222,22 @@ async function main() {
   const divHeadPwd = await bcrypt.hash('Head123456', 12);
   const divHead = await prisma.user.upsert({
     where: { phone: '13800000002' },
-    update: { employeeNo: 'DIV001' },
+    update: {
+      employeeNo: 'DIV020101',
+      passwordHash: divHeadPwd,
+      role: 'HEAD',
+      departmentId: 'dept-div-1',
+      positionId: pos.id,
+      userType: 'PARTNER',
+      status: 'ACTIVE',
+      authVersion: { increment: 1 },
+    },
     create: {
       name: '李事业',
       phone: '13800000002',
-      employeeNo: 'DIV001',
+      employeeNo: 'DIV020101',
       passwordHash: divHeadPwd,
+      userType: 'PARTNER',
       role: 'HEAD',
       departmentId: 'dept-div-1',
       positionId: pos.id,
@@ -206,12 +250,22 @@ async function main() {
   const memberPwd = await bcrypt.hash('Member123456', 12);
   await prisma.user.upsert({
     where: { phone: '13800000003' },
-    update: { employeeNo: 'EMP001' },
+    update: {
+      employeeNo: 'DIV020102',
+      passwordHash: memberPwd,
+      role: 'MEMBER',
+      departmentId: 'dept-div-1',
+      positionId: pos.id,
+      userType: 'PARTNER',
+      status: 'ACTIVE',
+      authVersion: { increment: 1 },
+    },
     create: {
       name: '张销售',
       phone: '13800000003',
-      employeeNo: 'EMP001',
+      employeeNo: 'DIV020102',
       passwordHash: memberPwd,
+      userType: 'PARTNER',
       role: 'MEMBER',
       departmentId: 'dept-div-1',
       positionId: pos.id,
@@ -221,31 +275,257 @@ async function main() {
 
   // ── 14. 营销中心合伙人（有分享码，可通过小程序邀请客户）────────────────────
   const partnerPwd = await bcrypt.hash('Partner123456', 12);
-  const partners = [
-    { phone: '13900000001', name: '陈合伙一', shareCode: 'AABB11', deptId: 'dept-market-1' },
-    { phone: '13900000002', name: '刘合伙二', shareCode: 'CCDD22', deptId: 'dept-market-2' },
-    { phone: '13900000003', name: '赵合伙三', shareCode: 'EEFF33', deptId: 'dept-market-3' },
-    { phone: '13900000004', name: '孙合伙四', shareCode: 'GGHH44', deptId: 'dept-div-1' },
-    { phone: '13900000005', name: '周合伙五', shareCode: 'JJKK55', deptId: 'dept-div-2' },
+  const partners: Array<{
+    phone: string;
+    name: string;
+    shareCode?: string;
+    deptId: string;
+    employeeNo?: string;
+    role?: 'HEAD' | 'MEMBER';
+  }> = [
+    { phone: '13900000001', name: '陈合伙一', shareCode: 'AABB11', deptId: 'dept-div-1', employeeNo: 'DIV020106' },
+    { phone: '13900000002', name: '刘合伙二', shareCode: 'CCDD22', deptId: 'dept-div-2', employeeNo: 'DIV030106' },
+    { phone: '13900000003', name: '赵合伙三', shareCode: 'EEFF33', deptId: 'dept-div-3', employeeNo: 'DIV040106' },
+    { phone: '13900000004', name: '孙合伙四', shareCode: 'GGHH44', deptId: 'dept-div-1', employeeNo: 'DIV020107' },
+    { phone: '13900000005', name: '周合伙五', shareCode: 'JJKK55', deptId: 'dept-div-2', employeeNo: 'DIV030107' },
+    { phone: '13288766776', name: '李四', shareCode: 'LLSS44', deptId: 'dept-div-1', employeeNo: 'DIV020103' },
+    { phone: '13222229992', name: '王五', shareCode: 'WW55AA', deptId: 'dept-div-1', employeeNo: 'DIV020104' },
+    { phone: '13800000005', name: '22', shareCode: 'TT2205', deptId: 'dept-div-1', employeeNo: 'DIV020105' },
   ];
   for (const p of partners) {
     await prisma.user.upsert({
       where: { phone: p.phone },
-      update: { shareCode: p.shareCode },
+      update: {
+        name: p.name,
+        shareCode: p.shareCode,
+        employeeNo: p.employeeNo,
+        passwordHash: partnerPwd,
+        userType: 'PARTNER',
+        role: p.role ?? 'MEMBER',
+        departmentId: p.deptId,
+        status: 'ACTIVE',
+        authVersion: { increment: 1 },
+      },
       create: {
         name: p.name,
         phone: p.phone,
         passwordHash: partnerPwd,
         userType: 'PARTNER',
-        role: 'MEMBER',
+        role: p.role ?? 'MEMBER',
         departmentId: p.deptId,
+        employeeNo: p.employeeNo,
         shareCode: p.shareCode,
         status: 'ACTIVE',
       },
     });
   }
 
-  // ── 15. 分成配置 ──────────────────────────────────────────────────────────
+  // ── 15. 小程序编号登录测试人员（发展 / 营销 / 服务）──────────────────────
+  const miniAppPwd = await bcrypt.hash('Test123456', 12);
+  const marketEmployeeNames: Record<string, string[]> = {
+    '01': ['秦中心', '吴中心', '郑中心'],
+    '02': ['王市场', '胡市场', '袁市场'],
+    '03': ['周营销', '朱营销', '苏营销'],
+    '04': ['刘三部', '陈三部', '杨三部'],
+    '05': ['赵五部', '黄五部', '谢五部'],
+    '06': ['孙六部', '徐六部', '程六部'],
+    '07': ['何七部', '宋七部', '邓七部'],
+    '08': ['林八部', '梁八部', '曹八部'],
+  };
+  const marketEmployeePhones: Record<string, Record<string, string>> = {
+    '02': { '01': '13800000001' },
+    '03': { '01': '13800000104' },
+  };
+
+  const marketEmployees: SeedEmployee[] = marketDepts.flatMap((dept) =>
+    ['01', '02', '03'].map((seat, index) => ({
+      phone: marketEmployeePhones[dept.seq]?.[seat] ?? `1380002${dept.seq}${seat}`,
+      name: marketEmployeeNames[dept.seq][index],
+      employeeNo: `MKT${dept.seq}${seat}`,
+      role: seat === '01' ? 'HEAD' : 'MEMBER',
+      departmentId: dept.id,
+      positionId: pos.id,
+    })),
+  );
+
+  const divisionEmployeePhones: Record<string, Record<string, string>> = {
+    '02-01': { '01': '13800000002', '02': '13800000003' },
+  };
+  const divisionEmployees: SeedEmployee[] = divisionDepts.flatMap((dept) =>
+    ['01', '02'].map((seat, index) => ({
+      phone: divisionEmployeePhones[`${dept.marketSeq}-${dept.divisionSeq}`]?.[seat] ??
+        `13700${dept.marketSeq}${dept.divisionSeq}${seat}`,
+      name: `市${Number(dept.marketSeq)}事业${Number(dept.divisionSeq)}${index === 0 ? '负责人' : '成员'}`,
+      employeeNo: `DIV${dept.marketSeq}${dept.divisionSeq}${seat}`,
+      role: seat === '01' ? 'HEAD' : 'MEMBER',
+      departmentId: dept.id,
+      positionId: pos.id,
+      userType: UserType.PARTNER,
+    })),
+  );
+
+  const miniAppUsers: SeedEmployee[] = [
+    {
+      phone: '13800000101',
+      name: '方发展',
+      employeeNo: 'DEV0001',
+      role: 'HEAD',
+      departmentId: 'dept-center-development',
+      positionId: pos.id,
+    },
+    {
+      phone: '13800000102',
+      name: '许发展',
+      employeeNo: 'DEV0101',
+      role: 'MEMBER',
+      departmentId: 'dept-dev-research',
+      positionId: pos.id,
+    },
+    {
+      phone: '13800000107',
+      name: '林标准',
+      employeeNo: 'DEV0201',
+      role: 'MEMBER',
+      departmentId: 'dept-dev-standard',
+      positionId: pos.id,
+    },
+    {
+      phone: '13800000108',
+      name: '高数据',
+      employeeNo: 'DEV0301',
+      role: 'MEMBER',
+      departmentId: 'dept-dev-data',
+      positionId: pos.id,
+    },
+    {
+      phone: '13800000109',
+      name: '罗知产',
+      employeeNo: 'DEV0401',
+      role: 'MEMBER',
+      departmentId: 'dept-dev-ip',
+      positionId: pos.id,
+    },
+    {
+      phone: '13800000110',
+      name: '钱资本',
+      employeeNo: 'DEV0501',
+      role: 'MEMBER',
+      departmentId: 'dept-dev-capital',
+      positionId: pos.id,
+    },
+    {
+      phone: '13800000111',
+      name: '唐品牌',
+      employeeNo: 'DEV0601',
+      role: 'MEMBER',
+      departmentId: 'dept-dev-brand',
+      positionId: pos.id,
+    },
+    {
+      phone: '13800000112',
+      name: '蒋学院',
+      employeeNo: 'DEV0701',
+      role: 'MEMBER',
+      departmentId: 'dept-dev-academy',
+      positionId: pos.id,
+    },
+    {
+      phone: '13800000103',
+      name: '马营销',
+      employeeNo: 'MKT0001',
+      role: 'HEAD',
+      departmentId: 'dept-center-marketing',
+      positionId: pos.id,
+    },
+    ...marketEmployees,
+    ...divisionEmployees,
+    {
+      phone: '13800000105',
+      name: '沈服务',
+      employeeNo: 'SVC0001',
+      role: 'HEAD',
+      departmentId: 'dept-center-service',
+      positionId: pos.id,
+    },
+    {
+      phone: '13800000106',
+      name: '何服务',
+      employeeNo: 'SVC0301',
+      role: 'MEMBER',
+      departmentId: 'dept-svc-product',
+      positionId: pos.id,
+    },
+    {
+      phone: '13800000113',
+      name: '余人资',
+      employeeNo: 'SVC0101',
+      role: 'MEMBER',
+      departmentId: 'dept-svc-hr',
+      positionId: pos.id,
+    },
+    {
+      phone: '13800000114',
+      name: '冯财务',
+      employeeNo: 'SVC0201',
+      role: 'MEMBER',
+      departmentId: 'dept-svc-finance',
+      positionId: pos.id,
+    },
+    {
+      phone: '13800000115',
+      name: '梁行政',
+      employeeNo: 'SVC0401',
+      role: 'MEMBER',
+      departmentId: 'dept-svc-admin',
+      positionId: pos.id,
+    },
+    {
+      phone: '13800000116',
+      name: '郑家庭',
+      employeeNo: 'SVC0501',
+      role: 'MEMBER',
+      departmentId: 'dept-svc-family',
+      positionId: pos.id,
+    },
+  ];
+
+  for (const u of miniAppUsers) {
+    const userType = u.userType ?? UserType.EMPLOYEE;
+    const user = await prisma.user.upsert({
+      where: { phone: u.phone },
+      update: {
+        name: u.name,
+        employeeNo: u.employeeNo,
+        passwordHash: miniAppPwd,
+        role: u.role,
+        departmentId: u.departmentId,
+        positionId: u.positionId,
+        userType,
+        status: 'ACTIVE',
+        authVersion: { increment: 1 },
+      },
+      create: {
+        name: u.name,
+        phone: u.phone,
+        employeeNo: u.employeeNo,
+        passwordHash: miniAppPwd,
+        userType,
+        role: u.role,
+        departmentId: u.departmentId,
+        positionId: u.positionId,
+        status: 'ACTIVE',
+      },
+    });
+
+    if (u.role === 'HEAD') {
+      await prisma.department.update({
+        where: { id: u.departmentId },
+        data: { headId: user.id },
+      });
+    }
+  }
+
+  // ── 16. 分成配置 ──────────────────────────────────────────────────────────
   const existingConfig = await prisma.commissionConfig.findUnique({ where: { id: 'config-default' } });
   if (!existingConfig) {
     await prisma.commissionConfig.create({
@@ -263,7 +543,7 @@ async function main() {
     });
   }
 
-  // ── 15. 初始结算周期 ──────────────────────────────────────────────────────
+  // ── 17. 初始结算周期 ──────────────────────────────────────────────────────
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const endDate = new Date(today);
@@ -273,7 +553,7 @@ async function main() {
     await prisma.settlementPeriod.create({ data: { startDate: today, endDate, status: 'OPEN' } });
   }
 
-  // ── 16. 会员等级 ──────────────────────────────────────────────────────────
+  // ── 18. 会员等级 ──────────────────────────────────────────────────────────
   await prisma.memberLevel.upsert({ where: { id: 'level-basic'  }, update: {}, create: { id: 'level-basic',  name: '普通会员', sort: 1 } });
   await prisma.memberLevel.upsert({ where: { id: 'level-silver' }, update: {}, create: { id: 'level-silver', name: '银卡会员', sort: 2 } });
   await prisma.memberLevel.upsert({ where: { id: 'level-gold'   }, update: {}, create: { id: 'level-gold',   name: '金卡会员', sort: 3 } });
@@ -285,18 +565,27 @@ async function main() {
   console.log('  督导中心下属 3 个');
   console.log('  发展中心下属 7 个');
   console.log('  服务中心下属 5 个');
-  console.log('  市场部 7 个（营销中心下）');
-  console.log('  事业部 5 个');
+  console.log('  市场部 8 个（营销中心下）');
+  console.log('  事业部 16 个（每个市场部下事业1部、事业2部）');
   console.log('测试账号：');
   console.log('  管理员：admin（或13800000000）/ Admin123456');
-  console.log('  市场部负责人：13800000001 / Head123456');
-  console.log('  事业部负责人：13800000002 / Head123456');
-  console.log('  合伙人（5个，密码均为 Partner123456）：');
-  console.log('  13900000001 / Partner123456  分享码：AABB11（市场部一部）');
-  console.log('  13900000002 / Partner123456  分享码：CCDD22（市场部二部）');
-  console.log('  13900000003 / Partner123456  分享码：EEFF33（市场部三部）');
-  console.log('  13900000004 / Partner123456  分享码：GGHH44（事业1部）');
-  console.log('  13900000005 / Partner123456  分享码：JJKK55（事业2部）');
+  console.log('  市场部负责人：MKT0201 / Test123456（市场部一部）');
+  console.log('  事业部负责人：DIV020101 / Test123456（市场部一部 / 事业1部）');
+  console.log('  事业部成员：DIV020102 / Test123456（市场部一部 / 事业1部）');
+  console.log('  历史合伙人编号登录（密码均为 Partner123456）：');
+  console.log('  DIV020106 / Partner123456  陈合伙一（市场部一部 / 事业1部）');
+  console.log('  DIV030106 / Partner123456  刘合伙二（市场部二部 / 事业1部）');
+  console.log('  DIV040106 / Partner123456  赵合伙三（市场部三部 / 事业1部）');
+  console.log('  DIV020107 / Partner123456  孙合伙四（市场部一部 / 事业1部）');
+  console.log('  DIV030107 / Partner123456  周合伙五（市场部二部 / 事业1部）');
+  console.log('  小程序编号登录测试人员（密码均为 Test123456）：');
+  console.log('  DEV0001 / Test123456  发展中心负责人');
+  console.log('  DEV0101-DEV0701 / Test123456  发展中心下属部门成员');
+  console.log('  MKT0001 / Test123456  营销中心负责人');
+  console.log('  MKT0101-MKT0803 / Test123456  市场部固定席位人员');
+  console.log('  DIV010101-DIV080202 / Test123456  事业部固定测试人员（市场部序列+事业部序列+席位）');
+  console.log('  SVC0001 / Test123456  服务中心负责人');
+  console.log('  SVC0101-SVC0501 / Test123456  服务中心下属部门成员');
 }
 
 main().catch(console.error).finally(() => prisma.$disconnect());
