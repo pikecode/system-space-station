@@ -19,7 +19,7 @@ export class DepartmentsService {
       where: { status: 'ACTIVE' },
       include: {
         head: { select: { id: true, name: true } },
-        _count: { select: { users: { where: { status: 'ACTIVE', employeeNo: { not: null } } } } },
+        _count: { select: { users: { where: { status: 'ACTIVE' } } } },
       },
       orderBy: [{ sort: 'asc' }, { createdAt: 'asc' }],
     });
