@@ -245,6 +245,8 @@ model Customer {
   creator              User               @relation("CreatedCustomers", fields: [createdBy], references: [id])
   referredBy           String?
   referrer             User?              @relation("ReferredCustomers", fields: [referredBy], references: [id])
+  referrerEmployeeNo   String?
+  referrerDepartmentId String?
   departmentId         String
   department           Department         @relation(fields: [departmentId], references: [id])
   status               CustomerStatus     @default(ACTIVE)

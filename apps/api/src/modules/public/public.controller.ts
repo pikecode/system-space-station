@@ -28,7 +28,7 @@ export class PublicController {
   async register(@Body() dto: PublicRegisterDto) {
     const inviter = await this.prisma.user.findUnique({
       where: { shareCode: dto.shareCode },
-      select: { id: true, departmentId: true, status: true },
+      select: { id: true, departmentId: true, employeeNo: true, status: true },
     });
     if (!inviter) throw new NotFoundException('邀请码无效');
     if (inviter.status !== 'ACTIVE') throw new BadRequestException('邀请人账号已停用');
@@ -55,6 +55,8 @@ export class PublicController {
         contactPhone: dto.contactPhone,
         source: CustomerSource.REFERRAL,
         referredBy: inviter.id,
+        referrerEmployeeNo: inviter.employeeNo,
+        referrerDepartmentId: inviter.departmentId,
         assignedTo: inviter.id,
         departmentId: inviter.departmentId,
         createdBy: inviter.id,
