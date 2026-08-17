@@ -3,9 +3,9 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "nest start --watch",
+    "dev": "nest start --watch --entryFile apps/api/src/main",
     "build": "nest build",
-    "start:prod": "node dist/main",
+    "start:prod": "node dist/apps/api/src/main.js",
     "lint": "eslint src prisma --ext .ts",
     "test": "vitest run",
     "type-check": "tsc --noEmit",

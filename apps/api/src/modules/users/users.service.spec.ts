@@ -72,4 +72,45 @@ describe('UsersService', () => {
       service.transfer('admin-2', { newDepartmentId: 'dept-1', newRole: 'MEMBER' }, 'admin-1'),
     ).rejects.toThrow('系统管理员不能加入业务部门');
   });
+
+  it('调岗进入满员市场部时拒绝', async () => {
+    const tx = {
+      department: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'market-1', type: 'MARKET', status: 'ACTIVE' }),
+      },
+      user: {
+        count: vi.fn().mockResolvedValue(3),
+      },
+    };
+    const prisma = {
+      $transaction: vi.fn((callback: (transactionClient: typeof tx) => unknown) => callback(tx)),
+    };
+    const service = new UsersService(prisma as never, {} as never);
+    vi.spyOn(service, 'findOne').mockResolvedValue({
+      id: 'member-1',
+      role: 'MEMBER',
+      departmentId: 'dept-old',
+      headOf: null,
+    } as never);
+
+    await expect(
+      service.transfer('member-1', { newDepartmentId: 'market-1', newRole: 'MEMBER' }, 'admin-1'),
+    ).rejects.toThrow('市场部（1+2模式，上限3人）已满员，无法继续加入');
+  });
+
+  it('名下仍有客户时不能直接移出部门', async () => {
+    const service = new UsersService({
+      customer: { count: vi.fn().mockResolvedValue(1) },
+    } as never, {} as never);
+    vi.spyOn(service, 'findOne').mockResolvedValue({
+      id: 'member-1',
+      role: 'MEMBER',
+      departmentId: 'dept-1',
+      headOf: null,
+    } as never);
+
+    await expect(
+      service.removeFromDepartment('member-1', 'admin-1'),
+    ).rejects.toThrow('该用户名下仍有客户，请先调岗或转移客户');
+  });
 });

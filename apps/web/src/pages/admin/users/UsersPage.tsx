@@ -36,6 +36,7 @@ import { usersApi } from '../../../services/users';
 import { departmentsApi } from '../../../services/departments';
 import { positionsApi } from '../../../services/positions';
 import { generateTemporaryPassword } from '../../../utils/password';
+import { DEPARTMENT_CAPACITY } from 'shared';
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: '系统管理员',
@@ -49,10 +50,7 @@ const ROLE_COLORS: Record<string, string> = {
   MEMBER: 'default',
 };
 
-const DEPT_CAPACITY: Record<string, number> = {
-  MARKET: 3,
-  DIVISION: 7,
-};
+const DEPT_CAPACITY = DEPARTMENT_CAPACITY as Record<string, number>;
 
 interface UserRow {
   id: string;

@@ -1,4 +1,5 @@
 export * from './enums';
+export * from './organization-rules';
 export type * from './dto/auth.dto';
 export type * from './dto/common.dto';
 export type * from './dto/customers.dto';

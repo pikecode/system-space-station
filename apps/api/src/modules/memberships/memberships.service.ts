@@ -129,6 +129,8 @@ export class MembershipsService {
           endDate: new Date(dto.endDate),
           status: 'PENDING',
           submittedBy: currentUser.id,
+          submittedDepartmentId: customer.departmentId,
+          submittedAssignedTo: customer.assignedTo,
         },
       });
     });
@@ -137,7 +139,7 @@ export class MembershipsService {
   async resubmit(id: string, dto: CreateMembershipDto, currentUser: any) {
     const membership = await this.prisma.membership.findUnique({
       where: { id },
-      include: { customer: { select: { assignedTo: true } } },
+      include: { customer: { select: { assignedTo: true, departmentId: true } } },
     });
     if (!membership) throw new NotFoundException('会员申请不存在');
     if (membership.status !== 'REJECTED') throw new BadRequestException('只有已拒绝的申请可以重新提交');
@@ -158,6 +160,10 @@ export class MembershipsService {
         memberLevelId: dto.memberLevelId,
         paidAt: null,
         status: 'PENDING',
+        submittedDepartmentId: membership.customer.departmentId,
+        submittedAssignedTo: membership.customer.assignedTo,
+        approvedDepartmentId: null,
+        approvedAssignedTo: null,
         reviewedBy: null,
         reviewedAt: null,
         reviewNote: null,
@@ -185,6 +191,8 @@ export class MembershipsService {
         reviewedAt: new Date(),
         reviewNote: dto.reviewNote,
         paidAt,
+        approvedDepartmentId: membership.customer.departmentId,
+        approvedAssignedTo: membership.customer.assignedTo,
       });
 
       const config = await tx.commissionConfig.findFirst({

@@ -4,7 +4,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { DepartmentType, Prisma, UserRole, UserStatus, UserType } from '@prisma/client';
+import { Prisma, UserRole, UserStatus, UserType } from '@prisma/client';
+import { canDepartmentGenerateShareCode, getDepartmentCapacity } from 'shared';
 import * as bcrypt from 'bcrypt';
 import { randomInt } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -211,8 +212,7 @@ export class UsersService {
       }
 
       // 营销中心成员（MARKET/DIVISION部门）自动生成分享码
-      const needsShareCode = department &&
-        (department.type === DepartmentType.MARKET || department.type === DepartmentType.DIVISION);
+      const needsShareCode = canDepartmentGenerateShareCode(department?.type);
       const shareCode = needsShareCode ? await this.generateShareCode(tx) : undefined;
 
       const user = await tx.user.create({
@@ -354,6 +354,9 @@ export class UsersService {
       if (!targetDepartment || targetDepartment.status !== 'ACTIVE') {
         throw new NotFoundException('目标部门不存在或已停用');
       }
+      if (user.departmentId !== dto.newDepartmentId) {
+        await this.validateDepartmentCapacity(tx, dto.newDepartmentId, targetDepartment.type);
+      }
 
       const leavingHeadPosition =
         !!user.headOf &&
@@ -451,6 +454,17 @@ export class UsersService {
         }
       }
 
+      if (status === UserStatus.ACTIVE && user.status !== UserStatus.ACTIVE && user.departmentId) {
+        const department = await tx.department.findUnique({
+          where: { id: user.departmentId },
+          select: { id: true, type: true, status: true },
+        });
+        if (!department || department.status !== 'ACTIVE') {
+          throw new BadRequestException('所属部门不存在或已停用，无法启用该用户');
+        }
+        await this.validateDepartmentCapacity(tx, department.id, department.type);
+      }
+
       if (user.role === UserRole.HEAD && status === UserStatus.ACTIVE && user.departmentId) {
         const department = await tx.department.findUnique({
           where: { id: user.departmentId },
@@ -541,6 +555,12 @@ export class UsersService {
     const user = await this.findOne(id);
     if (!user.departmentId) throw new BadRequestException('该用户不属于任何部门');
     if (user.headOf) throw new BadRequestException('部门负责人须先交接再移出');
+    const assignedCustomerCount = await this.prisma.customer.count({
+      where: { assignedTo: id, status: 'ACTIVE' },
+    });
+    if (assignedCustomerCount > 0) {
+      throw new BadRequestException('该用户名下仍有客户，请先调岗或转移客户');
+    }
 
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.user.update({
@@ -567,11 +587,7 @@ export class UsersService {
     departmentId: string,
     deptType: string,
   ) {
-    const limits: Partial<Record<string, number>> = {
-      MARKET: 3,
-      DIVISION: 7,
-    };
-    const limit = limits[deptType];
+    const limit = getDepartmentCapacity(deptType);
     if (!limit) return;
 
     const count = await tx.user.count({ where: { departmentId, status: 'ACTIVE' } });

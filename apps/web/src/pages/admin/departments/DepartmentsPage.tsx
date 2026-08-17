@@ -17,26 +17,21 @@ import chinaRegions from '../../../utils/chinaRegions';
 import ProTable from '../../../components/BusinessProTable';
 import { generateTemporaryPassword } from '../../../utils/password';
 import { getApiErrorMessage } from '../../../utils/apiError';
+import {
+  ALLOWED_CHILD_TYPES,
+  DEPARTMENT_CAPACITY,
+  DEPARTMENT_TYPE_COLORS,
+  DEPARTMENT_TYPE_LABELS,
+  VALID_PARENT_TYPES,
+} from 'shared';
 
 const DeptMindMap = lazy(() => import('./DeptMindMap'));
 
-const DEPT_TYPE_LABELS: Record<string, string> = {
-  GOVERNANCE: '治理层',
-  HQ: '总经办',
-  CENTER: '中心',
-  DIRECT: '直属部门',
-  MARKET: '市场部',
-  DIVISION: '事业部',
-};
-
-const DEPT_TYPE_COLORS: Record<string, string> = {
-  GOVERNANCE: 'magenta',
-  HQ: 'red',
-  CENTER: 'purple',
-  DIRECT: 'blue',
-  MARKET: 'green',
-  DIVISION: 'orange',
-};
+const DEPT_TYPE_LABELS = DEPARTMENT_TYPE_LABELS as Record<string, string>;
+const DEPT_TYPE_COLORS = DEPARTMENT_TYPE_COLORS as Record<string, string>;
+const VALID_PARENT_TYPE = VALID_PARENT_TYPES as Record<string, string[]>;
+const ALLOWED_CHILD_TYPE = ALLOWED_CHILD_TYPES as Record<string, string[]>;
+const DEPT_CAPACITY = DEPARTMENT_CAPACITY as Record<string, number>;
 
 interface DeptNode {
   id: string;
@@ -68,8 +63,6 @@ interface MemberRow {
   status: string;
   departmentId?: string;
 }
-
-const DEPT_CAPACITY: Record<string, number> = { MARKET: 3, DIVISION: 7 };
 
 function buildTreeData(list: DeptNode[]): DeptNode[] {
   const map: Record<string, DeptNode> = {};
@@ -237,24 +230,6 @@ export default function DepartmentsPage() {
     },
   });
 
-  const VALID_PARENT_TYPE: Record<string, string[]> = {
-    GOVERNANCE: ['GOVERNANCE'],
-    HQ: ['GOVERNANCE'],
-    CENTER: ['HQ'],
-    DIRECT: ['HQ', 'CENTER'],
-    MARKET: ['CENTER'],
-    DIVISION: ['MARKET'],
-  };
-
-  const ALLOWED_CHILD_TYPES: Record<string, string[]> = {
-    GOVERNANCE: ['GOVERNANCE', 'HQ'],
-    HQ: ['CENTER', 'DIRECT'],
-    CENTER: ['DIRECT', 'MARKET'],
-    MARKET: ['DIVISION'],
-    DIRECT: [],
-    DIVISION: [],
-  };
-
   const hqExists = departments.some((d) => d.type === 'HQ');
   const isEditingHQ = editTarget?.type === 'HQ';
   const needsParent = watchedType && watchedType !== 'HQ' && watchedType !== 'GOVERNANCE';
@@ -275,7 +250,7 @@ export default function DepartmentsPage() {
     }));
 
     if (parentContext) {
-      const allowedTypes = ALLOWED_CHILD_TYPES[parentContext.type] || [];
+      const allowedTypes = ALLOWED_CHILD_TYPE[parentContext.type] || [];
       return baseOptions.filter((opt) => allowedTypes.includes(opt.value));
     }
 
@@ -288,7 +263,7 @@ export default function DepartmentsPage() {
     form.resetFields();
     if (parent) {
       form.setFieldValue('parentId', parent.id);
-      const allowedTypes = ALLOWED_CHILD_TYPES[parent.type] ?? [];
+      const allowedTypes = ALLOWED_CHILD_TYPE[parent.type] ?? [];
       if (allowedTypes.length === 1) form.setFieldValue('type', allowedTypes[0]);
     }
     setDrawerOpen(true);
@@ -737,7 +712,7 @@ export default function DepartmentsPage() {
                       onClick={() => {
                         modal.confirm({
                           title: `将「${member.name}」移出该部门？`,
-                          content: '移出后该人员仍保留账号，可重新分配到其他部门。',
+                          content: '移出后该人员仍保留账号；若名下仍有客户，请先调岗或转移客户。',
                           okText: '确认移出',
                           okType: 'danger',
                           onOk: () => usersApi.removeFromDepartment(member.id)

@@ -4,6 +4,90 @@ import { describe, expect, it, vi } from 'vitest';
 import { MembershipsService } from './memberships.service';
 
 describe('MembershipsService', () => {
+  it('提交会员申请时写入当前维护人与部门快照', async () => {
+    const create = vi.fn().mockResolvedValue({});
+    const tx = {
+      $executeRaw: vi.fn(),
+      membership: {
+        count: vi.fn().mockResolvedValue(0),
+        create,
+      },
+    };
+    const service = new MembershipsService({
+      customer: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'customer-1',
+          status: 'ACTIVE',
+          assignedTo: 'member-1',
+          departmentId: 'department-a',
+        }),
+      },
+      $transaction: vi.fn((callback) => callback(tx)),
+    } as never);
+
+    await service.create({
+      customerId: 'customer-1',
+      fee: 1000,
+      startDate: '2026-08-17',
+      endDate: '2027-08-17',
+    }, { id: 'member-1', role: 'MEMBER', departmentId: 'department-a' });
+
+    expect(create.mock.calls[0][0].data).toMatchObject({
+      submittedDepartmentId: 'department-a',
+      submittedAssignedTo: 'member-1',
+    });
+  });
+
+  it('审批通过时写入审批时维护人与部门快照', async () => {
+    const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const tx = {
+      membership: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'membership-1',
+          status: 'PENDING',
+          fee: new Prisma.Decimal(1000),
+          customer: {
+            departmentId: 'department-at-approval',
+            assignedTo: 'member-1',
+            assignedUser: {
+              id: 'member-1',
+              department: {
+                id: 'department-at-approval',
+                headId: 'head-1',
+                parentId: null,
+              },
+            },
+          },
+        }),
+        updateMany,
+      },
+      commissionConfig: {
+        findFirst: vi.fn().mockResolvedValue({
+          memberRatio: new Prisma.Decimal(40),
+          deptHeadRatio: new Prisma.Decimal(20),
+          marketHeadRatio: new Prisma.Decimal(0),
+          companyRatio: new Prisma.Decimal(40),
+        }),
+      },
+      commissionRecord: { create: vi.fn().mockResolvedValue({}) },
+      auditLog: { create: vi.fn().mockResolvedValue({}) },
+    };
+    const service = new MembershipsService({
+      $transaction: vi.fn((callback) => callback(tx)),
+    } as never);
+
+    await service.approve(
+      'membership-1',
+      { paidAt: '2026-08-17T10:00:00.000Z' },
+      { id: 'head-1', role: 'HEAD', departmentId: 'department-at-approval' },
+    );
+
+    expect(updateMany.mock.calls[0][0].data).toMatchObject({
+      approvedDepartmentId: 'department-at-approval',
+      approvedAssignedTo: 'member-1',
+    });
+  });
+
   it('拒绝跨部门负责人发起退款', async () => {
     const prisma = {
       membership: {

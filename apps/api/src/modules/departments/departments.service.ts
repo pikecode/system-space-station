@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DepartmentType, Prisma, UserRole } from '@prisma/client';
+import { ALLOWED_CHILD_TYPES, MAX_MARKET_DEPARTMENTS, VALID_PARENT_TYPES } from 'shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
@@ -64,6 +65,9 @@ export class DepartmentsService {
         const existing = await tx.department.findFirst({ where: { type: DepartmentType.HQ } });
         if (existing) throw new ConflictException('总部已存在，只允许一个');
       }
+      if (dto.type === DepartmentType.MARKET) {
+        await this.validateMarketDepartmentLimit(tx);
+      }
 
       const department = await tx.department.create({ data: dto });
       await tx.auditLog.create({
@@ -94,6 +98,9 @@ export class DepartmentsService {
           where: { type: DepartmentType.HQ, id: { not: id } },
         });
         if (anotherHeadquarters) throw new ConflictException('总部已存在');
+      }
+      if (nextType === DepartmentType.MARKET && existing.type !== DepartmentType.MARKET) {
+        await this.validateMarketDepartmentLimit(tx, id);
       }
       if (nextType !== existing.type) {
         await this.validateChildrenForType(tx, id, nextType);
@@ -197,13 +204,7 @@ export class DepartmentsService {
     if (!parent || parent.status !== 'ACTIVE') {
       throw new BadRequestException('上级部门不存在或已停用');
     }
-    const validParentTypes: Record<Exclude<DepartmentType, 'HQ' | 'GOVERNANCE'>, DepartmentType[]> = {
-      CENTER: [DepartmentType.HQ],
-      DIRECT: [DepartmentType.HQ, DepartmentType.CENTER],
-      MARKET: [DepartmentType.CENTER],
-      DIVISION: [DepartmentType.MARKET],
-    };
-    if (!validParentTypes[type as Exclude<DepartmentType, 'HQ' | 'GOVERNANCE'>].includes(parent.type)) {
+    if (!VALID_PARENT_TYPES[type].includes(parent.type as never)) {
       throw new BadRequestException('部门类型与上级部门层级不匹配');
     }
 
@@ -226,16 +227,21 @@ export class DepartmentsService {
       where: { parentId: departmentId },
       select: { type: true },
     });
-    const allowedChildTypes: Record<DepartmentType, DepartmentType[]> = {
-      GOVERNANCE: [DepartmentType.GOVERNANCE, DepartmentType.HQ],
-      HQ: [DepartmentType.CENTER, DepartmentType.DIRECT],
-      CENTER: [DepartmentType.DIRECT, DepartmentType.MARKET],
-      MARKET: [DepartmentType.DIVISION],
-      DIRECT: [],
-      DIVISION: [],
-    };
-    if (children.some((child) => !allowedChildTypes[parentType].includes(child.type))) {
+    if (children.some((child) => !ALLOWED_CHILD_TYPES[parentType].includes(child.type as never))) {
       throw new BadRequestException('变更部门类型后将与现有子部门层级冲突');
+    }
+  }
+
+  private async validateMarketDepartmentLimit(tx: Prisma.TransactionClient, currentId?: string) {
+    const count = await tx.department.count({
+      where: {
+        type: DepartmentType.MARKET,
+        status: 'ACTIVE',
+        ...(currentId ? { id: { not: currentId } } : {}),
+      },
+    });
+    if (count >= MAX_MARKET_DEPARTMENTS) {
+      throw new BadRequestException(`市场部最多允许 ${MAX_MARKET_DEPARTMENTS} 个`);
     }
   }
 
