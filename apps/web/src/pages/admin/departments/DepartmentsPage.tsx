@@ -127,6 +127,7 @@ export default function DepartmentsPage() {
   // 选择已有人员
   const [selectUserOpen, setSelectUserOpen] = useState(false);
   const [userSearch, setUserSearch] = useState('');
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const deferredUserSearch = useDeferredValue(userSearch);
   const [form] = Form.useForm();
   const watchedType = Form.useWatch('type', form);
@@ -194,6 +195,7 @@ export default function DepartmentsPage() {
       message.success('人员已添加');
       setAddMemberOpen(false);
       addMemberForm.resetFields();
+      actionRef.current?.reload();
       refetchOrganizationMembers();
       refetchAssignableUsers();
     },
@@ -204,12 +206,16 @@ export default function DepartmentsPage() {
   });
 
   const transferMutation = useMutation({
-    mutationFn: ({ userId, deptId }: { userId: string; deptId: string }) =>
-      usersApi.transfer(userId, { newDepartmentId: deptId, newRole: 'MEMBER' }),
-    onSuccess: () => {
-      message.success('人员已加入该部门');
+    mutationFn: ({ userIds, deptId }: { userIds: string[]; deptId: string }) =>
+      Promise.all(userIds.map((userId) =>
+        usersApi.transfer(userId, { newDepartmentId: deptId, newRole: 'MEMBER' }),
+      )),
+    onSuccess: (_, { userIds }) => {
+      message.success(`已将 ${userIds.length} 人加入该部门`);
       setSelectUserOpen(false);
       setUserSearch('');
+      setSelectedUserIds([]);
+      actionRef.current?.reload();
       refetchOrganizationMembers();
       refetchAssignableUsers();
     },
@@ -229,6 +235,7 @@ export default function DepartmentsPage() {
       usersApi.transfer(userId, { newDepartmentId: deptId ?? memberDept!.id, newRole: role, ...(successorId ? { successorId } : {}) }),
     onSuccess: () => {
       message.success('负责人已更新');
+      actionRef.current?.reload();
       refetchOrganizationMembers();
     },
     onError: (e: unknown) => {
@@ -271,6 +278,7 @@ export default function DepartmentsPage() {
       onOk: () => usersApi.removeFromDepartment(member.id)
         .then(() => {
           message.success('已移出');
+          actionRef.current?.reload();
           refetchOrganizationMembers();
           refetchAssignableUsers();
         })
@@ -292,6 +300,7 @@ export default function DepartmentsPage() {
 
   const openSelectMember = (dept: DeptNode) => {
     setMemberDept(dept);
+    setSelectedUserIds([]);
     setSelectUserOpen(true);
   };
 
@@ -443,10 +452,15 @@ export default function DepartmentsPage() {
               <div className="dept-panel-head__title">组织树</div>
               <div className="dept-panel-head__desc">点击部门查看详情和成员</div>
             </div>
-            <Space size={4}>
-              <Button size="small" onClick={() => setExpandedKeys(departments.map((item) => item.id))}>展开</Button>
-              <Button size="small" onClick={() => setExpandedKeys([])}>收起</Button>
-            </Space>
+            <Button
+              size="small"
+              onClick={() => {
+                const allExpanded = expandedKeys.length === departments.length;
+                setExpandedKeys(allExpanded ? [] : departments.map((item) => item.id));
+              }}
+            >
+              {expandedKeys.length === departments.length ? '收起' : '展开'}
+            </Button>
           </div>
           {treeRoots.length > 0 ? (
             <Tree
@@ -987,45 +1001,45 @@ export default function DepartmentsPage() {
             rules={[{ required: true }, { pattern: /^1\d{10}$/, message: '请输入正确的手机号' }]}>
             <Input maxLength={11} />
           </Form.Item>
-          <Form.Item
-            name="employeeNo"
-            label="编号"
-            extra={
-              memberDept?.code
-                ? `留空由系统按「${memberDept.code}」前缀自动生成`
-                : '部门未配置编号短码，请手动输入编号（可选）'
-            }
-          >
-            <Input maxLength={32} placeholder={memberDept?.code ? '留空自动生成' : '可选'} />
-          </Form.Item>
-          <Form.Item
-            name="password"
-            label="初始密码"
-            extra="有编号人员可使用编号和该密码登录小程序"
-            rules={[{ required: true, message: '请生成初始密码' }, { min: 8, message: '密码至少8位' }]}
-          >
-            <Input.Password
-              autoComplete="new-password"
-              suffix={(
-                <Tooltip title="复制初始密码">
-                  <Button
-                    type="text"
-                    size="small"
-                    icon={<CopyOutlined />}
-                    aria-label="复制初始密码"
-                    onClick={() => {
-                      const password = addMemberForm.getFieldValue('password');
-                      if (password) {
-                        void navigator.clipboard.writeText(password)
-                          .then(() => message.success('初始密码已复制'))
-                          .catch(() => message.error('复制失败，请手动复制'));
-                      }
-                    }}
-                  />
-                </Tooltip>
-              )}
-            />
-          </Form.Item>
+          {!memberDept?.code && (
+            <Form.Item
+              name="employeeNo"
+              label="编号"
+              extra="部门未配置编号短码，请手动输入编号（可选）"
+            >
+              <Input maxLength={32} placeholder="可选" />
+            </Form.Item>
+          )}
+          {canDepartmentLoginMiniApp(memberDept?.type, memberDept?.name) && (
+            <Form.Item
+              name="password"
+              label="初始密码"
+              extra="人员可使用编号和该密码登录小程序"
+              rules={[{ required: true, message: '请生成初始密码' }, { min: 8, message: '密码至少8位' }]}
+            >
+              <Input.Password
+                autoComplete="new-password"
+                suffix={(
+                  <Tooltip title="复制初始密码">
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<CopyOutlined />}
+                      aria-label="复制初始密码"
+                      onClick={() => {
+                        const password = addMemberForm.getFieldValue('password');
+                        if (password) {
+                          void navigator.clipboard.writeText(password)
+                            .then(() => message.success('初始密码已复制'))
+                            .catch(() => message.error('复制失败，请手动复制'));
+                        }
+                      }}
+                    />
+                  </Tooltip>
+                )}
+              />
+            </Form.Item>
+          )}
           {(memberDept?.type === 'MARKET' || memberDept?.type === 'DIVISION') && (
             <Form.Item name="hasLicense" valuePropName="checked" label=" ">
               <Checkbox>持有资格证（负责人必须持证）</Checkbox>
@@ -1045,8 +1059,13 @@ export default function DepartmentsPage() {
       <Modal
         title={`选择人员加入「${memberDept?.name}」`}
         open={selectUserOpen}
-        onCancel={() => { setSelectUserOpen(false); setUserSearch(''); }}
-        footer={null}
+        onCancel={() => { setSelectUserOpen(false); setUserSearch(''); setSelectedUserIds([]); }}
+        onOk={() => {
+          if (selectedUserIds.length === 0) { message.warning('请至少选择一人'); return; }
+          transferMutation.mutate({ userIds: selectedUserIds, deptId: memberDept!.id });
+        }}
+        okText={`加入${selectedUserIds.length > 0 ? `（${selectedUserIds.length}人）` : ''}`}
+        confirmLoading={transferMutation.isPending}
         width={520}
       >
         <Input.Search
@@ -1062,6 +1081,11 @@ export default function DepartmentsPage() {
           size="small"
           pagination={{ pageSize: 8 }}
           scroll={{ y: 280 }}
+          rowSelection={{
+            type: 'checkbox',
+            selectedRowKeys: selectedUserIds,
+            onChange: (keys) => setSelectedUserIds(keys as string[]),
+          }}
           columns={[
             { title: '姓名', dataIndex: 'name', width: 90 },
             { title: '手机号', dataIndex: 'phone', width: 120 },
@@ -1070,18 +1094,6 @@ export default function DepartmentsPage() {
               dataIndex: 'userType',
               width: 70,
               render: (t) => <Tag color={t === 'PARTNER' ? 'orange' : 'default'}>{t === 'PARTNER' ? '合伙人' : '员工'}</Tag>,
-            },
-            {
-              title: '操作', width: 70,
-              render: (_, u) => (
-                <Button
-                  type="link" size="small"
-                  loading={transferMutation.isPending}
-                  onClick={() => transferMutation.mutate({ userId: u.id, deptId: memberDept!.id })}
-                >
-                  加入
-                </Button>
-              ),
             },
           ] as ColumnsType<MemberRow>}
           locale={{ emptyText: '无可选人员' }}
