@@ -84,6 +84,31 @@ function buildTreeData(list: DeptNode[]): DeptNode[] {
 
 type ViewMode = 'workbench' | 'table' | 'chart';
 
+// 按部门名称生成 code 建议：每个汉字取拼音首字母，最多4位
+function suggestDeptCode(name: string): string {
+  if (!name) return '';
+  const thresholds = [0x5208,0x51C9,0x51FB,0x5306,0x538B,0x5427,0x5446,0x53D1,0x54E6,0x554a,0x5F2F,0x6492,0x6497,0x6614,0x62FF,0x64E6,0x671F,0x6AF3,0x71C3,0x79D8,0x7A7A,0x8377,0x8D34,0x9102];
+  const letters   = ['G',  'L',  'J',  'Z',  'Y',  'B',  'D',  'F',  'O',  'A',  'W',  'S',  'P',  'X',  'N',  'C',  'Q',  'K',  'R',  'M',  'K',  'H',  'T',  'E' ];
+  const sorted = thresholds
+    .map((t, i) => [t, letters[i]] as [number, string])
+    .sort((a, b) => a[0] - b[0]);
+
+  return [...name]
+    .filter((c) => /[一-龥a-zA-Z]/.test(c))
+    .slice(0, 4)
+    .map((c) => {
+      if (/[a-zA-Z]/.test(c)) return c.toUpperCase();
+      const cp = c.codePointAt(0) ?? 0;
+      let result = 'Z';
+      for (let i = sorted.length - 1; i >= 0; i--) {
+        if (cp >= sorted[i][0]) { result = sorted[i][1]; break; }
+      }
+      return result;
+    })
+    .join('')
+    .toUpperCase();
+}
+
 export default function DepartmentsPage() {
   const { message, modal } = App.useApp();
   const actionRef = useRef<ActionType>();
@@ -105,6 +130,7 @@ export default function DepartmentsPage() {
   const deferredUserSearch = useDeferredValue(userSearch);
   const [form] = Form.useForm();
   const watchedType = Form.useWatch('type', form);
+  const codeManuallyEdited = useRef(false);
 
   const {
     data: organizationMembers = [],
@@ -334,6 +360,7 @@ export default function DepartmentsPage() {
   const openCreate = (parent?: DeptNode) => {
     setEditTarget(null);
     setParentContext(parent ?? null);
+    codeManuallyEdited.current = false;
     form.resetFields();
     if (parent) {
       form.setFieldValue('parentId', parent.id);
@@ -846,11 +873,28 @@ export default function DepartmentsPage() {
             </Form.Item>
           ) : (
             <Form.Item name="name" label="部门名称" rules={[{ required: true, message: '请输入部门名称' }]}>
-              <Input />
+              <Input
+                onChange={(e) => {
+                  if (!codeManuallyEdited.current) {
+                    form.setFieldValue('code', suggestDeptCode(e.target.value));
+                  }
+                }}
+              />
             </Form.Item>
           )}
-          <Form.Item name="code" label="部门短码">
-            <Input placeholder="例如 MARKET-01" maxLength={30} />
+          <Form.Item
+            name="code"
+            label="部门短码"
+            rules={[{ required: !editTarget, message: '请输入部门短码' }]}
+            extra={editTarget ? '短码创建后不可修改，仅供查看' : '用作员工编号前缀，系统已根据名称自动建议，可手动修改'}
+          >
+            <Input
+              placeholder="如 GOV、STR"
+              maxLength={30}
+              onChange={() => { codeManuallyEdited.current = true; }}
+              style={{ textTransform: 'uppercase', ...(editTarget ? { background: '#fafafa', color: '#666' } : {}) }}
+              readOnly={!!editTarget}
+            />
           </Form.Item>
           <Form.Item
             name="type"
@@ -946,9 +990,13 @@ export default function DepartmentsPage() {
           <Form.Item
             name="employeeNo"
             label="编号"
-            extra="市场部/事业部留空时由系统按部门规则自动生成"
+            extra={
+              memberDept?.code
+                ? `留空由系统按「${memberDept.code}」前缀自动生成`
+                : '部门未配置编号短码，请手动输入编号（可选）'
+            }
           >
-            <Input maxLength={32} placeholder="留空自动生成" />
+            <Input maxLength={32} placeholder={memberDept?.code ? '留空自动生成' : '可选'} />
           </Form.Item>
           <Form.Item
             name="password"

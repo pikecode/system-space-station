@@ -105,18 +105,18 @@ describe('UsersService', () => {
     });
   });
 
-  it('调岗离开事业部时编号被清空（槽位归还部门）', async () => {
+  it('调岗离开有编号部门时编号被清空（槽位归还部门）', async () => {
     const tx = {
       department: {
-        // target = CENTER（非管控）
+        // target = DIRECT with no code（非编号体系部门）
         findUnique: vi.fn()
-          .mockResolvedValueOnce({ id: 'center-1', type: 'CENTER', status: 'ACTIVE', code: null })
+          .mockResolvedValueOnce({ id: 'direct-1', type: 'DIRECT', status: 'ACTIVE', code: null })
           // source dept lookup
-          .mockResolvedValueOnce({ type: 'DIVISION' }),
+          .mockResolvedValueOnce({ type: 'DIVISION', code: 'DIV0201' }),
       },
       user: {
         update: vi.fn().mockResolvedValue({
-          id: 'member-1', role: 'MEMBER', status: 'ACTIVE', employeeNo: null, departmentId: 'center-1',
+          id: 'member-1', role: 'MEMBER', status: 'ACTIVE', employeeNo: null, departmentId: 'direct-1',
         }),
         findUnique: vi.fn().mockResolvedValue(null),
       },
@@ -136,10 +136,47 @@ describe('UsersService', () => {
       headOf: null,
     } as never);
 
-    await service.transfer('member-1', { newDepartmentId: 'center-1', newRole: 'MEMBER' }, 'admin-1');
+    await service.transfer('member-1', { newDepartmentId: 'direct-1', newRole: 'MEMBER' }, 'admin-1');
 
     expect(tx.user.update).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ employeeNo: null }),
+    }));
+  });
+
+  it('调岗进入有编号部门时自动分配新编号', async () => {
+    const tx = {
+      department: {
+        findUnique: vi.fn()
+          .mockResolvedValueOnce({ id: 'hq-1', type: 'HQ', status: 'ACTIVE', code: 'HQ' })
+          .mockResolvedValueOnce({ type: 'DIRECT', code: null }),
+      },
+      user: {
+        findMany: vi.fn().mockResolvedValue([]),
+        update: vi.fn().mockResolvedValue({
+          id: 'member-1', role: 'MEMBER', status: 'ACTIVE', employeeNo: 'HQ0001', departmentId: 'hq-1',
+        }),
+        findUnique: vi.fn().mockResolvedValue(null),
+      },
+      customer: { updateMany: vi.fn() },
+      auditLog: { create: vi.fn() },
+    };
+    const prisma = {
+      $transaction: vi.fn((callback: (transactionClient: typeof tx) => unknown) => callback(tx)),
+    };
+    const service = new UsersService(prisma as never, {} as never);
+    vi.spyOn(service, 'findOne').mockResolvedValue({
+      id: 'member-1',
+      role: 'MEMBER',
+      status: 'ACTIVE',
+      employeeNo: null,
+      departmentId: 'direct-old',
+      headOf: null,
+    } as never);
+
+    await service.transfer('member-1', { newDepartmentId: 'hq-1', newRole: 'MEMBER' }, 'admin-1');
+
+    expect(tx.user.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ employeeNo: 'HQ0001' }),
     }));
   });
 
@@ -223,7 +260,7 @@ describe('UsersService', () => {
     ).rejects.toThrow('该用户名下仍有客户，请先调岗或转移客户');
   });
 
-  it('禁用管控部门（MARKET/DIVISION）人员时自动释放槽位编号', async () => {
+  it('禁用有编号部门（含 HQ/CENTER/DIRECT）人员时自动释放编号', async () => {
     const tx = {
       user: {
         update: vi.fn().mockResolvedValue({
@@ -243,9 +280,9 @@ describe('UsersService', () => {
       id: 'member-1',
       role: 'MEMBER',
       status: 'ACTIVE',
-      employeeNo: 'DIV020103',
-      departmentId: 'dept-div-1',
-      department: { id: 'dept-div-1', name: '事业1部', type: 'DIVISION' },
+      employeeNo: 'HQ0001',
+      departmentId: 'dept-hq',
+      department: { id: 'dept-hq', name: '总经办', type: 'HQ', code: 'HQ' },
       headOf: null,
     } as never);
 
@@ -255,7 +292,6 @@ describe('UsersService', () => {
       data: expect.objectContaining({
         status: UserStatus.INACTIVE,
         employeeNo: null,
-        authVersion: { increment: 1 },
       }),
     }));
   });

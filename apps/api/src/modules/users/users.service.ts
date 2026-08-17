@@ -52,7 +52,7 @@ const safeUserSelect = {
   createdAt: true,
   updatedAt: true,
   position: true,
-  department: { select: { id: true, name: true, type: true } },
+  department: { select: { id: true, name: true, type: true, code: true } },
   headOf: { select: { id: true, name: true, type: true } },
 } satisfies Prisma.UserSelect;
 
@@ -221,7 +221,7 @@ export class UsersService {
         if (!department || department.status !== 'ACTIVE') {
           throw new NotFoundException('所属部门不存在或已停用');
         }
-        if (this.requiresManagedEmployeeNo(department.type)) {
+        if (this.deptHasEmployeeNoScheme(department.code)) {
           employeeNo = employeeNo ?? await this.generateNextEmployeeNo(tx, department);
           this.validateEmployeeNoForDepartment(employeeNo, department);
         }
@@ -388,6 +388,7 @@ export class UsersService {
       }
       const isChangingDept = user.departmentId !== dto.newDepartmentId;
       const enteringManaged = isChangingDept && this.requiresManagedEmployeeNo(targetDepartment.type);
+      const enteringCoded = isChangingDept && this.deptHasEmployeeNoScheme(targetDepartment.code);
 
       if (enteringManaged) {
         await this.validateDepartmentCapacity(tx, dto.newDepartmentId, targetDepartment.type);
@@ -395,17 +396,17 @@ export class UsersService {
 
       let nextEmployeeNo: string | null | undefined = user.employeeNo;
       if (isChangingDept) {
-        if (enteringManaged) {
+        if (enteringCoded) {
           nextEmployeeNo = await this.generateNextEmployeeNo(tx, targetDepartment, id);
         } else {
-          // 离开管控部门（MARKET/DIVISION）时，编号归还给部门槽位
+          // 离开有编号体系的部门（code 不为空），编号归还
           const sourceDept = user.departmentId
             ? await tx.department.findUnique({
                 where: { id: user.departmentId },
-                select: { type: true },
+                select: { type: true, code: true },
               })
             : null;
-          if (sourceDept && this.requiresManagedEmployeeNo(sourceDept.type)) {
+          if (sourceDept && this.deptHasEmployeeNoScheme(sourceDept.code)) {
             nextEmployeeNo = null;
           }
         }
@@ -544,9 +545,9 @@ export class UsersService {
         user.departmentId &&
         user.employeeNo &&
         (() => {
-          // 管控部门（MARKET/DIVISION）离职时强制释放槽位编号
+          // 有编号体系的部门（code 不为空）离职时强制释放编号
           const dept = user.department;
-          return dept && this.requiresManagedEmployeeNo(dept.type);
+          return dept && this.deptHasEmployeeNoScheme(dept.code);
         })();
 
       const updated = await tx.user.update({
@@ -640,7 +641,7 @@ export class UsersService {
 
     return this.prisma.$transaction(async (tx) => {
       const dept = user.department;
-      const releaseNo = dept && this.requiresManagedEmployeeNo(dept.type);
+      const releaseNo = dept && this.deptHasEmployeeNoScheme(dept.code);
       const updated = await tx.user.update({
         where: { id },
         data: {
@@ -682,23 +683,35 @@ export class UsersService {
     }
   }
 
+  // 槽位制（有容量上限，编号格式严格）
   private requiresManagedEmployeeNo(deptType: string) {
     return deptType === DepartmentType.MARKET || deptType === DepartmentType.DIVISION;
+  }
+
+  // 所有配置了 code 的部门都参与编号体系（人走编号归还）
+  private deptHasEmployeeNoScheme(code: string | null): code is string {
+    return !!code;
   }
 
   private validateEmployeeNoForDepartment(
     employeeNo: string,
     department: { type: string; code: string | null },
   ) {
-    if (!this.requiresManagedEmployeeNo(department.type)) return;
-    if (!department.code) throw new BadRequestException('部门未配置编号规则，无法分配编号');
-
-    const expectedPattern =
-      department.type === DepartmentType.MARKET
-        ? /^MKT\d{4}$/
-        : /^DIV\d{6}$/;
-    if (!expectedPattern.test(employeeNo) || !employeeNo.startsWith(department.code)) {
-      throw new BadRequestException(`编号必须以 ${department.code} 开头，并符合当前部门编号规则`);
+    if (!department.code) return;
+    if (!employeeNo.startsWith(department.code)) {
+      throw new BadRequestException(`编号必须以 ${department.code} 开头`);
+    }
+    const suffix = employeeNo.slice(department.code.length);
+    if (this.requiresManagedEmployeeNo(department.type)) {
+      // MARKET: code=MKT02(5位) + seat(2位) = 7位总; DIVISION: code=DIV0201(7位) + seat(2位) = 9位总
+      if (!/^\d{2}$/.test(suffix)) {
+        throw new BadRequestException(`编号必须以 ${department.code} 开头，并符合当前部门编号规则`);
+      }
+    } else {
+      // 非管控部门：code + 4位递增序号
+      if (!/^\d{4}$/.test(suffix)) {
+        throw new BadRequestException(`编号必须以 ${department.code} 开头，后接4位数字`);
+      }
     }
   }
 
@@ -724,8 +737,10 @@ export class UsersService {
   ) {
     if (!department.code) throw new BadRequestException('部门未配置编号规则，无法自动生成编号');
 
-    const limit = getDepartmentCapacity(department.type);
-    if (!limit) throw new BadRequestException('当前部门不支持自动生成编号');
+    const isManaged = this.requiresManagedEmployeeNo(department.type);
+    const suffixLen = isManaged ? 2 : 4;
+    const suffixRegex = isManaged ? /^\d{2}$/ : /^\d{4}$/;
+    const limit = isManaged ? (getDepartmentCapacity(department.type) ?? 0) : 9999;
 
     const existing = await tx.user.findMany({
       where: {
@@ -738,11 +753,11 @@ export class UsersService {
     const usedSeats = new Set(
       existing
         .map((user) => user.employeeNo?.slice(department.code!.length))
-        .filter((seat): seat is string => !!seat && /^\d{2}$/.test(seat)),
+        .filter((seat): seat is string => !!seat && suffixRegex.test(seat)),
     );
 
     for (let seat = 1; seat <= limit; seat += 1) {
-      const nextSeat = String(seat).padStart(2, '0');
+      const nextSeat = String(seat).padStart(suffixLen, '0');
       if (!usedSeats.has(nextSeat)) return `${department.code}${nextSeat}`;
     }
 

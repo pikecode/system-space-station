@@ -19,10 +19,11 @@ async function main() {
   // ── 1. 总经办 (HQ) ────────────────────────────────────────────────────────
   const hq = await prisma.department.upsert({
     where: { id: 'dept-hq' },
-    update: {},
+    update: { code: 'HQ' },
     create: {
       id: 'dept-hq',
       name: '总经办',
+      code: 'HQ',
       type: 'HQ',
       sort: 0,
       province: '广东省',
@@ -34,18 +35,18 @@ async function main() {
 
   // ── 2. 直属战略单元（挂 HQ 下，DIRECT 类型）────────────────────────────────
   const directUnits = [
-    { id: 'dept-expert',    name: '专家顾问团',   sort: 10 },
-    { id: 'dept-secretary', name: '协调秘书处',   sort: 11 },
-    { id: 'dept-invest',    name: '对外投资部',   sort: 12 },
-    { id: 'dept-legal',     name: '综合法务部',   sort: 13 },
-    { id: 'dept-asset',     name: '资产管理部',   sort: 14 },
-    { id: 'dept-charity',   name: '公益基金',     sort: 15 },
-    { id: 'dept-biz-cmte',  name: '经营决策委员会', sort: 16 },
+    { id: 'dept-expert',    name: '专家顾问团',     code: 'EXP',  sort: 10 },
+    { id: 'dept-secretary', name: '协调秘书处',     code: 'SEC',  sort: 11 },
+    { id: 'dept-invest',    name: '对外投资部',     code: 'INV',  sort: 12 },
+    { id: 'dept-legal',     name: '综合法务部',     code: 'LEG',  sort: 13 },
+    { id: 'dept-asset',     name: '资产管理部',     code: 'AST',  sort: 14 },
+    { id: 'dept-charity',   name: '公益基金',       code: 'CHR',  sort: 15 },
+    { id: 'dept-biz-cmte',  name: '经营决策委员会', code: 'BIZ',  sort: 16 },
   ];
   for (const u of directUnits) {
     await prisma.department.upsert({
       where: { id: u.id },
-      update: {},
+      update: { code: u.code },
       create: { ...u, type: 'DIRECT', parentId: hq.id },
     });
   }
@@ -53,69 +54,69 @@ async function main() {
   // ── 3. 四大中心 (CENTER) ───────────────────────────────────────────────────
   const supervision = await prisma.department.upsert({
     where: { id: 'dept-center-supervision' },
-    update: {},
-    create: { id: 'dept-center-supervision', name: '督导中心', type: 'CENTER', parentId: hq.id, sort: 20 },
+    update: { code: 'SUP' },
+    create: { id: 'dept-center-supervision', name: '督导中心', code: 'SUP', type: 'CENTER', parentId: hq.id, sort: 20 },
   });
   const development = await prisma.department.upsert({
     where: { id: 'dept-center-development' },
-    update: {},
-    create: { id: 'dept-center-development', name: '发展中心', type: 'CENTER', parentId: hq.id, sort: 21 },
+    update: { code: 'DEV' },
+    create: { id: 'dept-center-development', name: '发展中心', code: 'DEV', type: 'CENTER', parentId: hq.id, sort: 21 },
   });
   const marketing = await prisma.department.upsert({
     where: { id: 'dept-center-marketing' },
-    update: {},
-    create: { id: 'dept-center-marketing', name: '营销中心', type: 'CENTER', parentId: hq.id, sort: 22 },
+    update: { code: 'MKT00' },
+    create: { id: 'dept-center-marketing', name: '营销中心', code: 'MKT00', type: 'CENTER', parentId: hq.id, sort: 22 },
   });
   const service = await prisma.department.upsert({
     where: { id: 'dept-center-service' },
-    update: {},
-    create: { id: 'dept-center-service', name: '服务中心', type: 'CENTER', parentId: hq.id, sort: 23 },
+    update: { code: 'SVC' },
+    create: { id: 'dept-center-service', name: '服务中心', code: 'SVC', type: 'CENTER', parentId: hq.id, sort: 23 },
   });
 
   // ── 4. 督导中心下属（DIRECT）───────────────────────────────────────────────
   const supervisionUnits = [
-    { id: 'dept-sup-exec',  name: '执行督导处', sort: 30 },
-    { id: 'dept-sup-audit', name: '财务审计处', sort: 31 },
-    { id: 'dept-sup-risk',  name: '风险管理处', sort: 32 },
+    { id: 'dept-sup-exec',  name: '执行督导处', code: 'SUP01', sort: 30 },
+    { id: 'dept-sup-audit', name: '财务审计处', code: 'SUP02', sort: 31 },
+    { id: 'dept-sup-risk',  name: '风险管理处', code: 'SUP03', sort: 32 },
   ];
   for (const u of supervisionUnits) {
     await prisma.department.upsert({
       where: { id: u.id },
-      update: {},
+      update: { code: u.code },
       create: { ...u, type: 'DIRECT', parentId: supervision.id },
     });
   }
 
   // ── 5. 发展中心下属（DIRECT）───────────────────────────────────────────────
   const devUnits = [
-    { id: 'dept-dev-research',  name: '市场调研处', sort: 40 },
-    { id: 'dept-dev-standard',  name: '标准制定处', sort: 41 },
-    { id: 'dept-dev-data',      name: '数据应用处', sort: 42 },
-    { id: 'dept-dev-ip',        name: '知识产权处', sort: 43 },
-    { id: 'dept-dev-capital',   name: '资本运作处', sort: 44 },
-    { id: 'dept-dev-brand',     name: '品牌建设部', sort: 45 },
-    { id: 'dept-dev-academy',   name: '勤公学院',   sort: 46 },
+    { id: 'dept-dev-research',  name: '市场调研处', code: 'DEV01', sort: 40 },
+    { id: 'dept-dev-standard',  name: '标准制定处', code: 'DEV02', sort: 41 },
+    { id: 'dept-dev-data',      name: '数据应用处', code: 'DEV03', sort: 42 },
+    { id: 'dept-dev-ip',        name: '知识产权处', code: 'DEV04', sort: 43 },
+    { id: 'dept-dev-capital',   name: '资本运作处', code: 'DEV05', sort: 44 },
+    { id: 'dept-dev-brand',     name: '品牌建设部', code: 'DEV06', sort: 45 },
+    { id: 'dept-dev-academy',   name: '勤公学院',   code: 'DEV07', sort: 46 },
   ];
   for (const u of devUnits) {
     await prisma.department.upsert({
       where: { id: u.id },
-      update: {},
+      update: { code: u.code },
       create: { ...u, type: 'DIRECT', parentId: development.id },
     });
   }
 
   // ── 6. 服务中心下属（DIRECT）───────────────────────────────────────────────
   const serviceUnits = [
-    { id: 'dept-svc-hr',      name: '人力资源部',   sort: 50 },
-    { id: 'dept-svc-finance', name: '财务结算部',   sort: 51 },
-    { id: 'dept-svc-product', name: '产品开发部',   sort: 52 },
-    { id: 'dept-svc-admin',   name: '行政支持部',   sort: 53 },
-    { id: 'dept-svc-family',  name: '幸福家庭促进会', sort: 54 },
+    { id: 'dept-svc-hr',      name: '人力资源部',     code: 'SVC01', sort: 50 },
+    { id: 'dept-svc-finance', name: '财务结算部',     code: 'SVC02', sort: 51 },
+    { id: 'dept-svc-product', name: '产品开发部',     code: 'SVC03', sort: 52 },
+    { id: 'dept-svc-admin',   name: '行政支持部',     code: 'SVC04', sort: 53 },
+    { id: 'dept-svc-family',  name: '幸福家庭促进会', code: 'SVC05', sort: 54 },
   ];
   for (const u of serviceUnits) {
     await prisma.department.upsert({
       where: { id: u.id },
-      update: {},
+      update: { code: u.code },
       create: { ...u, type: 'DIRECT', parentId: service.id },
     });
   }
@@ -191,7 +192,80 @@ async function main() {
     },
   });
 
-  // ── 11. 市场部示例负责人 ──────────────────────────────────────────────────
+  // ── 11. 总经办及各直属部门人员 ───────────────────────────────────────────
+  const stdPwd = await bcrypt.hash('Test123456', 12);
+
+  type SeedUser = {
+    id: string;
+    phone: string;
+    name: string;
+    employeeNo: string;
+    role: 'HEAD' | 'MEMBER';
+    departmentId: string;
+  };
+
+  const hqAndDirectUsers: SeedUser[] = [
+    // 总经办
+    { id: 'u-hq-01', phone: '15900000001', name: '陈总办', employeeNo: 'HQ0001', role: 'HEAD', departmentId: 'dept-hq' },
+    { id: 'u-hq-02', phone: '15900000002', name: '吴总办', employeeNo: 'HQ0002', role: 'MEMBER', departmentId: 'dept-hq' },
+    // 专家顾问团
+    { id: 'u-exp-01', phone: '15900000011', name: '林专家', employeeNo: 'EXP0001', role: 'HEAD', departmentId: 'dept-expert' },
+    { id: 'u-exp-02', phone: '15900000012', name: '赵顾问', employeeNo: 'EXP0002', role: 'MEMBER', departmentId: 'dept-expert' },
+    // 协调秘书处
+    { id: 'u-sec-01', phone: '15900000021', name: '刘秘书', employeeNo: 'SEC0001', role: 'HEAD', departmentId: 'dept-secretary' },
+    // 对外投资部
+    { id: 'u-inv-01', phone: '15900000031', name: '王投资', employeeNo: 'INV0001', role: 'HEAD', departmentId: 'dept-invest' },
+    // 综合法务部
+    { id: 'u-leg-01', phone: '15900000041', name: '张法务', employeeNo: 'LEG0001', role: 'HEAD', departmentId: 'dept-legal' },
+    // 资产管理部
+    { id: 'u-ast-01', phone: '15900000051', name: '孙资产', employeeNo: 'AST0001', role: 'HEAD', departmentId: 'dept-asset' },
+    // 公益基金
+    { id: 'u-chr-01', phone: '15900000061', name: '郑公益', employeeNo: 'CHR0001', role: 'HEAD', departmentId: 'dept-charity' },
+    // 经营决策委员会
+    { id: 'u-biz-01', phone: '15900000071', name: '黄决策', employeeNo: 'BIZ0001', role: 'HEAD', departmentId: 'dept-biz-cmte' },
+    { id: 'u-biz-02', phone: '15900000072', name: '钱决策', employeeNo: 'BIZ0002', role: 'MEMBER', departmentId: 'dept-biz-cmte' },
+    // 督导中心
+    { id: 'u-sup-01', phone: '15900000081', name: '周督导', employeeNo: 'SUP0001', role: 'HEAD', departmentId: 'dept-center-supervision' },
+    // 执行督导处
+    { id: 'u-sup01-01', phone: '15900000091', name: '吴执行', employeeNo: 'SUP010001', role: 'HEAD', departmentId: 'dept-sup-exec' },
+    // 财务审计处
+    { id: 'u-sup02-01', phone: '15900000101', name: '冯审计', employeeNo: 'SUP020001', role: 'HEAD', departmentId: 'dept-sup-audit' },
+    // 风险管理处
+    { id: 'u-sup03-01', phone: '15900000111', name: '方风险', employeeNo: 'SUP030001', role: 'HEAD', departmentId: 'dept-sup-risk' },
+  ];
+
+  for (const u of hqAndDirectUsers) {
+    const created = await prisma.user.upsert({
+      where: { phone: u.phone },
+      update: {
+        name: u.name,
+        employeeNo: u.employeeNo,
+        passwordHash: stdPwd,
+        role: u.role,
+        departmentId: u.departmentId,
+        status: 'ACTIVE',
+        authVersion: { increment: 1 },
+      },
+      create: {
+        id: u.id,
+        name: u.name,
+        phone: u.phone,
+        employeeNo: u.employeeNo,
+        passwordHash: stdPwd,
+        role: u.role,
+        departmentId: u.departmentId,
+        status: 'ACTIVE',
+      },
+    });
+    if (u.role === 'HEAD') {
+      await prisma.department.update({
+        where: { id: u.departmentId },
+        data: { headId: created.id },
+      });
+    }
+  }
+
+  // ── 12. 市场部示例负责人 ──────────────────────────────────────────────────
   const headPwd = await bcrypt.hash('Head123456', 12);
   const marketHead = await prisma.user.upsert({
     where: { phone: '13800000001' },
@@ -376,7 +450,7 @@ async function main() {
     {
       phone: '13800000102',
       name: '许发展',
-      employeeNo: 'DEV0101',
+      employeeNo: 'DEV010001',
       role: 'MEMBER',
       departmentId: 'dept-dev-research',
       positionId: pos.id,
@@ -384,7 +458,7 @@ async function main() {
     {
       phone: '13800000107',
       name: '林标准',
-      employeeNo: 'DEV0201',
+      employeeNo: 'DEV020001',
       role: 'MEMBER',
       departmentId: 'dept-dev-standard',
       positionId: pos.id,
@@ -392,7 +466,7 @@ async function main() {
     {
       phone: '13800000108',
       name: '高数据',
-      employeeNo: 'DEV0301',
+      employeeNo: 'DEV030001',
       role: 'MEMBER',
       departmentId: 'dept-dev-data',
       positionId: pos.id,
@@ -400,7 +474,7 @@ async function main() {
     {
       phone: '13800000109',
       name: '罗知产',
-      employeeNo: 'DEV0401',
+      employeeNo: 'DEV040001',
       role: 'MEMBER',
       departmentId: 'dept-dev-ip',
       positionId: pos.id,
@@ -408,7 +482,7 @@ async function main() {
     {
       phone: '13800000110',
       name: '钱资本',
-      employeeNo: 'DEV0501',
+      employeeNo: 'DEV050001',
       role: 'MEMBER',
       departmentId: 'dept-dev-capital',
       positionId: pos.id,
@@ -416,7 +490,7 @@ async function main() {
     {
       phone: '13800000111',
       name: '唐品牌',
-      employeeNo: 'DEV0601',
+      employeeNo: 'DEV060001',
       role: 'MEMBER',
       departmentId: 'dept-dev-brand',
       positionId: pos.id,
@@ -424,7 +498,7 @@ async function main() {
     {
       phone: '13800000112',
       name: '蒋学院',
-      employeeNo: 'DEV0701',
+      employeeNo: 'DEV070001',
       role: 'MEMBER',
       departmentId: 'dept-dev-academy',
       positionId: pos.id,
@@ -432,7 +506,7 @@ async function main() {
     {
       phone: '13800000103',
       name: '马营销',
-      employeeNo: 'MKT0001',
+      employeeNo: 'MKT000001',
       role: 'HEAD',
       departmentId: 'dept-center-marketing',
       positionId: pos.id,
@@ -450,7 +524,7 @@ async function main() {
     {
       phone: '13800000106',
       name: '何服务',
-      employeeNo: 'SVC0301',
+      employeeNo: 'SVC030001',
       role: 'MEMBER',
       departmentId: 'dept-svc-product',
       positionId: pos.id,
@@ -458,7 +532,7 @@ async function main() {
     {
       phone: '13800000113',
       name: '余人资',
-      employeeNo: 'SVC0101',
+      employeeNo: 'SVC010001',
       role: 'MEMBER',
       departmentId: 'dept-svc-hr',
       positionId: pos.id,
@@ -466,7 +540,7 @@ async function main() {
     {
       phone: '13800000114',
       name: '冯财务',
-      employeeNo: 'SVC0201',
+      employeeNo: 'SVC020001',
       role: 'MEMBER',
       departmentId: 'dept-svc-finance',
       positionId: pos.id,
@@ -474,7 +548,7 @@ async function main() {
     {
       phone: '13800000115',
       name: '梁行政',
-      employeeNo: 'SVC0401',
+      employeeNo: 'SVC040001',
       role: 'MEMBER',
       departmentId: 'dept-svc-admin',
       positionId: pos.id,
@@ -482,7 +556,7 @@ async function main() {
     {
       phone: '13800000116',
       name: '郑家庭',
-      employeeNo: 'SVC0501',
+      employeeNo: 'SVC050001',
       role: 'MEMBER',
       departmentId: 'dept-svc-family',
       positionId: pos.id,
