@@ -121,11 +121,12 @@ export class AuthService {
     });
   }
 
-  private signToken(user: { id: string; role: string; departmentId: string | null; authVersion: number }) {
+  private signToken(user: { id: string; role: string; departmentId: string | null; departmentType?: string | null; authVersion: number }) {
     return this.jwt.sign({
       sub: user.id,
       role: user.role,
       departmentId: user.departmentId,
+      departmentType: user.departmentType ?? null,
       authVersion: user.authVersion,
     });
   }
@@ -142,7 +143,7 @@ export class AuthService {
     department?: { id: string; name: string; type: string } | null;
   }) {
     return {
-      token: this.signToken(user),
+      token: this.signToken({ ...user, departmentType: user.department?.type ?? null }),
       user: {
         id: user.id,
         name: user.name,

@@ -7,6 +7,7 @@ import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { TransferCustomerDto } from './dto/transfer-customer.dto';
 import { QueryCustomerDto } from './dto/query-customer.dto';
+import { resolveDataScope, canWrite } from '../../common/data-scope';
 
 @Injectable()
 export class CustomersService {
@@ -21,11 +22,21 @@ export class CustomersService {
     if (!query.status) where.status = 'ACTIVE';
     else where.status = query.status;
 
-    if (currentUser.role === 'MEMBER') {
-      where.assignedTo = currentUser.id;
-    } else if (currentUser.role === 'HEAD') {
-      where.departmentId = currentUser.departmentId;
+    const scope = resolveDataScope(currentUser);
+
+    if (scope.type === 'SELF') {
+      where.assignedTo = scope.userId;
+    } else if (scope.type === 'DEPARTMENT') {
+      where.departmentId = scope.departmentId;
+    } else if (scope.type === 'MARKET_TREE') {
+      const divisionDepts = await this.prisma.department.findMany({
+        where: { parentId: scope.marketDeptId, status: 'ACTIVE' },
+        select: { id: true },
+      });
+      const deptIds = [scope.marketDeptId!, ...divisionDepts.map((d) => d.id)];
+      where.departmentId = { in: deptIds };
     } else {
+      // ALL_READONLY or ALL_WRITABLE — ADMIN may filter by dept/assignee
       if (query.departmentId) where.departmentId = query.departmentId;
       if (query.assignedTo) where.assignedTo = query.assignedTo;
     }
@@ -68,7 +79,7 @@ export class CustomersService {
       },
     });
     if (!customer) throw new NotFoundException('客户不存在');
-    this.checkAccess(customer, currentUser);
+    await this.checkAccess(customer, currentUser);
     return customer;
   }
 
@@ -125,7 +136,7 @@ export class CustomersService {
   async update(id: string, dto: UpdateCustomerDto, currentUser: any) {
     const customer = await this.prisma.customer.findUnique({ where: { id } });
     if (!customer) throw new NotFoundException('客户不存在');
-    this.checkAccess(customer, currentUser);
+    await this.checkAccess(customer, currentUser, true);
     const { birthday, ...rest } = dto;
     return this.prisma.customer.update({
       where: { id },
@@ -134,13 +145,13 @@ export class CustomersService {
   }
 
   async transfer(id: string, dto: TransferCustomerDto, currentUser: any) {
-    if (!['HEAD', 'ADMIN'].includes(currentUser.role)) {
-      throw new ForbiddenException('只有部门负责人可以转移维护人');
-    }
     const customer = await this.prisma.customer.findUnique({ where: { id } });
     if (!customer) throw new NotFoundException('客户不存在');
-    if (currentUser.role === 'HEAD' && customer.departmentId !== currentUser.departmentId) {
-      throw new ForbiddenException('只能转移本部门客户');
+    await this.checkAccess(customer, currentUser, true);
+
+    const scope = resolveDataScope(currentUser);
+    if (scope.type === 'SELF') {
+      throw new ForbiddenException('当前角色无客户转移权限');
     }
     const newUser = await this.prisma.user.findUnique({
       where: { id: dto.newAssignedTo },
@@ -173,14 +184,38 @@ export class CustomersService {
   async disable(id: string, currentUser: any) {
     const customer = await this.prisma.customer.findUnique({ where: { id } });
     if (!customer) throw new NotFoundException('客户不存在');
-    this.checkAccess(customer, currentUser);
+    await this.checkAccess(customer, currentUser, true);
     return this.prisma.customer.update({ where: { id }, data: { status: 'INACTIVE' } });
   }
 
-  private checkAccess(customer: any, currentUser: any) {
+  private async checkAccess(customer: any, currentUser: any, requireWrite = false) {
     if (currentUser.role === 'ADMIN') return;
-    if (currentUser.role === 'HEAD' && customer.departmentId === currentUser.departmentId) return;
-    if (currentUser.role === 'MEMBER' && customer.assignedTo === currentUser.id) return;
-    throw new ForbiddenException('无权访问该客户');
+
+    const scope = resolveDataScope(currentUser);
+
+    if (requireWrite && !canWrite(scope)) {
+      throw new ForbiddenException('当前角色仅有查看权限，无法修改客户');
+    }
+
+    switch (scope.type) {
+      case 'SELF':
+        if (customer.assignedTo !== currentUser.id) throw new ForbiddenException('无权访问该客户');
+        break;
+      case 'DEPARTMENT':
+        if (customer.departmentId !== scope.departmentId) throw new ForbiddenException('无权访问该客户');
+        break;
+      case 'MARKET_TREE': {
+        const divisionDepts = await this.prisma.department.findMany({
+          where: { parentId: scope.marketDeptId, status: 'ACTIVE' },
+          select: { id: true },
+        });
+        const deptIds = new Set([scope.marketDeptId!, ...divisionDepts.map((d) => d.id)]);
+        if (!deptIds.has(customer.departmentId)) throw new ForbiddenException('无权访问该客户');
+        break;
+      }
+      case 'ALL_READONLY':
+      case 'ALL_WRITABLE':
+        break;
+    }
   }
 }
