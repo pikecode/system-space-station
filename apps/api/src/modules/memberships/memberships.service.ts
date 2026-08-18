@@ -11,6 +11,7 @@ import { CreateMembershipDto } from './dto/create-membership.dto';
 import { QueryMembershipDto } from './dto/query-membership.dto';
 import { ReviewMembershipDto } from './dto/review-membership.dto';
 import { RefundRequestDto } from './dto/refund-request.dto';
+import { canWrite, DataScope, resolveDataScope } from '../../common/data-scope';
 
 const MEMBER_NO_LOCK_KEY = 2_607_202;
 
@@ -36,11 +37,7 @@ export class MembershipsService {
     if (query.status) where.status = query.status;
     if (query.customerId) where.customerId = query.customerId;
 
-    if (currentUser.role === 'MEMBER') {
-      where.customer = { assignedTo: currentUser.id };
-    } else if (currentUser.role === 'HEAD') {
-      where.customer = { departmentId: currentUser.departmentId };
-    }
+    await this.applyMembershipScope(where, currentUser);
 
     const [total, data] = await this.prisma.$transaction([
       this.prisma.membership.count({ where }),
@@ -60,15 +57,17 @@ export class MembershipsService {
   }
 
   async findPending(currentUser: any) {
+    const scope = resolveDataScope(currentUser);
     if (currentUser.role !== 'HEAD' && currentUser.role !== 'ADMIN') {
       throw new ForbiddenException('无权访问');
+    }
+    if (currentUser.role !== 'ADMIN' && !canWrite(scope)) {
+      throw new ForbiddenException('当前角色仅有查看权限，无法审批会员申请');
     }
     const where: Prisma.MembershipWhereInput = {
       status: { in: ['PENDING', 'REFUND_PENDING'] },
     };
-    if (currentUser.role === 'HEAD') {
-      where.customer = { departmentId: currentUser.departmentId };
-    }
+    await this.applyMembershipScope(where, currentUser, scope);
     return this.prisma.membership.findMany({
       where,
       include: {
@@ -98,7 +97,7 @@ export class MembershipsService {
       },
     });
     if (!membership) throw new NotFoundException('会员申请不存在');
-    this.assertCustomerScope(membership.customer, currentUser);
+    await this.assertCustomerScope(membership.customer, currentUser);
 
     const { assignedTo, departmentId, ...customer } = membership.customer;
     void assignedTo;
@@ -110,12 +109,7 @@ export class MembershipsService {
     const customer = await this.prisma.customer.findUnique({ where: { id: dto.customerId } });
     if (!customer) throw new NotFoundException('客户不存在');
     if (customer.status !== 'ACTIVE') throw new BadRequestException('客户已停用');
-    if (currentUser.role === 'MEMBER' && customer.assignedTo !== currentUser.id) {
-      throw new ForbiddenException('只能为名下客户提交会员申请');
-    }
-    if (currentUser.role === 'HEAD' && customer.departmentId !== currentUser.departmentId) {
-      throw new ForbiddenException('只能为本部门客户提交会员申请');
-    }
+    await this.assertCustomerScope(customer, currentUser, { requireWrite: true, message: '当前角色无权提交该客户的会员申请' });
     await this.validateMembershipInput(dto);
     return this.prisma.$transaction(async (tx) => {
       const memberNo = await this.generateMemberNo(tx);
@@ -181,9 +175,7 @@ export class MembershipsService {
       });
       if (!membership) throw new NotFoundException('会员申请不存在');
       if (membership.status !== 'PENDING') throw new ConflictException('申请状态已变更，请刷新后重试');
-      if (currentUser.role === 'HEAD' && membership.customer.departmentId !== currentUser.departmentId) {
-        throw new ForbiddenException('无权审批');
-      }
+      await this.assertCustomerScope(membership.customer, currentUser, { requireWrite: true, prisma: tx, message: '无权审批' });
 
       await this.transitionStatus(tx, id, 'PENDING', {
         status: 'APPROVED',
@@ -269,9 +261,7 @@ export class MembershipsService {
     });
     if (!membership) throw new NotFoundException('会员申请不存在');
     if (membership.status !== 'PENDING') throw new ConflictException('申请状态已变更');
-    if (currentUser.role === 'HEAD' && membership.customer.departmentId !== currentUser.departmentId) {
-      throw new ForbiddenException('无权操作');
-    }
+    await this.assertCustomerScope(membership.customer, currentUser, { requireWrite: true, message: '无权操作' });
     return this.prisma.$transaction(async (tx) => {
       await this.transitionStatus(tx, id, 'PENDING', {
         status: 'REJECTED',
@@ -299,7 +289,7 @@ export class MembershipsService {
     });
     if (!membership) throw new NotFoundException('会员申请不存在');
     if (membership.status !== 'APPROVED') throw new BadRequestException('只有有效会员才能申请退款');
-    this.assertCustomerScope(membership.customer, currentUser);
+    await this.assertCustomerScope(membership.customer, currentUser, { requireWrite: true });
     return this.prisma.$transaction(async (tx) => {
       await this.transitionStatus(tx, id, 'APPROVED', {
         status: 'REFUND_PENDING',
@@ -326,7 +316,7 @@ export class MembershipsService {
       });
       if (!membership) throw new NotFoundException('会员申请不存在');
       if (membership.status !== 'REFUND_PENDING') throw new ConflictException('申请状态已变更');
-      this.assertCustomerScope(membership.customer, currentUser);
+      await this.assertCustomerScope(membership.customer, currentUser, { requireWrite: true, prisma: tx });
 
       await this.transitionStatus(tx, id, 'REFUND_PENDING', {
         status: 'REFUNDED',
@@ -375,7 +365,7 @@ export class MembershipsService {
     });
     if (!membership) throw new NotFoundException('会员申请不存在');
     if (membership.status !== 'REFUND_PENDING') throw new ConflictException('申请状态已变更');
-    this.assertCustomerScope(membership.customer, currentUser);
+    await this.assertCustomerScope(membership.customer, currentUser, { requireWrite: true });
     if (!dto.reviewNote?.trim()) throw new BadRequestException('拒绝原因不能为空');
     return this.prisma.$transaction(async (tx) => {
       await this.transitionStatus(tx, id, 'REFUND_PENDING', {
@@ -412,11 +402,75 @@ export class MembershipsService {
     }
   }
 
-  private assertCustomerScope(customer: { assignedTo: string; departmentId: string }, currentUser: any) {
+  private async applyMembershipScope(
+    where: Prisma.MembershipWhereInput,
+    currentUser: any,
+    scope = resolveDataScope(currentUser),
+  ) {
     if (currentUser.role === 'ADMIN') return;
-    if (currentUser.role === 'HEAD' && customer.departmentId === currentUser.departmentId) return;
-    if (currentUser.role === 'MEMBER' && customer.assignedTo === currentUser.id) return;
-    throw new ForbiddenException('无权操作该客户的会员记录');
+
+    switch (scope.type) {
+      case 'SELF':
+        where.customer = { assignedTo: scope.userId };
+        break;
+      case 'DEPARTMENT':
+        where.customer = { departmentId: scope.departmentId };
+        break;
+      case 'MARKET_TREE':
+        where.customer = { departmentId: { in: await this.getMarketTreeDepartmentIds(scope) } };
+        break;
+      case 'ALL_READONLY':
+      case 'ALL_WRITABLE':
+        break;
+    }
+  }
+
+  private async assertCustomerScope(
+    customer: { assignedTo?: string; departmentId: string },
+    currentUser: any,
+    options: {
+      requireWrite?: boolean;
+      prisma?: Pick<PrismaService, 'department'> | Prisma.TransactionClient;
+      message?: string;
+    } = {},
+  ) {
+    if (currentUser.role === 'ADMIN') return;
+
+    const scope = resolveDataScope(currentUser);
+    if (options.requireWrite && !canWrite(scope)) {
+      throw new ForbiddenException(options.message ?? '当前角色仅有查看权限，无法操作会员记录');
+    }
+
+    switch (scope.type) {
+      case 'SELF':
+        if (customer.assignedTo === scope.userId) return;
+        break;
+      case 'DEPARTMENT':
+        if (customer.departmentId === scope.departmentId) return;
+        break;
+      case 'MARKET_TREE': {
+        const deptIds = await this.getMarketTreeDepartmentIds(scope, options.prisma);
+        if (deptIds.includes(customer.departmentId)) return;
+        break;
+      }
+      case 'ALL_READONLY':
+      case 'ALL_WRITABLE':
+        return;
+    }
+
+    throw new ForbiddenException(options.message ?? '无权操作该客户的会员记录');
+  }
+
+  private async getMarketTreeDepartmentIds(
+    scope: DataScope,
+    prisma: Pick<PrismaService, 'department'> | Prisma.TransactionClient = this.prisma,
+  ): Promise<string[]> {
+    if (!scope.marketDeptId) return [];
+    const divisionDepts = await prisma.department.findMany({
+      where: { parentId: scope.marketDeptId, status: 'ACTIVE' },
+      select: { id: true },
+    });
+    return [scope.marketDeptId, ...divisionDepts.map((department) => department.id)];
   }
 
   private async validateMembershipInput(dto: CreateMembershipDto) {

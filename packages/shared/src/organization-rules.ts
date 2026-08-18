@@ -56,13 +56,49 @@ export function canDepartmentGenerateShareCode(type: DepartmentType | string | n
 export function canDepartmentLoginMiniApp(
   type: DepartmentType | string | null | undefined,
   name?: string | null,
+  parentType?: DepartmentType | string | null,
+  parentName?: string | null,
 ): boolean {
   if (!type) return false;
   if (type === DepartmentType.MARKET || type === DepartmentType.DIVISION) return true;
-  if (type !== DepartmentType.CENTER || !name) return false;
+  if (isMiniAppLoginCenter(type, name)) return true;
+  return type === DepartmentType.DIRECT && isMiniAppLoginCenter(parentType, parentName);
+}
 
+export function isMiniAppLoginCenter(
+  type: DepartmentType | string | null | undefined,
+  name?: string | null,
+): boolean {
+  if (type !== DepartmentType.CENTER || !name) return false;
   const normalizedName = name.trim();
   return MINIAPP_LOGIN_CENTER_NAMES.some(
     (centerName) => normalizedName === centerName || normalizedName.endsWith(centerName),
   );
+}
+
+export function isMarketingCenter(
+  type: DepartmentType | string | null | undefined,
+  name?: string | null,
+): boolean {
+  if (type !== DepartmentType.CENTER || !name) return false;
+  const normalizedName = name.trim();
+  return normalizedName === '营销中心' || normalizedName.endsWith('营销中心');
+}
+
+export function canMiniAppUserWriteCustomer(user: {
+  role?: string | null;
+  deptType?: DepartmentType | string | null;
+  department?: {
+    type?: DepartmentType | string | null;
+    name?: string | null;
+    parent?: {
+      type?: DepartmentType | string | null;
+      name?: string | null;
+    } | null;
+  } | null;
+} | null | undefined): boolean {
+  if (!user) return false;
+  const departmentType = user.deptType ?? user.department?.type;
+  if (departmentType === DepartmentType.MARKET || departmentType === DepartmentType.DIVISION) return true;
+  return user.role === 'HEAD' && isMarketingCenter(departmentType, user.department?.name);
 }

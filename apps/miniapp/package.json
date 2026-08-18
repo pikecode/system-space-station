@@ -4,8 +4,10 @@
   "private": true,
   "scripts": {
     "dev:weapp": "taro build --type weapp --watch",
+    "dev:weapp:local": "TARO_APP_API_URL=http://127.0.0.1:4100/api taro build --type weapp --watch",
     "dev:h5": "taro build --type h5 --watch",
     "build:weapp": "taro build --type weapp",
+    "build:weapp:local": "TARO_APP_API_URL=http://127.0.0.1:4100/api taro build --type weapp",
     "build:h5": "taro build --type h5"
   },
   "dependencies": {

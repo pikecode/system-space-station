@@ -1,4 +1,4 @@
-import { DepartmentType } from '@prisma/client';
+import { canDepartmentLoginMiniApp, isMarketingCenter, DepartmentType } from 'shared';
 
 export type DataScopeType =
   | 'SELF'          // 只看自己的客户
@@ -19,8 +19,11 @@ export function resolveDataScope(currentUser: {
   role: string;
   departmentId?: string | null;
   departmentType?: string | null;
+  departmentName?: string | null;
+  parentDepartmentType?: string | null;
+  parentDepartmentName?: string | null;
 }): DataScope {
-  const { id, role, departmentId, departmentType } = currentUser;
+  const { id, role, departmentId, departmentType, departmentName, parentDepartmentType, parentDepartmentName } = currentUser;
 
   // 系统管理员走旧逻辑（web 端）
   if (role === 'ADMIN') return { type: 'ALL_WRITABLE' };
@@ -35,9 +38,14 @@ export function resolveDataScope(currentUser: {
       return { type: 'MARKET_TREE', marketDeptId: departmentId ?? undefined };
 
     case DepartmentType.CENTER:
-      // 营销中心 HEAD 可写，其他只读
-      if (role === 'HEAD') return { type: 'ALL_WRITABLE' };
+      if (isMarketingCenter(departmentType, departmentName) && role === 'HEAD') return { type: 'ALL_WRITABLE' };
       return { type: 'ALL_READONLY' };
+
+    case DepartmentType.DIRECT:
+      if (canDepartmentLoginMiniApp(departmentType, departmentName, parentDepartmentType, parentDepartmentName)) {
+        return { type: 'ALL_READONLY' };
+      }
+      return { type: 'SELF', userId: id };
 
     default:
       // 其他部门（HQ/DIRECT/GOVERNANCE）退化为只看自己

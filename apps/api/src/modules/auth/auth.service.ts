@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException, NotFoundException } from '@nestjs/co
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
-import { canDepartmentLoginMiniApp } from 'shared';
+import { canDepartmentLoginMiniApp, canMiniAppUserWriteCustomer } from 'shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LoginDto, MiniAppLoginDto } from './dto/login.dto';
 
@@ -82,7 +82,16 @@ export class AuthService {
         avatar: true,
         shareCode: true,
         passwordHash: true,
-        department: { select: { id: true, name: true, type: true, status: true, parentId: true } },
+        department: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            status: true,
+            parentId: true,
+            parent: { select: { id: true, name: true, type: true, status: true } },
+          },
+        },
       },
     });
     if (!user) throw new UnauthorizedException('编号或密码错误');
@@ -102,7 +111,7 @@ export class AuthService {
   }
 
   async me(userId: string) {
-    return this.prisma.user.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
         id: true,
@@ -115,18 +124,49 @@ export class AuthService {
         avatar: true,
         email: true,
         shareCode: true,
-        department: { select: { id: true, name: true, type: true } },
+        department: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            parent: { select: { id: true, name: true, type: true, status: true } },
+          },
+        },
         position: { select: { id: true, name: true } },
       },
     });
+    if (!user) return null;
+    return {
+      ...user,
+      deptType: user.department?.type ?? null,
+      canWriteCustomer: canMiniAppUserWriteCustomer({
+        role: user.role,
+        deptType: user.department?.type ?? null,
+        department: user.department,
+      }),
+    };
   }
 
-  private signToken(user: { id: string; role: string; departmentId: string | null; departmentType?: string | null; authVersion: number }) {
+  private signToken(user: {
+    id: string;
+    role: string;
+    departmentId: string | null;
+    departmentType?: string | null;
+    departmentName?: string | null;
+    parentDepartmentType?: string | null;
+    parentDepartmentName?: string | null;
+    authVersion: number;
+  }) {
+    const departmentType = user.departmentType ?? null;
     return this.jwt.sign({
       sub: user.id,
       role: user.role,
       departmentId: user.departmentId,
-      departmentType: user.departmentType ?? null,
+      departmentType,
+      deptType: departmentType,
+      departmentName: user.departmentName ?? null,
+      parentDepartmentType: user.parentDepartmentType ?? null,
+      parentDepartmentName: user.parentDepartmentName ?? null,
       authVersion: user.authVersion,
     });
   }
@@ -140,19 +180,50 @@ export class AuthService {
     avatar: string | null;
     authVersion: number;
     shareCode?: string | null;
-    department?: { id: string; name: string; type: string } | null;
+    department?: {
+      id: string;
+      name: string;
+      type: string;
+      parent?: { id: string; name: string; type: string; status?: string } | null;
+    } | null;
   }) {
+    const department = user.department
+      ? {
+        id: user.department.id,
+        name: user.department.name,
+        type: user.department.type,
+        parent: user.department.parent
+          ? {
+            id: user.department.parent.id,
+            name: user.department.parent.name,
+            type: user.department.parent.type,
+          }
+          : null,
+      }
+      : null;
     return {
-      token: this.signToken({ ...user, departmentType: user.department?.type ?? null }),
+      token: this.signToken({
+        ...user,
+        departmentType: department?.type ?? null,
+        departmentName: department?.name ?? null,
+        parentDepartmentType: department?.parent?.type ?? null,
+        parentDepartmentName: department?.parent?.name ?? null,
+      }),
       user: {
         id: user.id,
         name: user.name,
         employeeNo: user.employeeNo ?? null,
         role: user.role,
         departmentId: user.departmentId,
-        department: user.department ?? null,
+        deptType: department?.type ?? null,
+        department,
         avatar: user.avatar,
         shareCode: user.shareCode ?? null,
+        canWriteCustomer: canMiniAppUserWriteCustomer({
+          role: user.role,
+          deptType: department?.type ?? null,
+          department,
+        }),
       },
     };
   }
@@ -181,7 +252,16 @@ export class AuthService {
         authVersion: true,
         status: true,
         shareCode: true,
-        department: { select: { id: true, name: true, type: true, status: true, parentId: true } },
+        department: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            status: true,
+            parentId: true,
+            parent: { select: { id: true, name: true, type: true, status: true } },
+          },
+        },
       },
     });
     if (!user) throw new NotFoundException('微信未绑定账号，请先绑定');
@@ -207,7 +287,16 @@ export class AuthService {
         status: true,
         shareCode: true,
         passwordHash: true,
-        department: { select: { id: true, name: true, type: true, status: true, parentId: true } },
+        department: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            status: true,
+            parentId: true,
+            parent: { select: { id: true, name: true, type: true, status: true } },
+          },
+        },
       },
     });
     if (!user) throw new UnauthorizedException('账号或密码错误');
@@ -221,12 +310,25 @@ export class AuthService {
   }
 
   private async ensureMiniAppDepartmentAccess(
-    department: { id: string; name: string; type: string; status: string; parentId?: string | null } | null,
+    department: {
+      id: string;
+      name: string;
+      type: string;
+      status: string;
+      parentId?: string | null;
+      parent?: { id: string; name: string; type: string; status?: string } | null;
+    } | null,
   ) {
     if (!department || department.status !== 'ACTIVE') {
       throw new UnauthorizedException('当前账号未分配可用部门');
     }
     if (canDepartmentLoginMiniApp(department.type, department.name)) return;
+    if (department.parent?.status === 'ACTIVE' && canDepartmentLoginMiniApp(
+      department.type,
+      department.name,
+      department.parent?.type,
+      department.parent?.name,
+    )) return;
 
     let parentId = department.parentId;
     for (let depth = 0; parentId && depth < 8; depth += 1) {

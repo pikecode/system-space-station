@@ -9,6 +9,7 @@ export interface JwtPayload {
   role: string;
   departmentId?: string;
   departmentType?: string;
+  deptType?: string;
   authVersion: number;
 }
 
@@ -36,19 +37,32 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         authVersion: true,
         status: true,
         avatar: true,
-        department: { select: { type: true } },
+        department: {
+          select: {
+            name: true,
+            type: true,
+            status: true,
+            parent: { select: { name: true, type: true, status: true } },
+          },
+        },
       },
     });
     if (!user) throw new UnauthorizedException();
     if (user.status === 'INACTIVE') throw new UnauthorizedException('账号已禁用');
     if (user.authVersion !== payload.authVersion)
       throw new UnauthorizedException('登录已失效，请重新登录');
+    const activeDepartment = user.department?.status === 'ACTIVE' ? user.department : null;
+    const activeParent = activeDepartment?.parent?.status === 'ACTIVE' ? activeDepartment.parent : null;
     return {
       id: user.id,
       name: user.name,
       role: user.role,
       departmentId: user.departmentId,
-      departmentType: user.department?.type ?? null,
+      departmentType: activeDepartment?.type ?? null,
+      deptType: activeDepartment?.type ?? null,
+      departmentName: activeDepartment?.name ?? null,
+      parentDepartmentType: activeParent?.type ?? null,
+      parentDepartmentName: activeParent?.name ?? null,
       authVersion: user.authVersion,
       status: user.status,
       avatar: user.avatar,

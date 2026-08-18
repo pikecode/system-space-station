@@ -632,6 +632,255 @@ async function main() {
   await prisma.memberLevel.upsert({ where: { id: 'level-silver' }, update: {}, create: { id: 'level-silver', name: '银卡会员', sort: 2 } });
   await prisma.memberLevel.upsert({ where: { id: 'level-gold'   }, update: {}, create: { id: 'level-gold',   name: '金卡会员', sort: 3 } });
 
+  // ── 19. 小程序权限测试客户与会员记录 ───────────────────────────────────────
+  const requireSeedUser = async (employeeNo: string): Promise<{ id: string; departmentId: string }> => {
+    const user = await prisma.user.findUnique({
+      where: { employeeNo },
+      select: { id: true, departmentId: true },
+    });
+    if (!user?.departmentId) throw new Error(`种子用户不存在或未分配部门：${employeeNo}`);
+    return { id: user.id, departmentId: user.departmentId };
+  };
+
+  const usersForCustomerScope = {
+    marketHead: await requireSeedUser('MKT0201'),
+    divisionHead: await requireSeedUser('DIV020101'),
+    divisionMember: await requireSeedUser('DIV020102'),
+    marketOneDivisionTwoHead: await requireSeedUser('DIV020201'),
+    divisionPartner: await requireSeedUser('DIV030106'),
+    marketTwoHead: await requireSeedUser('MKT0301'),
+  };
+
+  const sampleCustomers = [
+    {
+      id: 'seed-customer-div020102-a',
+      customerType: 'INDIVIDUAL' as const,
+      name: '测试客户-事业一部-张销售',
+      phone: '18610001001',
+      source: 'REFERRAL' as const,
+      tags: '小程序测试,本人客户',
+      notes: '用于验证事业部成员只能查看和维护自己的客户。',
+      gender: 'MALE' as const,
+      birthday: new Date('1988-03-12'),
+      address: '广州市天河区测试路 1 号',
+      riskTolerance: 'MODERATE' as const,
+      isAccreditedInvestor: true,
+      investmentAmount: 500000,
+      assignedTo: usersForCustomerScope.divisionMember.id,
+      departmentId: usersForCustomerScope.divisionMember.departmentId,
+      createdBy: usersForCustomerScope.divisionMember.id,
+      referredBy: usersForCustomerScope.divisionMember.id,
+      referrerEmployeeNo: 'DIV020102',
+      referrerDepartmentId: usersForCustomerScope.divisionMember.departmentId,
+      registrationSource: 'PARTNER' as const,
+      status: 'ACTIVE' as const,
+    },
+    {
+      id: 'seed-customer-div020101-a',
+      customerType: 'COMPANY' as const,
+      name: '测试客户-事业一部-企业A',
+      phone: '18610001002',
+      source: 'SELF_DEVELOPED' as const,
+      tags: '小程序测试,事业部负责人客户',
+      notes: '用于验证事业部负责人可查看本事业部全部客户。',
+      creditCode: '91440101TEST0001X',
+      industry: '企业服务',
+      contactName: '许经理',
+      contactPhone: '18610001012',
+      legalPerson: '许法人',
+      registeredCapital: '1000万人民币',
+      assignedTo: usersForCustomerScope.divisionHead.id,
+      departmentId: usersForCustomerScope.divisionHead.departmentId,
+      createdBy: usersForCustomerScope.divisionHead.id,
+      registrationSource: 'SELF' as const,
+      status: 'ACTIVE' as const,
+    },
+    {
+      id: 'seed-customer-div020201-a',
+      customerType: 'INDIVIDUAL' as const,
+      name: '测试客户-市场一部事业二部',
+      phone: '18610001007',
+      source: 'ACTIVITY' as const,
+      tags: '小程序测试,市场一下属事业2部',
+      notes: '用于验证市场部一部负责人能查看下属事业2部客户。',
+      gender: 'FEMALE' as const,
+      address: '佛山市南海区测试街 7 号',
+      riskTolerance: 'CONSERVATIVE' as const,
+      assignedTo: usersForCustomerScope.marketOneDivisionTwoHead.id,
+      departmentId: usersForCustomerScope.marketOneDivisionTwoHead.departmentId,
+      createdBy: usersForCustomerScope.marketOneDivisionTwoHead.id,
+      registrationSource: 'SELF' as const,
+      status: 'ACTIVE' as const,
+    },
+    {
+      id: 'seed-customer-div030106-a',
+      customerType: 'COMPANY' as const,
+      name: '测试客户-市场二部-事业客户',
+      phone: '18610001003',
+      source: 'ACTIVITY' as const,
+      tags: '小程序测试,市场树客户',
+      notes: '用于验证市场部一部负责人不能查看市场二部下属事业部客户。',
+      creditCode: '91440101TEST0003X',
+      industry: '教育培训',
+      contactName: '刘经理',
+      contactPhone: '18610001013',
+      assignedTo: usersForCustomerScope.divisionPartner.id,
+      departmentId: usersForCustomerScope.divisionPartner.departmentId,
+      createdBy: usersForCustomerScope.divisionPartner.id,
+      referredBy: usersForCustomerScope.divisionPartner.id,
+      referrerEmployeeNo: 'DIV030106',
+      referrerDepartmentId: usersForCustomerScope.divisionPartner.departmentId,
+      registrationSource: 'PARTNER' as const,
+      status: 'ACTIVE' as const,
+    },
+    {
+      id: 'seed-customer-mkt0201-a',
+      customerType: 'COMPANY' as const,
+      name: '测试客户-市场一部-总部客户',
+      phone: '18610001004',
+      source: 'ONLINE' as const,
+      tags: '小程序测试,市场部客户',
+      notes: '用于验证市场部本部门客户在市场树范围内。',
+      creditCode: '91440101TEST0002X',
+      industry: '数字营销',
+      contactName: '陈总',
+      contactPhone: '18610001014',
+      assignedTo: usersForCustomerScope.marketHead.id,
+      departmentId: usersForCustomerScope.marketHead.departmentId,
+      createdBy: usersForCustomerScope.marketHead.id,
+      registrationSource: 'SELF' as const,
+      status: 'ACTIVE' as const,
+    },
+    {
+      id: 'seed-customer-mkt0301-a',
+      customerType: 'INDIVIDUAL' as const,
+      name: '测试客户-市场二部-隔离客户',
+      phone: '18610001005',
+      source: 'OTHER' as const,
+      tags: '小程序测试,跨市场隔离',
+      notes: '市场部一部账号不应看到该客户；营销中心和只读中心可看到。',
+      gender: 'UNKNOWN' as const,
+      assignedTo: usersForCustomerScope.marketTwoHead.id,
+      departmentId: usersForCustomerScope.marketTwoHead.departmentId,
+      createdBy: usersForCustomerScope.marketTwoHead.id,
+      registrationSource: 'SELF' as const,
+      status: 'ACTIVE' as const,
+    },
+    {
+      id: 'seed-customer-div020102-inactive',
+      customerType: 'INDIVIDUAL' as const,
+      name: '测试客户-事业一部-非活跃',
+      phone: '18610001006',
+      source: 'REFERRAL' as const,
+      tags: '小程序测试,非活跃',
+      notes: '用于验证客户列表活跃/非活跃统计。',
+      gender: 'UNKNOWN' as const,
+      assignedTo: usersForCustomerScope.divisionMember.id,
+      departmentId: usersForCustomerScope.divisionMember.departmentId,
+      createdBy: usersForCustomerScope.divisionMember.id,
+      registrationSource: 'PARTNER' as const,
+      status: 'INACTIVE' as const,
+    },
+  ];
+
+  for (const customer of sampleCustomers) {
+    await prisma.customer.upsert({
+      where: { id: customer.id },
+      update: customer,
+      create: customer,
+    });
+  }
+
+  await prisma.membership.upsert({
+    where: { id: 'seed-membership-approved-div020102-a' },
+    update: {
+      status: 'APPROVED',
+      paidAt: new Date('2026-08-01T10:00:00.000Z'),
+      reviewedBy: usersForCustomerScope.divisionHead.id,
+      reviewedAt: new Date('2026-08-01T10:30:00.000Z'),
+      approvedDepartmentId: usersForCustomerScope.divisionMember.departmentId,
+      approvedAssignedTo: usersForCustomerScope.divisionMember.id,
+    },
+    create: {
+      id: 'seed-membership-approved-div020102-a',
+      memberNo: 'M20260800001',
+      customerId: 'seed-customer-div020102-a',
+      memberLevelId: 'level-gold',
+      fee: 12000,
+      startDate: new Date('2026-08-01'),
+      endDate: new Date('2027-08-01'),
+      paidAt: new Date('2026-08-01T10:00:00.000Z'),
+      status: 'APPROVED',
+      submittedBy: usersForCustomerScope.divisionMember.id,
+      submittedDepartmentId: usersForCustomerScope.divisionMember.departmentId,
+      submittedAssignedTo: usersForCustomerScope.divisionMember.id,
+      reviewedBy: usersForCustomerScope.divisionHead.id,
+      reviewedAt: new Date('2026-08-01T10:30:00.000Z'),
+      approvedDepartmentId: usersForCustomerScope.divisionMember.departmentId,
+      approvedAssignedTo: usersForCustomerScope.divisionMember.id,
+    },
+  });
+
+  await prisma.membership.upsert({
+    where: { id: 'seed-membership-pending-div030106-a' },
+    update: {
+      status: 'PENDING',
+      memberLevelId: 'level-silver',
+      fee: 6800,
+      submittedDepartmentId: usersForCustomerScope.divisionPartner.departmentId,
+      submittedAssignedTo: usersForCustomerScope.divisionPartner.id,
+      reviewedBy: null,
+      reviewedAt: null,
+      approvedDepartmentId: null,
+      approvedAssignedTo: null,
+      paidAt: null,
+      reviewNote: null,
+    },
+    create: {
+      id: 'seed-membership-pending-div030106-a',
+      memberNo: 'M20260800002',
+      customerId: 'seed-customer-div030106-a',
+      memberLevelId: 'level-silver',
+      fee: 6800,
+      startDate: new Date('2026-08-15'),
+      endDate: new Date('2027-08-15'),
+      status: 'PENDING',
+      submittedBy: usersForCustomerScope.divisionPartner.id,
+      submittedDepartmentId: usersForCustomerScope.divisionPartner.departmentId,
+      submittedAssignedTo: usersForCustomerScope.divisionPartner.id,
+    },
+  });
+
+  await prisma.membership.upsert({
+    where: { id: 'seed-membership-pending-div020201-a' },
+    update: {
+      status: 'PENDING',
+      memberLevelId: 'level-basic',
+      fee: 3600,
+      submittedDepartmentId: usersForCustomerScope.marketOneDivisionTwoHead.departmentId,
+      submittedAssignedTo: usersForCustomerScope.marketOneDivisionTwoHead.id,
+      reviewedBy: null,
+      reviewedAt: null,
+      approvedDepartmentId: null,
+      approvedAssignedTo: null,
+      paidAt: null,
+      reviewNote: null,
+    },
+    create: {
+      id: 'seed-membership-pending-div020201-a',
+      memberNo: 'M20260800003',
+      customerId: 'seed-customer-div020201-a',
+      memberLevelId: 'level-basic',
+      fee: 3600,
+      startDate: new Date('2026-08-20'),
+      endDate: new Date('2027-08-20'),
+      status: 'PENDING',
+      submittedBy: usersForCustomerScope.marketOneDivisionTwoHead.id,
+      submittedDepartmentId: usersForCustomerScope.marketOneDivisionTwoHead.departmentId,
+      submittedAssignedTo: usersForCustomerScope.marketOneDivisionTwoHead.id,
+    },
+  });
+
   console.log('种子数据初始化完成，共写入组织架构：');
   console.log('  总经办 1 个');
   console.log('  直属战略单元 7 个');
@@ -654,12 +903,17 @@ async function main() {
   console.log('  DIV030107 / Partner123456  周合伙五（市场部二部 / 事业1部）');
   console.log('  小程序编号登录测试人员（密码均为 Test123456）：');
   console.log('  DEV0001 / Test123456  发展中心负责人');
-  console.log('  DEV0101-DEV0701 / Test123456  发展中心下属部门成员');
-  console.log('  MKT0001 / Test123456  营销中心负责人');
+  console.log('  DEV010001-DEV070001 / Test123456  发展中心下属部门成员');
+  console.log('  MKT000001 / Test123456  营销中心负责人');
   console.log('  MKT0101-MKT0803 / Test123456  市场部固定席位人员');
   console.log('  DIV010101-DIV080202 / Test123456  事业部固定测试人员（市场部序列+事业部序列+席位）');
   console.log('  SVC0001 / Test123456  服务中心负责人');
-  console.log('  SVC0101-SVC0501 / Test123456  服务中心下属部门成员');
+  console.log('  SVC010001-SVC050001 / Test123456  服务中心下属部门成员');
+  console.log('测试客户：');
+  console.log('  DIV020102 登录：只看到自己的客户：测试客户-事业一部-张销售、测试客户-事业一部-非活跃');
+  console.log('  DIV020101 登录：看到事业1部客户：张销售、企业A、非活跃');
+  console.log('  MKT0201 登录：看到市场一部及下属事业1部/事业2部客户，不应看到“市场二部-隔离客户”');
+  console.log('  MKT000001 / DEV0001 / SVC0001 登录：可看到全量客户，其中 DEV/SVC 只读');
 }
 
 main().catch(console.error).finally(() => prisma.$disconnect());

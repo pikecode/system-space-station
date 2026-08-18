@@ -18,11 +18,18 @@ export interface LoginResponseDto {
     employeeNo?: string | null;
     role: UserRole;
     departmentId?: string | null;
+    deptType?: string | null;
     department?: {
       id: string;
       name: string;
       type: string;
+      parent?: {
+        id: string;
+        name: string;
+        type: string;
+      } | null;
     } | null;
+    canWriteCustomer?: boolean;
     avatar?: string | null;
     shareCode?: string | null;
   };

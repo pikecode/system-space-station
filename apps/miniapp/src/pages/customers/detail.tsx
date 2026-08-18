@@ -69,10 +69,11 @@ export default function CustomerDetailPage() {
   const isCreate = mode === 'create';
   const user = useAuthStore((s) => s.user);
   const authorized = useRequireLogin();
+  const writable = user?.canWriteCustomer === true;
 
   const [customer, setCustomer] = useState<CustomerRow | null>(null);
   const [loading, setLoading] = useState(!isCreate);
-  const [editing, setEditing] = useState(isCreate);
+  const [editing, setEditing] = useState(isCreate && writable);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [form, setForm] = useState<FormState>({
@@ -112,6 +113,10 @@ export default function CustomerDetailPage() {
   }, [authorized, id, isCreate]);
 
   const handleSave = async () => {
+    if (!writable) {
+      Taro.showToast({ title: '当前账号仅可查看', icon: 'none' });
+      return;
+    }
     if (!form.name.trim()) {
       Taro.showToast({ title: '请填写姓名', icon: 'none' });
       setActiveTab(0);
@@ -192,6 +197,9 @@ export default function CustomerDetailPage() {
 
   if (!authorized) return <View className='loading'>跳转登录中...</View>;
   if (loading) return <View className='loading'>加载中...</View>;
+  if (isCreate && !writable) {
+    return <View className='loading'>当前账号仅可查看客户</View>;
+  }
 
   return (
     <View className='page page--with-actions'>
@@ -471,7 +479,7 @@ export default function CustomerDetailPage() {
             )}
             <Button className='btn btn--primary' loading={saving} disabled={saving || undefined} onClick={handleSave}>保存</Button>
           </>
-        ) : (
+        ) : writable ? (
           <>
             <Button className='btn btn--secondary'
               onClick={() => Taro.navigateTo({ url: `/pages/memberships/create?customerId=${customer?.id ?? ''}&customerName=${encodeURIComponent(customer?.name ?? '')}` })}>
@@ -479,6 +487,8 @@ export default function CustomerDetailPage() {
             </Button>
             <Button className='btn btn--primary' onClick={() => { setEditing(true); setActiveTab(0); }}>编辑</Button>
           </>
+        ) : (
+          <Button className='btn btn--quiet' disabled>仅可查看</Button>
         )}
       </View>
     </View>

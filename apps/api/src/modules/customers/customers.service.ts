@@ -84,6 +84,11 @@ export class CustomersService {
   }
 
   async create(dto: CreateCustomerDto, currentUser: any) {
+    const scope = resolveDataScope(currentUser);
+    if (currentUser.role !== 'ADMIN' && !canWrite(scope)) {
+      throw new ForbiddenException('当前角色仅有查看权限，无法新增客户');
+    }
+
     let owner: { id: string; departmentId: string | null; status: string } | null = null;
 
     if (currentUser.role === 'ADMIN') {

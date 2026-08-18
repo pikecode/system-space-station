@@ -39,6 +39,7 @@ interface Stats { total: number; approved: number; pending: number }
 
 export default function CustomersPage() {
   const token = useAuthStore((s) => s.token);
+  const user = useAuthStore((s) => s.user);
   const authorized = useRequireLogin();
   const [list, setList] = useState<CustomerRow[]>([]);
   const [stats, setStats] = useState<Stats>({ total: 0, approved: 0, pending: 0 });
@@ -85,6 +86,7 @@ export default function CustomersPage() {
   const visibleList = filter === 'ALL'
     ? list
     : list.filter((item) => item.customerType === filter);
+  const writable = user?.canWriteCustomer === true;
 
   return (
     <View className='page'>
@@ -122,13 +124,15 @@ export default function CustomersPage() {
             onConfirm={() => load(search.trim() || undefined)}
           />
         </View>
-        <View
-          className='icon-button'
-          aria-label='新增客户'
-          onClick={() => Taro.navigateTo({ url: '/pages/customers/detail?mode=create' })}
-        >
-          +
-        </View>
+        {writable && (
+          <View
+            className='icon-button'
+            aria-label='新增客户'
+            onClick={() => Taro.navigateTo({ url: '/pages/customers/detail?mode=create' })}
+          >
+            +
+          </View>
+        )}
       </View>
 
       <View className='segmented'>
@@ -157,7 +161,7 @@ export default function CustomersPage() {
         <View className='status-panel'>
           <View className='status-panel__mark'>+</View>
           <Text className='status-panel__title'>{search ? '没有匹配的客户' : '暂无客户记录'}</Text>
-          <Text className='status-panel__desc'>{search ? '调整搜索内容后重试' : '使用右上角新增客户'}</Text>
+          <Text className='status-panel__desc'>{search ? '调整搜索内容后重试' : writable ? '使用右上角新增客户' : '当前账号仅可查看客户'}</Text>
         </View>
       ) : (
         <ScrollView scrollY style={{ height: 'calc(100vh - 420rpx)' }}>
@@ -194,4 +198,3 @@ export default function CustomersPage() {
     </View>
   );
 }
-

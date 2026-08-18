@@ -19,19 +19,24 @@ export default function LoginPage() {
     }
   }, []);
 
+  const normalizeEmployeeNo = (value: string) => value.trim().toUpperCase();
+
   const handleLogin = async () => {
+    if (loading) return;
     setErrorMessage('');
-    if (!employeeNo.trim() || !password.trim()) {
+    const normalizedEmployeeNo = normalizeEmployeeNo(employeeNo);
+    if (!normalizedEmployeeNo || !password.trim()) {
       setErrorMessage('请填写编号和密码');
       return;
     }
     setLoading(true);
     try {
-      const res = await authApi.login({ employeeNo: employeeNo.trim(), password });
+      const res = await authApi.login({ employeeNo: normalizedEmployeeNo, password });
       setAuth(res.token, res.user);
       Taro.switchTab({ url: '/pages/customers/index' });
     } catch (e: any) {
       setErrorMessage(e?.message || e?.errMsg || '登录失败，请稍后重试');
+      setPassword('');
     } finally {
       setLoading(false);
     }
@@ -59,8 +64,9 @@ export default function LoginPage() {
             <Input
               className='login-field__input'
               placeholder='请输入员工编号'
+              confirmType='next'
               value={employeeNo}
-              onInput={(e) => { setEmployeeNo(e.detail.value); setErrorMessage(''); }}
+              onInput={(e) => { setEmployeeNo(e.detail.value.toUpperCase().replace(/\s/g, '')); setErrorMessage(''); }}
             />
           </View>
         </View>
@@ -71,8 +77,10 @@ export default function LoginPage() {
               className='login-field__input'
               placeholder='请输入密码'
               password
+              confirmType='done'
               value={password}
               onInput={(e) => { setPassword(e.detail.value); setErrorMessage(''); }}
+              onConfirm={handleLogin}
             />
           </View>
         </View>
@@ -80,7 +88,7 @@ export default function LoginPage() {
         <Button
           className='btn btn--primary login-btn'
           loading={loading}
-          disabled={loading || undefined}
+          disabled={loading || !employeeNo.trim() || !password.trim() || undefined}
           onClick={handleLogin}
         >
           登录
