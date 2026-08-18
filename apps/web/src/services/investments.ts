@@ -38,12 +38,33 @@ export interface ProductYieldPeriod {
 export interface CustomerProfitRecord {
   id: string;
   principalAmount: string;
+  investmentShareRatio: string;
   profitAmount: string;
   customerAmount: string;
+  ratioSnapshot: {
+    configId: string;
+    customerRatio: string;
+    departmentRatio: string;
+    contractedUserRatio: string;
+    createdUserRatio: string;
+    companyRatio: string;
+    effectiveFrom: string;
+  };
   status: string;
   customer: { id: string; name: string; customerNo?: string | null };
   product: { id: string; productNo: string; name: string };
   yieldPeriod: { id: string; periodStart: string; periodEnd: string; totalProfit: string };
+  shareRecords: ProfitShareRecord[];
+}
+
+export interface ProfitShareRecord {
+  id: string;
+  receiverType: string;
+  receiverId?: string | null;
+  receiverNo?: string | null;
+  ratio: string;
+  amount: string;
+  status: string;
 }
 
 export interface ProfitShareConfig {

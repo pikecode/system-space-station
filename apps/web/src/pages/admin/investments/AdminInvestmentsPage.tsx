@@ -5,6 +5,7 @@ import {
   Button,
   Card,
   DatePicker,
+  Descriptions,
   Drawer,
   Form,
   Input,
@@ -16,7 +17,7 @@ import {
   Tag,
 } from 'antd';
 import { PlusOutlined, CheckCircleOutlined, PayCircleOutlined } from '@ant-design/icons';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import ProTable from '../../../components/BusinessProTable';
 import {
@@ -26,7 +27,9 @@ import {
   type InvestmentProduct,
   type ProductYieldPeriod,
   type ProfitShareConfig,
+  type ProfitShareRecord,
 } from '../../../services/investments';
+import { customersApi } from '../../../services/customers';
 
 const MONEY = new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' });
 
@@ -42,6 +45,14 @@ const PROFIT_STATUS: Record<string, string> = {
   CONFIRMED: '已确认',
   SETTLED: '已结算',
   GENERATED: '已生成',
+};
+
+const SHARE_RECEIVER_LABELS: Record<string, string> = {
+  CUSTOMER: '客户',
+  DEPARTMENT: '部门',
+  CONTRACTED_USER: '签约人',
+  CREATED_USER: '录入人',
+  COMPANY: '公司',
 };
 
 function money(value?: string | number | null) {
@@ -70,6 +81,26 @@ export default function AdminInvestmentsPage() {
   const configRef = useRef<ActionType>();
   const [drawer, setDrawer] = useState<'product' | 'investment' | 'yield' | 'config' | null>(null);
   const [form] = Form.useForm();
+  const productOptionsQuery = useQuery({
+    queryKey: ['investment-products-options'],
+    queryFn: () => investmentsApi.products(),
+  });
+  const customerOptionsQuery = useQuery({
+    queryKey: ['active-member-customer-options'],
+    queryFn: () => customersApi.getAll({ page: '1', pageSize: '100', status: 'ACTIVE_MEMBER' } as any),
+  });
+
+  const activeProductOptions = (productOptionsQuery.data ?? [])
+    .filter((item) => item.status === 'ACTIVE')
+    .map((item) => ({
+      label: `${item.productNo} · ${item.name}`,
+      value: item.id,
+    }));
+  const activeMemberOptions = (customerOptionsQuery.data?.data ?? [])
+    .map((item) => ({
+      label: `${item.customerNo ?? '未编号'} · ${item.name} · ${item.phone}`,
+      value: item.id,
+    }));
 
   const closeDrawer = () => {
     setDrawer(null);
@@ -136,6 +167,14 @@ export default function AdminInvestmentsPage() {
     },
     onError: (e: any) => message.error(e?.response?.data?.message ?? '结算失败'),
   });
+
+  const shareColumns: ProColumns<ProfitShareRecord>[] = [
+    { title: '分配对象', dataIndex: 'receiverType', width: 120, render: (_, r) => SHARE_RECEIVER_LABELS[r.receiverType] ?? r.receiverType },
+    { title: '对象编号', dataIndex: 'receiverNo', width: 160, render: (_, r) => r.receiverNo ?? '-' },
+    { title: '比例', dataIndex: 'ratio', width: 100, render: (_, r) => `${r.ratio}%` },
+    { title: '金额', dataIndex: 'amount', width: 130, render: (_, r) => money(r.amount) },
+    { title: '状态', dataIndex: 'status', width: 100, render: (_, r) => statusTag(r.status) },
+  ];
 
   const productColumns: ProColumns<InvestmentProduct>[] = [
     { title: '产品编号', dataIndex: 'productNo', width: 130 },
@@ -284,6 +323,36 @@ export default function AdminInvestmentsPage() {
                 rowKey="id"
                 search={false}
                 columns={profitColumns}
+                expandable={{
+                  expandedRowRender: (record) => (
+                    <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                      <Descriptions size="small" column={4} bordered>
+                        <Descriptions.Item label="产品总收益">{money(record.yieldPeriod.totalProfit)}</Descriptions.Item>
+                        <Descriptions.Item label="投资占比">
+                          {(Number(record.investmentShareRatio) * 100).toFixed(4)}%
+                        </Descriptions.Item>
+                        <Descriptions.Item label="客户毛收益">{money(record.profitAmount)}</Descriptions.Item>
+                        <Descriptions.Item label="客户实际到账">{money(record.customerAmount)}</Descriptions.Item>
+                        <Descriptions.Item label="比例配置">
+                          {record.ratioSnapshot.configId}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="生效时间">{date(record.ratioSnapshot.effectiveFrom)}</Descriptions.Item>
+                        <Descriptions.Item label="周期">
+                          {date(record.yieldPeriod.periodStart)} 至 {date(record.yieldPeriod.periodEnd)}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="客户编号">{record.customer.customerNo ?? '-'}</Descriptions.Item>
+                      </Descriptions>
+                      <ProTable<ProfitShareRecord>
+                        rowKey="id"
+                        search={false}
+                        pagination={false}
+                        options={false}
+                        columns={shareColumns}
+                        dataSource={record.shareRecords ?? []}
+                      />
+                    </Space>
+                  ),
+                }}
                 request={async () => {
                   const data = await investmentsApi.profits();
                   return { data, success: true, total: data.length };
@@ -339,8 +408,24 @@ export default function AdminInvestmentsPage() {
           )}
           {drawer === 'investment' && (
             <>
-              <Form.Item name="customerId" label="客户 ID" rules={[{ required: true }]}><Input placeholder="正式会员客户 ID" /></Form.Item>
-              <Form.Item name="productId" label="产品 ID" rules={[{ required: true }]}><Input /></Form.Item>
+              <Form.Item name="customerId" label="正式会员客户" rules={[{ required: true }]}>
+                <Select
+                  showSearch
+                  loading={customerOptionsQuery.isFetching}
+                  placeholder="选择已缴费的正式会员"
+                  optionFilterProp="label"
+                  options={activeMemberOptions}
+                />
+              </Form.Item>
+              <Form.Item name="productId" label="投资产品" rules={[{ required: true }]}>
+                <Select
+                  showSearch
+                  loading={productOptionsQuery.isFetching}
+                  placeholder="选择启用中的产品"
+                  optionFilterProp="label"
+                  options={activeProductOptions}
+                />
+              </Form.Item>
               <Form.Item name="amount" label="投资金额" rules={[{ required: true }]}><InputNumber min={0.01} precision={2} style={{ width: '100%' }} /></Form.Item>
               <Form.Item name="investedAt" label="投资日期" rules={[{ required: true }]} initialValue={dayjs()}><DatePicker style={{ width: '100%' }} /></Form.Item>
               <Form.Item name="contractedEmployeeNo" label="签约人编号"><Input placeholder="为空则使用客户签约人快照" /></Form.Item>
@@ -348,7 +433,15 @@ export default function AdminInvestmentsPage() {
           )}
           {drawer === 'yield' && (
             <>
-              <Form.Item name="productId" label="产品 ID" rules={[{ required: true }]}><Input /></Form.Item>
+              <Form.Item name="productId" label="投资产品" rules={[{ required: true }]}>
+                <Select
+                  showSearch
+                  loading={productOptionsQuery.isFetching}
+                  placeholder="选择启用中的产品"
+                  optionFilterProp="label"
+                  options={activeProductOptions}
+                />
+              </Form.Item>
               <Form.Item name="periodStart" label="周期开始" rules={[{ required: true }]}><DatePicker style={{ width: '100%' }} /></Form.Item>
               <Form.Item name="periodEnd" label="周期结束" rules={[{ required: true }]}><DatePicker style={{ width: '100%' }} /></Form.Item>
               <Form.Item name="totalProfit" label="产品总收益" rules={[{ required: true }]}><InputNumber min={0} precision={2} style={{ width: '100%' }} /></Form.Item>
