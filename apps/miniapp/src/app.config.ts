@@ -3,6 +3,7 @@ export default {
     'pages/login/index',
     'pages/register/index',
     'pages/register/success',
+    'pages/customer-portal/index',
     'pages/customers/index',
     'pages/customers/detail',
     'pages/profile/index',

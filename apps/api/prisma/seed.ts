@@ -650,6 +650,7 @@ async function main() {
     divisionPartner: await requireSeedUser('DIV030106'),
     marketTwoHead: await requireSeedUser('MKT0301'),
   };
+  const enterpriseCustomerPwd = await bcrypt.hash('Corp123456', 12);
 
   const sampleCustomers = [
     {
@@ -781,6 +782,156 @@ async function main() {
       registrationSource: 'PARTNER' as const,
       status: 'INACTIVE' as const,
     },
+    {
+      id: 'seed-company-prospect-a',
+      customerType: 'COMPANY' as const,
+      name: '测试企业-意向会员-未提交',
+      phone: '18610002001',
+      source: 'ONLINE' as const,
+      tags: '企业登录测试,意向会员',
+      notes: '未缴费、未提交入会申请，不能使用客户编号登录。',
+      creditCode: '91440101ENT0001X',
+      industry: '智能制造',
+      contactName: '林总',
+      contactPhone: '18610002011',
+      legalPerson: '林意向',
+      registeredCapital: '3000万人民币',
+      riskTolerance: 'MODERATE' as const,
+      isAccreditedInvestor: true,
+      investmentAmount: 1000000,
+      assignedTo: usersForCustomerScope.divisionMember.id,
+      departmentId: usersForCustomerScope.divisionMember.departmentId,
+      createdBy: usersForCustomerScope.marketHead.id,
+      referredBy: usersForCustomerScope.divisionMember.id,
+      referrerEmployeeNo: 'DIV020102',
+      referrerDepartmentId: usersForCustomerScope.divisionMember.departmentId,
+      contractedBy: usersForCustomerScope.marketHead.id,
+      contractedEmployeeNo: 'MKT0201',
+      contractedDepartmentId: usersForCustomerScope.marketHead.departmentId,
+      contractedAt: new Date('2026-08-10T09:00:00.000Z'),
+      registrationSource: 'PARTNER' as const,
+      status: 'PROSPECT' as const,
+    },
+    {
+      id: 'seed-company-pending-a',
+      customerType: 'COMPANY' as const,
+      name: '测试企业-入会待审批',
+      phone: '18610002002',
+      source: 'ACTIVITY' as const,
+      tags: '企业登录测试,待审批',
+      notes: '已提交入会申请，仍是意向会员，不能使用客户编号登录。',
+      creditCode: '91440101ENT0002X',
+      industry: '新能源',
+      contactName: '周经理',
+      contactPhone: '18610002012',
+      legalPerson: '周能源',
+      registeredCapital: '5000万人民币',
+      riskTolerance: 'AGGRESSIVE' as const,
+      isAccreditedInvestor: true,
+      investmentAmount: 2000000,
+      assignedTo: usersForCustomerScope.divisionMember.id,
+      departmentId: usersForCustomerScope.divisionMember.departmentId,
+      createdBy: usersForCustomerScope.divisionMember.id,
+      referredBy: usersForCustomerScope.divisionMember.id,
+      referrerEmployeeNo: 'DIV020102',
+      referrerDepartmentId: usersForCustomerScope.divisionMember.departmentId,
+      contractedBy: usersForCustomerScope.marketHead.id,
+      contractedEmployeeNo: 'MKT0201',
+      contractedDepartmentId: usersForCustomerScope.marketHead.departmentId,
+      contractedAt: new Date('2026-08-11T10:00:00.000Z'),
+      registrationSource: 'PARTNER' as const,
+      status: 'PROSPECT' as const,
+    },
+    {
+      id: 'seed-company-approved-unpaid-a',
+      customerType: 'COMPANY' as const,
+      name: '测试企业-审批通过待缴费',
+      phone: '18610002003',
+      source: 'SELF_DEVELOPED' as const,
+      tags: '企业登录测试,待缴费',
+      notes: '审批已通过但未确认缴费，仍不能使用客户编号登录。',
+      creditCode: '91440101ENT0003X',
+      industry: '企业软件',
+      contactName: '何总',
+      contactPhone: '18610002013',
+      legalPerson: '何软件',
+      registeredCapital: '800万人民币',
+      riskTolerance: 'MODERATE' as const,
+      isAccreditedInvestor: true,
+      investmentAmount: 1500000,
+      assignedTo: usersForCustomerScope.divisionHead.id,
+      departmentId: usersForCustomerScope.divisionHead.departmentId,
+      createdBy: usersForCustomerScope.divisionHead.id,
+      contractedBy: usersForCustomerScope.marketHead.id,
+      contractedEmployeeNo: 'MKT0201',
+      contractedDepartmentId: usersForCustomerScope.marketHead.departmentId,
+      contractedAt: new Date('2026-08-12T14:00:00.000Z'),
+      registrationSource: 'SELF' as const,
+      status: 'PROSPECT' as const,
+    },
+    {
+      id: 'seed-company-paid-gold-a',
+      customerType: 'COMPANY' as const,
+      name: '测试企业-正式会员-金卡',
+      phone: '18610002004',
+      source: 'REFERRAL' as const,
+      tags: '企业登录测试,正式会员,金卡',
+      notes: '正式会员企业账号，用于测试客户编号登录和会员中心展示。',
+      creditCode: '91440101ENT0004X',
+      industry: '高端装备',
+      contactName: '郑董',
+      contactPhone: '18610002014',
+      legalPerson: '郑装备',
+      registeredCapital: '12000万人民币',
+      riskTolerance: 'AGGRESSIVE' as const,
+      isAccreditedInvestor: true,
+      investmentAmount: 5000000,
+      customerNo: 'C202608880001',
+      customerPasswordHash: enterpriseCustomerPwd,
+      memberActivatedAt: new Date('2026-08-13T11:00:00.000Z'),
+      assignedTo: usersForCustomerScope.divisionMember.id,
+      departmentId: usersForCustomerScope.divisionMember.departmentId,
+      createdBy: usersForCustomerScope.divisionMember.id,
+      referredBy: usersForCustomerScope.divisionMember.id,
+      referrerEmployeeNo: 'DIV020102',
+      referrerDepartmentId: usersForCustomerScope.divisionMember.departmentId,
+      contractedBy: usersForCustomerScope.marketHead.id,
+      contractedEmployeeNo: 'MKT0201',
+      contractedDepartmentId: usersForCustomerScope.marketHead.departmentId,
+      contractedAt: new Date('2026-08-13T09:00:00.000Z'),
+      registrationSource: 'PARTNER' as const,
+      status: 'ACTIVE_MEMBER' as const,
+    },
+    {
+      id: 'seed-company-paid-silver-a',
+      customerType: 'COMPANY' as const,
+      name: '测试企业-正式会员-银卡',
+      phone: '18610002005',
+      source: 'ONLINE' as const,
+      tags: '企业登录测试,正式会员,银卡',
+      notes: '第二个正式会员企业账号，用于测试多会员等级展示。',
+      creditCode: '91440101ENT0005X',
+      industry: '医疗科技',
+      contactName: '唐总',
+      contactPhone: '18610002015',
+      legalPerson: '唐医疗',
+      registeredCapital: '6000万人民币',
+      riskTolerance: 'CONSERVATIVE' as const,
+      isAccreditedInvestor: true,
+      investmentAmount: 3000000,
+      customerNo: 'C202608880002',
+      customerPasswordHash: enterpriseCustomerPwd,
+      memberActivatedAt: new Date('2026-08-14T15:20:00.000Z'),
+      assignedTo: usersForCustomerScope.marketOneDivisionTwoHead.id,
+      departmentId: usersForCustomerScope.marketOneDivisionTwoHead.departmentId,
+      createdBy: usersForCustomerScope.marketOneDivisionTwoHead.id,
+      contractedBy: usersForCustomerScope.marketHead.id,
+      contractedEmployeeNo: 'MKT0201',
+      contractedDepartmentId: usersForCustomerScope.marketHead.departmentId,
+      contractedAt: new Date('2026-08-14T10:30:00.000Z'),
+      registrationSource: 'SELF' as const,
+      status: 'ACTIVE_MEMBER' as const,
+    },
   ];
 
   for (const customer of sampleCustomers) {
@@ -794,8 +945,10 @@ async function main() {
   await prisma.membership.upsert({
     where: { id: 'seed-membership-approved-div020102-a' },
     update: {
-      status: 'APPROVED',
+      status: 'PAID',
       paidAt: new Date('2026-08-01T10:00:00.000Z'),
+      paidAmount: 12000,
+      paymentConfirmedBy: usersForCustomerScope.divisionHead.id,
       reviewedBy: usersForCustomerScope.divisionHead.id,
       reviewedAt: new Date('2026-08-01T10:30:00.000Z'),
       approvedDepartmentId: usersForCustomerScope.divisionMember.departmentId,
@@ -810,7 +963,9 @@ async function main() {
       startDate: new Date('2026-08-01'),
       endDate: new Date('2027-08-01'),
       paidAt: new Date('2026-08-01T10:00:00.000Z'),
-      status: 'APPROVED',
+      paidAmount: 12000,
+      paymentConfirmedBy: usersForCustomerScope.divisionHead.id,
+      status: 'PAID',
       submittedBy: usersForCustomerScope.divisionMember.id,
       submittedDepartmentId: usersForCustomerScope.divisionMember.departmentId,
       submittedAssignedTo: usersForCustomerScope.divisionMember.id,
@@ -849,6 +1004,122 @@ async function main() {
       submittedDepartmentId: usersForCustomerScope.divisionPartner.departmentId,
       submittedAssignedTo: usersForCustomerScope.divisionPartner.id,
     },
+  });
+
+  const upsertSeedMembership = async (membership: {
+    id: string;
+    memberNo: string;
+    customerId: string;
+    memberLevelId: string;
+    fee: number;
+    startDate: Date;
+    endDate: Date;
+    status: 'PENDING' | 'APPROVED' | 'PAID';
+    submittedBy: string;
+    submittedDepartmentId: string;
+    submittedAssignedTo: string;
+    reviewedBy?: string | null;
+    reviewedAt?: Date | null;
+    approvedDepartmentId?: string | null;
+    approvedAssignedTo?: string | null;
+    paidAt?: Date | null;
+    paidAmount?: number | null;
+    paymentConfirmedBy?: string | null;
+    contractedBy?: string | null;
+    contractedEmployeeNo?: string | null;
+    contractedDepartmentId?: string | null;
+  }) => {
+    await prisma.membership.upsert({
+      where: { id: membership.id },
+      update: membership,
+      create: membership,
+    });
+  };
+
+  await upsertSeedMembership({
+    id: 'seed-membership-pending-company-a',
+    memberNo: 'M20260800901',
+    customerId: 'seed-company-pending-a',
+    memberLevelId: 'level-basic',
+    fee: 5000,
+    startDate: new Date('2026-08-11'),
+    endDate: new Date('2027-08-11'),
+    status: 'PENDING',
+    submittedBy: usersForCustomerScope.divisionMember.id,
+    submittedDepartmentId: usersForCustomerScope.divisionMember.departmentId,
+    submittedAssignedTo: usersForCustomerScope.divisionMember.id,
+    contractedBy: usersForCustomerScope.marketHead.id,
+    contractedEmployeeNo: 'MKT0201',
+    contractedDepartmentId: usersForCustomerScope.marketHead.departmentId,
+  });
+
+  await upsertSeedMembership({
+    id: 'seed-membership-approved-unpaid-company-a',
+    memberNo: 'M20260800902',
+    customerId: 'seed-company-approved-unpaid-a',
+    memberLevelId: 'level-silver',
+    fee: 9000,
+    startDate: new Date('2026-08-12'),
+    endDate: new Date('2027-08-12'),
+    status: 'APPROVED',
+    submittedBy: usersForCustomerScope.divisionHead.id,
+    submittedDepartmentId: usersForCustomerScope.divisionHead.departmentId,
+    submittedAssignedTo: usersForCustomerScope.divisionHead.id,
+    reviewedBy: usersForCustomerScope.marketHead.id,
+    reviewedAt: new Date('2026-08-12T16:30:00.000Z'),
+    approvedDepartmentId: usersForCustomerScope.divisionHead.departmentId,
+    approvedAssignedTo: usersForCustomerScope.divisionHead.id,
+    contractedBy: usersForCustomerScope.marketHead.id,
+    contractedEmployeeNo: 'MKT0201',
+    contractedDepartmentId: usersForCustomerScope.marketHead.departmentId,
+  });
+
+  await upsertSeedMembership({
+    id: 'seed-membership-paid-company-gold-a',
+    memberNo: 'M20260800903',
+    customerId: 'seed-company-paid-gold-a',
+    memberLevelId: 'level-gold',
+    fee: 20000,
+    startDate: new Date('2026-08-13'),
+    endDate: new Date('2027-08-13'),
+    status: 'PAID',
+    submittedBy: usersForCustomerScope.divisionMember.id,
+    submittedDepartmentId: usersForCustomerScope.divisionMember.departmentId,
+    submittedAssignedTo: usersForCustomerScope.divisionMember.id,
+    reviewedBy: usersForCustomerScope.marketHead.id,
+    reviewedAt: new Date('2026-08-13T10:00:00.000Z'),
+    approvedDepartmentId: usersForCustomerScope.divisionMember.departmentId,
+    approvedAssignedTo: usersForCustomerScope.divisionMember.id,
+    paidAt: new Date('2026-08-13T11:00:00.000Z'),
+    paidAmount: 20000,
+    paymentConfirmedBy: usersForCustomerScope.marketHead.id,
+    contractedBy: usersForCustomerScope.marketHead.id,
+    contractedEmployeeNo: 'MKT0201',
+    contractedDepartmentId: usersForCustomerScope.marketHead.departmentId,
+  });
+
+  await upsertSeedMembership({
+    id: 'seed-membership-paid-company-silver-a',
+    memberNo: 'M20260800904',
+    customerId: 'seed-company-paid-silver-a',
+    memberLevelId: 'level-silver',
+    fee: 12000,
+    startDate: new Date('2026-08-14'),
+    endDate: new Date('2027-08-14'),
+    status: 'PAID',
+    submittedBy: usersForCustomerScope.marketOneDivisionTwoHead.id,
+    submittedDepartmentId: usersForCustomerScope.marketOneDivisionTwoHead.departmentId,
+    submittedAssignedTo: usersForCustomerScope.marketOneDivisionTwoHead.id,
+    reviewedBy: usersForCustomerScope.marketHead.id,
+    reviewedAt: new Date('2026-08-14T14:00:00.000Z'),
+    approvedDepartmentId: usersForCustomerScope.marketOneDivisionTwoHead.departmentId,
+    approvedAssignedTo: usersForCustomerScope.marketOneDivisionTwoHead.id,
+    paidAt: new Date('2026-08-14T15:20:00.000Z'),
+    paidAmount: 12000,
+    paymentConfirmedBy: usersForCustomerScope.marketHead.id,
+    contractedBy: usersForCustomerScope.marketHead.id,
+    contractedEmployeeNo: 'MKT0201',
+    contractedDepartmentId: usersForCustomerScope.marketHead.departmentId,
   });
 
   await prisma.membership.upsert({
@@ -914,6 +1185,14 @@ async function main() {
   console.log('  DIV020101 登录：看到事业1部客户：张销售、企业A、非活跃');
   console.log('  MKT0201 登录：看到市场一部及下属事业1部/事业2部客户，不应看到“市场二部-隔离客户”');
   console.log('  MKT000001 / DEV0001 / SVC0001 登录：可看到全量客户，其中 DEV/SVC 只读');
+  console.log('企业会员小程序登录测试账号（密码均为 Corp123456）：');
+  console.log('  C202608880001 / Corp123456  测试企业-正式会员-金卡');
+  console.log('  C202608880002 / Corp123456  测试企业-正式会员-银卡');
+  console.log('企业入会状态测试数据：');
+  console.log('  测试企业-意向会员-未提交：PROSPECT，无入会记录，不可客户登录');
+  console.log('  测试企业-入会待审批：PROSPECT + PENDING，不可客户登录');
+  console.log('  测试企业-审批通过待缴费：PROSPECT + APPROVED，不可客户登录');
+  console.log('  测试企业-正式会员-金卡/银卡：ACTIVE_MEMBER + PAID，可客户登录');
 }
 
 main().catch(console.error).finally(() => prisma.$disconnect());
