@@ -69,6 +69,8 @@ enum CustomerSource {
 }
 
 enum CustomerStatus {
+  PROSPECT
+  ACTIVE_MEMBER
   ACTIVE
   INACTIVE
 }
@@ -87,6 +89,7 @@ enum MemberLevelStatus {
 enum MembershipStatus {
   PENDING
   APPROVED
+  PAID
   REJECTED
   EXPIRED
   REFUND_PENDING
@@ -218,78 +221,92 @@ model MemberLevel {
 }
 
 model Customer {
-  id                   String             @id @default(cuid())
-  customerType         CustomerType
-  name                 String
-  phone                String
-  source               CustomerSource
-  tags                 String?
-  notes                String?
-  wechat               String?
-  gender               Gender?
-  birthday             DateTime?
-  address              String?
-  creditCode           String?
-  industry             String?
-  contactName          String?
-  contactPhone         String?
-  legalPerson          String?
-  registeredCapital    String?
-  idCard               String?
-  riskTolerance        RiskTolerance?
-  isAccreditedInvestor Boolean            @default(false)
-  investmentAmount     Decimal?           @db.Decimal(12, 2)
-  assignedTo           String
-  assignedUser         User               @relation("AssignedCustomers", fields: [assignedTo], references: [id])
-  createdBy            String
-  creator              User               @relation("CreatedCustomers", fields: [createdBy], references: [id])
-  referredBy           String?
-  referrer             User?              @relation("ReferredCustomers", fields: [referredBy], references: [id])
-  referrerEmployeeNo   String?
-  referrerDepartmentId String?
-  departmentId         String
-  department           Department         @relation(fields: [departmentId], references: [id])
-  status               CustomerStatus     @default(ACTIVE)
-  registrationSource   RegistrationSource @default(PARTNER)
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
-  memberships          Membership[]
+  id                     String             @id @default(cuid())
+  customerType           CustomerType
+  name                   String
+  phone                  String
+  source                 CustomerSource
+  tags                   String?
+  notes                  String?
+  wechat                 String?
+  gender                 Gender?
+  birthday               DateTime?
+  address                String?
+  creditCode             String?
+  industry               String?
+  contactName            String?
+  contactPhone           String?
+  legalPerson            String?
+  registeredCapital      String?
+  idCard                 String?
+  riskTolerance          RiskTolerance?
+  isAccreditedInvestor   Boolean            @default(false)
+  investmentAmount       Decimal?           @db.Decimal(12, 2)
+  customerNo             String?            @unique
+  customerPasswordHash   String?
+  memberActivatedAt      DateTime?
+  customerLastLoginAt    DateTime?
+  assignedTo             String
+  assignedUser           User               @relation("AssignedCustomers", fields: [assignedTo], references: [id])
+  createdBy              String
+  creator                User               @relation("CreatedCustomers", fields: [createdBy], references: [id])
+  referredBy             String?
+  referrer               User?              @relation("ReferredCustomers", fields: [referredBy], references: [id])
+  referrerEmployeeNo     String?
+  referrerDepartmentId   String?
+  contractedBy           String?
+  contractedEmployeeNo   String?
+  contractedDepartmentId String?
+  contractedAt           DateTime?
+  departmentId           String
+  department             Department         @relation(fields: [departmentId], references: [id])
+  status                 CustomerStatus     @default(PROSPECT)
+  registrationSource     RegistrationSource @default(PARTNER)
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  memberships            Membership[]
 
   @@index([assignedTo])
   @@index([departmentId])
   @@index([status])
+  @@index([contractedEmployeeNo])
 }
 
 model Membership {
-  id                    String             @id @default(cuid())
-  memberNo              String             @unique
-  customerId            String
-  customer              Customer           @relation(fields: [customerId], references: [id])
-  memberLevelId         String?
-  memberLevel           MemberLevel?       @relation(fields: [memberLevelId], references: [id])
-  fee                   Decimal            @db.Decimal(10, 2)
-  startDate             DateTime
-  endDate               DateTime
-  paidAt                DateTime?
-  status                MembershipStatus   @default(PENDING)
-  submittedBy           String
-  submitter             User               @relation("SubmittedMemberships", fields: [submittedBy], references: [id])
-  submittedDepartmentId String?
-  submittedAssignedTo   String?
-  reviewedBy            String?
-  reviewer              User?              @relation("ReviewedMemberships", fields: [reviewedBy], references: [id])
-  reviewedAt            DateTime?
-  approvedDepartmentId  String?
-  approvedAssignedTo    String?
-  reviewNote            String?
-  refundReason          String?
-  refundReviewedBy      String?
-  refundReviewer        User?              @relation("RefundReviewedMemberships", fields: [refundReviewedBy], references: [id])
-  refundReviewedAt      DateTime?
-  refundAt              DateTime?
-  createdAt             DateTime           @default(now())
-  updatedAt             DateTime           @updatedAt
-  commissionRecords     CommissionRecord[]
+  id                     String             @id @default(cuid())
+  memberNo               String             @unique
+  customerId             String
+  customer               Customer           @relation(fields: [customerId], references: [id])
+  memberLevelId          String?
+  memberLevel            MemberLevel?       @relation(fields: [memberLevelId], references: [id])
+  fee                    Decimal            @db.Decimal(10, 2)
+  startDate              DateTime
+  endDate                DateTime
+  paidAt                 DateTime?
+  paidAmount             Decimal?           @db.Decimal(12, 2)
+  paymentConfirmedBy     String?
+  status                 MembershipStatus   @default(PENDING)
+  submittedBy            String
+  submitter              User               @relation("SubmittedMemberships", fields: [submittedBy], references: [id])
+  submittedDepartmentId  String?
+  submittedAssignedTo    String?
+  reviewedBy             String?
+  reviewer               User?              @relation("ReviewedMemberships", fields: [reviewedBy], references: [id])
+  reviewedAt             DateTime?
+  approvedDepartmentId   String?
+  approvedAssignedTo     String?
+  contractedBy           String?
+  contractedEmployeeNo   String?
+  contractedDepartmentId String?
+  reviewNote             String?
+  refundReason           String?
+  refundReviewedBy       String?
+  refundReviewer         User?              @relation("RefundReviewedMemberships", fields: [refundReviewedBy], references: [id])
+  refundReviewedAt       DateTime?
+  refundAt               DateTime?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  commissionRecords      CommissionRecord[]
 
   @@index([customerId])
   @@index([status, endDate])

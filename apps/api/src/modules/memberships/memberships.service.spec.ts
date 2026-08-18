@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { ForbiddenException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { describe, expect, it, vi } from 'vitest';
 import { MembershipsService } from './memberships.service';
@@ -17,7 +17,7 @@ describe('MembershipsService', () => {
       customer: {
         findUnique: vi.fn().mockResolvedValue({
           id: 'customer-1',
-          status: 'ACTIVE',
+          status: 'PROSPECT',
           assignedTo: 'member-1',
           departmentId: 'department-a',
         }),
@@ -43,7 +43,7 @@ describe('MembershipsService', () => {
       customer: {
         findUnique: vi.fn().mockResolvedValue({
           id: 'customer-1',
-          status: 'ACTIVE',
+          status: 'PROSPECT',
           assignedTo: 'member-1',
           departmentId: 'department-a',
         }),
@@ -90,8 +90,9 @@ describe('MembershipsService', () => {
     });
   });
 
-  it('审批通过时写入审批时维护人与部门快照', async () => {
+  it('审批通过时写入审批快照但不生成分成', async () => {
     const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const commissionCreate = vi.fn();
     const tx = {
       membership: {
         findUnique: vi.fn().mockResolvedValue({
@@ -113,15 +114,7 @@ describe('MembershipsService', () => {
         }),
         updateMany,
       },
-      commissionConfig: {
-        findFirst: vi.fn().mockResolvedValue({
-          memberRatio: new Prisma.Decimal(40),
-          deptHeadRatio: new Prisma.Decimal(20),
-          marketHeadRatio: new Prisma.Decimal(0),
-          companyRatio: new Prisma.Decimal(40),
-        }),
-      },
-      commissionRecord: { create: vi.fn().mockResolvedValue({}) },
+      commissionRecord: { create: commissionCreate },
       auditLog: { create: vi.fn().mockResolvedValue({}) },
     };
     const service = new MembershipsService({
@@ -130,13 +123,89 @@ describe('MembershipsService', () => {
 
     await service.approve(
       'membership-1',
-      { paidAt: '2026-08-17T10:00:00.000Z' },
+      {},
       { id: 'head-1', role: 'HEAD', departmentId: 'department-at-approval', departmentType: 'DIVISION' },
     );
 
     expect(updateMany.mock.calls[0][0].data).toMatchObject({
       approvedDepartmentId: 'department-at-approval',
       approvedAssignedTo: 'member-1',
+    });
+    expect(commissionCreate).not.toHaveBeenCalled();
+  });
+
+  it('确认缴费时激活正式会员并生成客户编号和分成', async () => {
+    const customerUpdate = vi.fn().mockResolvedValue({});
+    const commissionCreate = vi.fn().mockResolvedValue({});
+    const tx = {
+      $executeRaw: vi.fn(),
+      membership: {
+        findUnique: vi.fn()
+          .mockResolvedValueOnce({
+            id: 'membership-1',
+            customerId: 'customer-1',
+            status: 'APPROVED',
+            fee: new Prisma.Decimal(1000),
+            customer: {
+              id: 'customer-1',
+              phone: '13800000000',
+              customerNo: null,
+              customerPasswordHash: null,
+              memberActivatedAt: null,
+              departmentId: 'department-at-payment',
+              assignedTo: 'member-1',
+              assignedUser: {
+                id: 'member-1',
+                department: {
+                  id: 'department-at-payment',
+                  headId: 'head-1',
+                  parentId: null,
+                },
+              },
+            },
+          })
+          .mockResolvedValueOnce({ id: 'membership-1', status: 'PAID', customer: { customerNo: 'C202608000001' } }),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        count: vi.fn().mockResolvedValue(0),
+      },
+      customer: {
+        count: vi.fn().mockResolvedValue(0),
+        update: customerUpdate,
+      },
+      commissionConfig: {
+        findFirst: vi.fn().mockResolvedValue({
+          memberRatio: new Prisma.Decimal(40),
+          deptHeadRatio: new Prisma.Decimal(20),
+          marketHeadRatio: new Prisma.Decimal(0),
+          companyRatio: new Prisma.Decimal(40),
+        }),
+      },
+      commissionRecord: {
+        count: vi.fn().mockResolvedValue(0),
+        create: commissionCreate,
+      },
+      auditLog: { create: vi.fn().mockResolvedValue({}) },
+    };
+    const service = new MembershipsService({
+      $transaction: vi.fn((callback) => callback(tx)),
+    } as never);
+
+    const result = await service.confirmPayment(
+      'membership-1',
+      { paidAt: '2026-08-18T10:00:00.000Z' },
+      { id: 'head-1', role: 'HEAD', departmentId: 'department-at-payment', departmentType: 'DIVISION' },
+    ) as any;
+
+    expect(customerUpdate.mock.calls[0][0].data).toMatchObject({
+      status: 'ACTIVE_MEMBER',
+      customerNo: 'C202608000001',
+      customerPasswordHash: expect.any(String),
+      memberActivatedAt: expect.any(Date),
+    });
+    expect(commissionCreate).toHaveBeenCalled();
+    expect(result.customerLogin).toEqual({
+      customerNo: 'C202608000001',
+      initialPassword: '000000',
     });
   });
 
@@ -163,7 +232,7 @@ describe('MembershipsService', () => {
 
     await expect(service.approve(
       'membership-1',
-      { paidAt: '2026-08-17T10:00:00.000Z' },
+      {},
       {
         id: 'development-head',
         role: 'HEAD',
@@ -179,7 +248,7 @@ describe('MembershipsService', () => {
       membership: {
         findUnique: vi.fn().mockResolvedValue({
           id: 'membership-1',
-          status: 'APPROVED',
+        status: 'PAID',
           customer: { assignedTo: 'member-1', departmentId: 'department-a' },
         }),
       },
@@ -191,15 +260,6 @@ describe('MembershipsService', () => {
       { refundReason: '客户申请' },
       { id: 'head-b', role: 'HEAD', departmentId: 'department-b', departmentType: 'DIVISION' },
     )).rejects.toBeInstanceOf(ForbiddenException);
-  });
-
-  it('审批通过必须提供实际收款时间', async () => {
-    const service = new MembershipsService({} as never);
-    await expect(service.approve(
-      'membership-1',
-      {},
-      { id: 'head-a', role: 'HEAD', departmentId: 'department-a' },
-    )).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('退款冲账复制原分成的部门快照', async () => {

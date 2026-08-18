@@ -6,6 +6,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 
 export interface JwtPayload {
   sub: string;
+  subjectType?: 'EMPLOYEE' | 'CUSTOMER';
   role: string;
   departmentId?: string;
   departmentType?: string;
@@ -27,6 +28,29 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload) {
+    if (payload.subjectType === 'CUSTOMER') {
+      const customer = await this.prisma.customer.findUnique({
+        where: { id: payload.sub },
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          customerNo: true,
+          status: true,
+        },
+      });
+      if (!customer) throw new UnauthorizedException();
+      if (customer.status !== 'ACTIVE_MEMBER') throw new UnauthorizedException('客户账号未激活');
+      return {
+        subjectType: 'CUSTOMER',
+        id: customer.id,
+        name: customer.name,
+        phone: customer.phone,
+        customerNo: customer.customerNo,
+        status: customer.status,
+      };
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       select: {

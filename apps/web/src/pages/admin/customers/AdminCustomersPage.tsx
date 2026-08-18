@@ -123,7 +123,12 @@ export default function AdminCustomersPage() {
     {
       title: '状态', dataIndex: 'status', width: 80,
       valueType: 'select',
-      valueEnum: { ACTIVE: { text: '正常', status: 'Success' }, INACTIVE: { text: '停用', status: 'Default' } },
+      valueEnum: {
+        PROSPECT: { text: '意向会员', status: 'Warning' },
+        ACTIVE_MEMBER: { text: '正式会员', status: 'Success' },
+        ACTIVE: { text: '正常', status: 'Success' },
+        INACTIVE: { text: '停用', status: 'Default' },
+      },
     },
     {
       title: '操作', width: 110, search: false, fixed: 'right',

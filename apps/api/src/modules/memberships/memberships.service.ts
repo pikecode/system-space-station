@@ -7,13 +7,16 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 import { CreateMembershipDto } from './dto/create-membership.dto';
 import { QueryMembershipDto } from './dto/query-membership.dto';
 import { ReviewMembershipDto } from './dto/review-membership.dto';
 import { RefundRequestDto } from './dto/refund-request.dto';
+import { ConfirmPaymentDto } from './dto/confirm-payment.dto';
 import { canWrite, DataScope, resolveDataScope } from '../../common/data-scope';
 
 const MEMBER_NO_LOCK_KEY = 2_607_202;
+const CUSTOMER_NO_LOCK_KEY = 2_608_181;
 
 @Injectable()
 export class MembershipsService {
@@ -28,6 +31,17 @@ export class MembershipsService {
       where: { memberNo: { startsWith: prefix } },
     });
     return `${prefix}${String(count + 1).padStart(5, '0')}`;
+  }
+
+  private async generateCustomerNo(tx: Prisma.TransactionClient): Promise<string> {
+    await tx.$executeRaw(
+      Prisma.sql`SELECT pg_advisory_xact_lock(${CUSTOMER_NO_LOCK_KEY})`,
+    );
+    const prefix = `C${new Date().toISOString().slice(0, 7).replace('-', '')}`;
+    const count = await tx.customer.count({
+      where: { customerNo: { startsWith: prefix } },
+    });
+    return `${prefix}${String(count + 1).padStart(6, '0')}`;
   }
 
   async findAll(currentUser: any, query: QueryMembershipDto) {
@@ -108,7 +122,7 @@ export class MembershipsService {
   async create(dto: CreateMembershipDto, currentUser: any) {
     const customer = await this.prisma.customer.findUnique({ where: { id: dto.customerId } });
     if (!customer) throw new NotFoundException('客户不存在');
-    if (customer.status !== 'ACTIVE') throw new BadRequestException('客户已停用');
+    if (customer.status === 'INACTIVE') throw new BadRequestException('客户已停用');
     await this.assertCustomerScope(customer, currentUser, { requireWrite: true, message: '当前角色无权提交该客户的会员申请' });
     await this.validateMembershipInput(dto);
     return this.prisma.$transaction(async (tx) => {
@@ -125,6 +139,9 @@ export class MembershipsService {
           submittedBy: currentUser.id,
           submittedDepartmentId: customer.departmentId,
           submittedAssignedTo: customer.assignedTo,
+          contractedBy: customer.contractedBy ?? customer.assignedTo,
+          contractedEmployeeNo: customer.contractedEmployeeNo,
+          contractedDepartmentId: customer.contractedDepartmentId ?? customer.departmentId,
         },
       });
     });
@@ -166,12 +183,10 @@ export class MembershipsService {
   }
 
   async approve(id: string, dto: ReviewMembershipDto, currentUser: any) {
-    if (!dto.paidAt) throw new BadRequestException('审批通过时必须填写实际收款时间');
-    const paidAt = new Date(dto.paidAt);
     return this.prisma.$transaction(async (tx) => {
       const membership = await tx.membership.findUnique({
         where: { id },
-        include: { customer: { include: { assignedUser: { include: { department: true } } } } },
+        include: { customer: true },
       });
       if (!membership) throw new NotFoundException('会员申请不存在');
       if (membership.status !== 'PENDING') throw new ConflictException('申请状态已变更，请刷新后重试');
@@ -182,64 +197,12 @@ export class MembershipsService {
         reviewedBy: currentUser.id,
         reviewedAt: new Date(),
         reviewNote: dto.reviewNote,
-        paidAt,
         approvedDepartmentId: membership.customer.departmentId,
         approvedAssignedTo: membership.customer.assignedTo,
+        contractedBy: membership.customer.contractedBy ?? membership.customer.assignedTo,
+        contractedEmployeeNo: membership.customer.contractedEmployeeNo,
+        contractedDepartmentId: membership.customer.contractedDepartmentId ?? membership.customer.departmentId,
       });
-
-      const config = await tx.commissionConfig.findFirst({
-        where: { effectiveFrom: { lte: new Date() } },
-        orderBy: [{ effectiveFrom: 'desc' }, { createdAt: 'desc' }],
-      });
-      if (!config) throw new BadRequestException('未找到生效的分成配置，请先配置分成比例');
-
-      const assignedUser = membership.customer.assignedUser;
-      const userDept = assignedUser.department;
-      const deptHeadUserId = userDept?.headId && userDept.headId !== assignedUser.id ? userDept.headId : null;
-
-      let marketHeadUserId: string | null = null;
-      if (userDept?.parentId) {
-        const parentDept = await tx.department.findUnique({
-          where: { id: userDept.parentId },
-          select: { id: true, type: true, headId: true },
-        });
-        if (parentDept?.type === 'MARKET') {
-          marketHeadUserId = parentDept.headId && parentDept.headId !== assignedUser.id ? parentDept.headId : null;
-        }
-      }
-
-      const fee = membership.fee;
-      const memberAmount = fee.mul(config.memberRatio).div(100).toDecimalPlaces(2, Prisma.Decimal.ROUND_DOWN);
-      const deptHeadAmount = deptHeadUserId
-        ? fee.mul(config.deptHeadRatio).div(100).toDecimalPlaces(2, Prisma.Decimal.ROUND_DOWN)
-        : new Prisma.Decimal(0);
-      const marketHeadAmount = marketHeadUserId
-        ? fee.mul(config.marketHeadRatio).div(100).toDecimalPlaces(2, Prisma.Decimal.ROUND_DOWN)
-        : new Prisma.Decimal(0);
-      const companyAmount = fee.minus(memberAmount).minus(deptHeadAmount).minus(marketHeadAmount);
-
-      const commissions = [
-        { role: 'MEMBER', userId: assignedUser.id, amount: memberAmount, ratio: config.memberRatio },
-        { role: 'DEPT_HEAD', userId: deptHeadUserId, amount: deptHeadAmount, ratio: config.deptHeadRatio },
-        { role: 'MARKET_HEAD', userId: marketHeadUserId, amount: marketHeadAmount, ratio: config.marketHeadRatio },
-        { role: 'COMPANY', userId: null as string | null, amount: companyAmount, ratio: config.companyRatio },
-      ];
-
-      for (const c of commissions) {
-        await tx.commissionRecord.create({
-          data: {
-            businessKey: `earn:${id}:${c.role}`,
-            membershipId: id,
-            departmentId: userDept?.id ?? membership.customer.departmentId,
-            entryType: 'EARNING',
-            receiverUserId: c.userId,
-            receiverRole: c.role as any,
-            amount: c.amount,
-            ratio: c.ratio,
-            status: 'PENDING',
-          },
-        });
-      }
 
       await tx.auditLog.create({
         data: {
@@ -247,10 +210,138 @@ export class MembershipsService {
           entityType: 'Membership',
           entityId: id,
           operatorId: currentUser.id,
-          after: { status: 'APPROVED', fee: fee.toString() } as any,
+          after: { status: 'APPROVED', fee: membership.fee.toString() } as any,
         },
       });
+
+      return tx.membership.findUnique({ where: { id } });
     });
+  }
+
+  async confirmPayment(id: string, dto: ConfirmPaymentDto, currentUser: any) {
+    return this.prisma.$transaction(async (tx) => {
+      const membership = await tx.membership.findUnique({
+        where: { id },
+        include: { customer: { include: { assignedUser: { include: { department: true } } } } },
+      });
+      if (!membership) throw new NotFoundException('会员申请不存在');
+      if (membership.status !== 'APPROVED') throw new ConflictException('只有审批通过待缴费的会员申请可以确认缴费');
+      await this.assertCustomerScope(membership.customer, currentUser, { requireWrite: true, prisma: tx, message: '无权确认缴费' });
+
+      const paidAt = dto.paidAt ? new Date(dto.paidAt) : new Date();
+      const paidAmount = new Prisma.Decimal(dto.paidAmount ?? membership.fee);
+      const initialPassword = membership.customer.phone.slice(-6) || '123456';
+      const customerNo = membership.customer.customerNo ?? await this.generateCustomerNo(tx);
+      const customerPasswordHash = membership.customer.customerPasswordHash
+        ?? await bcrypt.hash(initialPassword, 10);
+
+      await this.transitionStatus(tx, id, 'APPROVED', {
+        status: 'PAID',
+        paidAt,
+        paidAmount,
+        paymentConfirmedBy: currentUser.id,
+      });
+
+      await tx.customer.update({
+        where: { id: membership.customerId },
+        data: {
+          status: 'ACTIVE_MEMBER',
+          customerNo,
+          customerPasswordHash,
+          memberActivatedAt: membership.customer.memberActivatedAt ?? paidAt,
+        },
+      });
+
+      await this.createCommissionRecords(tx, membership);
+
+      await tx.auditLog.create({
+        data: {
+          action: 'MEMBERSHIP_PAYMENT_CONFIRM',
+          entityType: 'Membership',
+          entityId: id,
+          operatorId: currentUser.id,
+          after: { status: 'PAID', paidAt, paidAmount: paidAmount.toString(), customerNo } as any,
+        },
+      });
+
+      const updated = await tx.membership.findUnique({
+        where: { id },
+        include: { customer: { select: { id: true, name: true, customerNo: true, status: true } } },
+      });
+
+      return {
+        ...updated,
+        customerLogin: membership.customer.customerPasswordHash
+          ? { customerNo, initialPassword: null }
+          : { customerNo, initialPassword },
+      };
+    });
+  }
+
+  private async createCommissionRecords(
+    tx: Prisma.TransactionClient,
+    membership: Prisma.MembershipGetPayload<{
+      include: { customer: { include: { assignedUser: { include: { department: true } } } } };
+    }>,
+  ) {
+    const existing = await tx.commissionRecord.count({
+      where: { membershipId: membership.id, entryType: 'EARNING' },
+    });
+    if (existing > 0) throw new ConflictException('该会员申请已生成分成记录');
+
+    const config = await tx.commissionConfig.findFirst({
+      where: { effectiveFrom: { lte: new Date() } },
+      orderBy: [{ effectiveFrom: 'desc' }, { createdAt: 'desc' }],
+    });
+    if (!config) throw new BadRequestException('未找到生效的分成配置，请先配置分成比例');
+
+    const assignedUser = membership.customer.assignedUser;
+    const userDept = assignedUser.department;
+    const deptHeadUserId = userDept?.headId && userDept.headId !== assignedUser.id ? userDept.headId : null;
+
+    let marketHeadUserId: string | null = null;
+    if (userDept?.parentId) {
+      const parentDept = await tx.department.findUnique({
+        where: { id: userDept.parentId },
+        select: { id: true, type: true, headId: true },
+      });
+      if (parentDept?.type === 'MARKET') {
+        marketHeadUserId = parentDept.headId && parentDept.headId !== assignedUser.id ? parentDept.headId : null;
+      }
+    }
+
+    const fee = membership.fee;
+    const memberAmount = fee.mul(config.memberRatio).div(100).toDecimalPlaces(2, Prisma.Decimal.ROUND_DOWN);
+    const deptHeadAmount = deptHeadUserId
+      ? fee.mul(config.deptHeadRatio).div(100).toDecimalPlaces(2, Prisma.Decimal.ROUND_DOWN)
+      : new Prisma.Decimal(0);
+    const marketHeadAmount = marketHeadUserId
+      ? fee.mul(config.marketHeadRatio).div(100).toDecimalPlaces(2, Prisma.Decimal.ROUND_DOWN)
+      : new Prisma.Decimal(0);
+    const companyAmount = fee.minus(memberAmount).minus(deptHeadAmount).minus(marketHeadAmount);
+
+    const commissions = [
+      { role: 'MEMBER', userId: assignedUser.id, amount: memberAmount, ratio: config.memberRatio },
+      { role: 'DEPT_HEAD', userId: deptHeadUserId, amount: deptHeadAmount, ratio: config.deptHeadRatio },
+      { role: 'MARKET_HEAD', userId: marketHeadUserId, amount: marketHeadAmount, ratio: config.marketHeadRatio },
+      { role: 'COMPANY', userId: null as string | null, amount: companyAmount, ratio: config.companyRatio },
+    ];
+
+    for (const c of commissions) {
+      await tx.commissionRecord.create({
+        data: {
+          businessKey: `earn:${membership.id}:${c.role}`,
+          membershipId: membership.id,
+          departmentId: userDept?.id ?? membership.customer.departmentId,
+          entryType: 'EARNING',
+          receiverUserId: c.userId,
+          receiverRole: c.role as any,
+          amount: c.amount,
+          ratio: c.ratio,
+          status: 'PENDING',
+        },
+      });
+    }
   }
 
   async reject(id: string, dto: ReviewMembershipDto, currentUser: any) {
@@ -288,10 +379,10 @@ export class MembershipsService {
       include: { customer: true },
     });
     if (!membership) throw new NotFoundException('会员申请不存在');
-    if (membership.status !== 'APPROVED') throw new BadRequestException('只有有效会员才能申请退款');
+    if (membership.status !== 'PAID') throw new BadRequestException('只有正式会员才能申请退款');
     await this.assertCustomerScope(membership.customer, currentUser, { requireWrite: true });
     return this.prisma.$transaction(async (tx) => {
-      await this.transitionStatus(tx, id, 'APPROVED', {
+      await this.transitionStatus(tx, id, 'PAID', {
         status: 'REFUND_PENDING',
         refundReason: dto.refundReason,
       });
@@ -369,7 +460,7 @@ export class MembershipsService {
     if (!dto.reviewNote?.trim()) throw new BadRequestException('拒绝原因不能为空');
     return this.prisma.$transaction(async (tx) => {
       await this.transitionStatus(tx, id, 'REFUND_PENDING', {
-        status: 'APPROVED',
+        status: 'PAID',
         refundReviewedBy: currentUser.id,
         refundReviewedAt: new Date(),
         reviewNote: dto.reviewNote,
@@ -390,7 +481,7 @@ export class MembershipsService {
   private async transitionStatus(
     tx: Prisma.TransactionClient,
     id: string,
-    expectedStatus: 'PENDING' | 'APPROVED' | 'REFUND_PENDING',
+    expectedStatus: 'PENDING' | 'APPROVED' | 'PAID' | 'REFUND_PENDING',
     data: Prisma.MembershipUncheckedUpdateManyInput,
   ) {
     const result = await tx.membership.updateMany({

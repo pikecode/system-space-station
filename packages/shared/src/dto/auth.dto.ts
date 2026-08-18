@@ -10,6 +10,11 @@ export interface MiniAppLoginDto {
   password: string;
 }
 
+export interface CustomerLoginDto {
+  customerNo: string;
+  password: string;
+}
+
 export interface LoginResponseDto {
   token: string;
   user: {
@@ -32,5 +37,16 @@ export interface LoginResponseDto {
     canWriteCustomer?: boolean;
     avatar?: string | null;
     shareCode?: string | null;
+  };
+}
+
+export interface CustomerLoginResponseDto {
+  token: string;
+  customer: {
+    id: string;
+    customerNo: string;
+    name: string;
+    phone: string;
+    status: string;
   };
 }

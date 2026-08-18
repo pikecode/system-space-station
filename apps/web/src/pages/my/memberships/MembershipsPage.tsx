@@ -11,7 +11,8 @@ import ProTable from '../../../components/BusinessProTable';
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING: '待审核',
-  APPROVED: '有效',
+  APPROVED: '待缴费',
+  PAID: '正式会员',
   REJECTED: '已拒绝',
   EXPIRED: '已到期',
   REFUND_PENDING: '退款中',
@@ -20,7 +21,8 @@ const STATUS_LABELS: Record<string, string> = {
 
 const STATUS_COLORS: Record<string, string> = {
   PENDING: 'orange',
-  APPROVED: 'green',
+  APPROVED: 'orange',
+  PAID: 'green',
   REJECTED: 'red',
   EXPIRED: 'default',
   REFUND_PENDING: 'orange',
@@ -165,7 +167,7 @@ export default function MembershipsPage() {
               <Button size="small" icon={<EditOutlined />} onClick={() => openResubmit(record)} />
             </Tooltip>
           )}
-          {record.status === 'APPROVED' && (
+          {record.status === 'PAID' && (
             <Tooltip title="申请退款">
               <Button size="small" danger icon={<RollbackOutlined />} onClick={() => setRefundTarget(record)} />
             </Tooltip>

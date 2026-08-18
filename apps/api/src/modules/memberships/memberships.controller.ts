@@ -13,6 +13,7 @@ import { CreateMembershipDto } from './dto/create-membership.dto';
 import { ReviewMembershipDto } from './dto/review-membership.dto';
 import { RefundRequestDto } from './dto/refund-request.dto';
 import { QueryMembershipDto } from './dto/query-membership.dto';
+import { ConfirmPaymentDto } from './dto/confirm-payment.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -52,6 +53,13 @@ export class MembershipsController {
   @Patch(':id/approve')
   approve(@Param('id') id: string, @Body() dto: ReviewMembershipDto, @CurrentUser() user: any) {
     return this.membershipsService.approve(id, dto, user);
+  }
+
+  @UseGuards(RolesGuard)
+  @Roles('HEAD', 'ADMIN')
+  @Patch(':id/confirm-payment')
+  confirmPayment(@Param('id') id: string, @Body() dto: ConfirmPaymentDto, @CurrentUser() user: any) {
+    return this.membershipsService.confirmPayment(id, dto, user);
   }
 
   @UseGuards(RolesGuard)

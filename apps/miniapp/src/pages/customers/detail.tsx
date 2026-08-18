@@ -21,12 +21,14 @@ const REG_SOURCE_LABELS: Record<string, string> = {
   SELF: '客户自助填写', PARTNER: '合伙人录入', ADMIN: '管理员录入',
 };
 const STATUS_LABELS: Record<string, string> = {
+  PROSPECT: '意向会员', ACTIVE_MEMBER: '正式会员', ACTIVE: '正常', INACTIVE: '停用',
   PENDING: '待审核', APPROVED: '有效', REJECTED: '已拒绝',
-  EXPIRED: '已到期', REFUND_PENDING: '退款中', REFUNDED: '已退款',
+  PAID: '已缴费', EXPIRED: '已到期', REFUND_PENDING: '退款中', REFUNDED: '已退款',
 };
 const STATUS_CLASS: Record<string, string> = {
+  PROSPECT: 'tag--pending', ACTIVE_MEMBER: 'tag--approved', ACTIVE: 'tag--approved', INACTIVE: 'tag--expired',
   PENDING: 'tag--pending', APPROVED: 'tag--approved', REJECTED: 'tag--rejected',
-  EXPIRED: 'tag--expired', REFUND_PENDING: 'tag--pending', REFUNDED: 'tag--expired',
+  PAID: 'tag--approved', EXPIRED: 'tag--expired', REFUND_PENDING: 'tag--pending', REFUNDED: 'tag--expired',
 };
 const EDIT_TABS = ['基本信息', '详细信息', '备注'];
 const RISK_LABELS = ['保守型', '稳健型', '积极型', '激进型'];

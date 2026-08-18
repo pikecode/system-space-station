@@ -4,6 +4,7 @@ import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { TransferCustomerDto } from './dto/transfer-customer.dto';
 import { QueryCustomerDto } from './dto/query-customer.dto';
+import { ContractCustomerDto } from './dto/contract-customer.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
@@ -35,6 +36,11 @@ export class CustomersController {
   @Patch(':id/transfer')
   transfer(@Param('id') id: string, @Body() dto: TransferCustomerDto, @CurrentUser() user: any) {
     return this.customersService.transfer(id, dto, user);
+  }
+
+  @Patch(':id/contract')
+  contract(@Param('id') id: string, @Body() dto: ContractCustomerDto, @CurrentUser() user: any) {
+    return this.customersService.contract(id, dto, user);
   }
 
   @Delete(':id')

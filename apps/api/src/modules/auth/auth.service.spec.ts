@@ -17,18 +17,21 @@ async function createFixture() {
     passwordHash,
   });
   const findUnique = vi.fn();
+  const findUniqueCustomer = vi.fn();
+  const updateCustomer = vi.fn();
   const findUniqueDepartment = vi.fn();
   const update = vi.fn();
   const sign = vi.fn().mockReturnValue('jwt-token');
   const service = new AuthService(
     {
       user: { findFirst, findUnique, update },
+      customer: { findUnique: findUniqueCustomer, update: updateCustomer },
       department: { findUnique: findUniqueDepartment },
     } as never,
     { sign } as never,
     { getOrThrow: vi.fn() } as never,
   );
-  return { service, findFirst, findUnique, findUniqueDepartment, update, passwordHash };
+  return { service, findFirst, findUnique, findUniqueCustomer, findUniqueDepartment, update, updateCustomer, passwordHash, sign };
 }
 
 describe('AuthService', () => {
@@ -211,5 +214,54 @@ describe('AuthService', () => {
     await expect(
       service.miniAppLogin({ employeeNo: 'FW0002', password: 'User123456' }),
     ).rejects.toThrow('当前账号无小程序登录权限');
+  });
+
+  it('正式会员可以使用客户编号和密码登录', async () => {
+    const { service, findUniqueCustomer, updateCustomer, sign } = await createFixture();
+    findUniqueCustomer.mockResolvedValue({
+      id: 'customer-1',
+      name: '客户甲',
+      phone: '13800000000',
+      customerNo: 'C202608000001',
+      status: 'ACTIVE_MEMBER',
+      customerPasswordHash: await bcrypt.hash('000000', 4),
+    });
+
+    const response = await service.customerLogin({
+      customerNo: ' c202608000001 ',
+      password: '000000',
+    });
+
+    expect(response.token).toBe('jwt-token');
+    expect(response.customer.customerNo).toBe('C202608000001');
+    expect(findUniqueCustomer).toHaveBeenCalledWith(expect.objectContaining({
+      where: { customerNo: 'C202608000001' },
+    }));
+    expect(updateCustomer).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'customer-1' },
+      data: expect.objectContaining({ customerLastLoginAt: expect.any(Date) }),
+    }));
+    expect(sign).toHaveBeenCalledWith(expect.objectContaining({
+      subjectType: 'CUSTOMER',
+      sub: 'customer-1',
+      customerNo: 'C202608000001',
+    }));
+  });
+
+  it('意向客户不能使用客户编号登录', async () => {
+    const { service, findUniqueCustomer } = await createFixture();
+    findUniqueCustomer.mockResolvedValue({
+      id: 'customer-1',
+      name: '客户甲',
+      phone: '13800000000',
+      customerNo: 'C202608000001',
+      status: 'PROSPECT',
+      customerPasswordHash: await bcrypt.hash('000000', 4),
+    });
+
+    await expect(service.customerLogin({
+      customerNo: 'C202608000001',
+      password: '000000',
+    })).rejects.toThrow('客户账号未激活');
   });
 });

@@ -4,6 +4,7 @@ import type {
   CustomerDto,
   PaginatedResponse,
   QueryCustomersDto,
+  ContractCustomerPayloadDto,
   UpdateCustomerPayloadDto,
 } from 'shared';
 
@@ -13,6 +14,7 @@ export const customersApi = {
   getOne: (id: string) => request.get<CustomerDto, CustomerDto>(`/customers/${id}`),
   create: (data: CreateCustomerPayloadDto) => request.post<CustomerDto, CustomerDto>('/customers', data),
   update: (id: string, data: UpdateCustomerPayloadDto) => request.patch<CustomerDto, CustomerDto>(`/customers/${id}`, data),
+  contract: (id: string, data: ContractCustomerPayloadDto) => request.patch<CustomerDto, CustomerDto>(`/customers/${id}/contract`, data),
   transfer: (id: string, data: unknown) => request.patch(`/customers/${id}/transfer`, data),
   disable: (id: string) => request.delete(`/customers/${id}`),
 };

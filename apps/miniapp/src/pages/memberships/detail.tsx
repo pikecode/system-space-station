@@ -7,7 +7,8 @@ import { useRequireLogin } from '../../hooks/useRequireLogin';
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING: '待审核',
-  APPROVED: '有效',
+  APPROVED: '待缴费',
+  PAID: '正式会员',
   REJECTED: '已拒绝',
   EXPIRED: '已到期',
   REFUND_PENDING: '退款审批中',
@@ -15,7 +16,8 @@ const STATUS_LABELS: Record<string, string> = {
 };
 const STATUS_CLASS: Record<string, string> = {
   PENDING: 'tag--pending',
-  APPROVED: 'tag--approved',
+  APPROVED: 'tag--pending',
+  PAID: 'tag--approved',
   REJECTED: 'tag--rejected',
   EXPIRED: 'tag--expired',
   REFUND_PENDING: 'tag--pending',
@@ -165,7 +167,7 @@ export default function MembershipDetailPage() {
   const isHead = user?.role === 'HEAD';
   const canApprove = isHead && record.status === 'PENDING';
   const canApproveRefund = isHead && record.status === 'REFUND_PENDING';
-  const canRefund = record.status === 'APPROVED';
+  const canRefund = record.status === 'PAID';
   const hasActions = canApprove || canApproveRefund || canRefund || showRejectInput || showRefundInput;
   const customerName = record.customer?.name || '未命名客户';
 

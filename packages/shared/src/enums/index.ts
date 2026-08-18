@@ -32,6 +32,8 @@ export enum CustomerSource {
 }
 
 export enum CustomerStatus {
+  PROSPECT = 'PROSPECT',
+  ACTIVE_MEMBER = 'ACTIVE_MEMBER',
   ACTIVE = 'ACTIVE',
   INACTIVE = 'INACTIVE',
 }
@@ -63,6 +65,7 @@ export enum MemberLevelStatus {
 export enum MembershipStatus {
   PENDING = 'PENDING',
   APPROVED = 'APPROVED',
+  PAID = 'PAID',
   REJECTED = 'REJECTED',
   EXPIRED = 'EXPIRED',
   REFUND_PENDING = 'REFUND_PENDING',

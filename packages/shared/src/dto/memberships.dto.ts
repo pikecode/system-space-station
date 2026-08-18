@@ -8,6 +8,11 @@ export interface MembershipRecordDto {
   startDate: string;
   endDate: string;
   paidAt?: string | null;
+  paidAmount?: string | null;
+  paymentConfirmedBy?: string | null;
+  contractedBy?: string | null;
+  contractedEmployeeNo?: string | null;
+  contractedDepartmentId?: string | null;
   reviewNote?: string | null;
   refundReason?: string | null;
   customer?: { id: string; name: string; phone: string } | null;
@@ -32,6 +37,11 @@ export interface CreateMembershipPayloadDto {
 export interface ReviewMembershipPayloadDto {
   paidAt?: string;
   reviewNote?: string;
+}
+
+export interface ConfirmPaymentPayloadDto {
+  paidAt?: string;
+  paidAmount?: number;
 }
 
 export interface RefundRequestPayloadDto {

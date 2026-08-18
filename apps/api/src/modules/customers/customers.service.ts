@@ -8,6 +8,7 @@ import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { TransferCustomerDto } from './dto/transfer-customer.dto';
 import { QueryCustomerDto } from './dto/query-customer.dto';
 import { resolveDataScope, canWrite } from '../../common/data-scope';
+import { ContractCustomerDto } from './dto/contract-customer.dto';
 
 @Injectable()
 export class CustomersService {
@@ -19,7 +20,7 @@ export class CustomersService {
     const skip = (page - 1) * pageSize;
 
     const where: Record<string, any> = {};
-    if (!query.status) where.status = 'ACTIVE';
+    if (!query.status) where.status = { not: 'INACTIVE' };
     else where.status = query.status;
 
     const scope = resolveDataScope(currentUser);
@@ -180,6 +181,53 @@ export class CustomersService {
           operatorId: currentUser.id,
           before: { assignedTo: customer.assignedTo, departmentId: customer.departmentId },
           after: { assignedTo: dto.newAssignedTo, departmentId: customer.departmentId },
+        },
+      });
+      return updated;
+    });
+  }
+
+  async contract(id: string, dto: ContractCustomerDto, currentUser: any) {
+    const customer = await this.prisma.customer.findUnique({ where: { id } });
+    if (!customer) throw new NotFoundException('客户不存在');
+    await this.checkAccess(customer, currentUser, true);
+
+    const employeeNo = dto.contractedEmployeeNo.trim().toUpperCase();
+    const user = await this.prisma.user.findUnique({
+      where: { employeeNo },
+      select: { id: true, employeeNo: true, departmentId: true, status: true },
+    });
+    if (!user) throw new NotFoundException('签约人不存在');
+    if (user.status !== 'ACTIVE') throw new BadRequestException('签约人已停用');
+    if (!user.departmentId) throw new BadRequestException('签约人未分配部门');
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.customer.update({
+        where: { id },
+        data: {
+          contractedBy: user.id,
+          contractedEmployeeNo: user.employeeNo,
+          contractedDepartmentId: user.departmentId,
+          contractedAt: dto.contractedAt ? new Date(dto.contractedAt) : new Date(),
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          action: 'CUSTOMER_CONTRACT',
+          entityType: 'Customer',
+          entityId: id,
+          operatorId: currentUser.id,
+          before: {
+            contractedBy: customer.contractedBy,
+            contractedEmployeeNo: customer.contractedEmployeeNo,
+            contractedDepartmentId: customer.contractedDepartmentId,
+            contractedAt: customer.contractedAt,
+          },
+          after: {
+            contractedBy: user.id,
+            contractedEmployeeNo: user.employeeNo,
+            contractedDepartmentId: user.departmentId,
+          },
         },
       });
       return updated;

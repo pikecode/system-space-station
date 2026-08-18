@@ -13,6 +13,7 @@ import { AppConfigModule } from './modules/config/config.module';
 import { CommissionsModule } from './modules/commissions/commissions.module';
 import { SchedulerModule } from './modules/scheduler/scheduler.module';
 import { PublicModule } from './modules/public/public.module';
+import { CustomerPortalModule } from './modules/customer-portal/customer-portal.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { PublicModule } from './modules/public/public.module';
     CommissionsModule,
     SchedulerModule,
     PublicModule,
+    CustomerPortalModule,
   ],
 })
 export class AppModule {}

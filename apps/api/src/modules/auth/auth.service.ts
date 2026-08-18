@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { canDepartmentLoginMiniApp, canMiniAppUserWriteCustomer } from 'shared';
 import { PrismaService } from '../../prisma/prisma.service';
-import { LoginDto, MiniAppLoginDto } from './dto/login.dto';
+import { CustomerLoginDto, LoginDto, MiniAppLoginDto } from './dto/login.dto';
 
 @Injectable()
 export class AuthService {
@@ -108,6 +108,49 @@ export class AuthService {
     });
 
     return this.buildLoginResponse(user);
+  }
+
+  async customerLogin(dto: CustomerLoginDto) {
+    const customerNo = dto.customerNo.trim().toUpperCase();
+    if (!customerNo) throw new UnauthorizedException('客户编号或密码错误');
+
+    const customer = await this.prisma.customer.findUnique({
+      where: { customerNo },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        customerNo: true,
+        status: true,
+        customerPasswordHash: true,
+      },
+    });
+    if (!customer) throw new UnauthorizedException('客户编号或密码错误');
+    if (customer.status !== 'ACTIVE_MEMBER') throw new UnauthorizedException('客户账号未激活');
+    if (!customer.customerPasswordHash) throw new UnauthorizedException('客户账号未设置密码');
+
+    const valid = await bcrypt.compare(dto.password, customer.customerPasswordHash);
+    if (!valid) throw new UnauthorizedException('客户编号或密码错误');
+
+    await this.prisma.customer.update({
+      where: { id: customer.id },
+      data: { customerLastLoginAt: new Date() },
+    });
+
+    return {
+      token: this.jwt.sign({
+        subjectType: 'CUSTOMER',
+        sub: customer.id,
+        customerNo: customer.customerNo,
+      }),
+      customer: {
+        id: customer.id,
+        customerNo: customer.customerNo as string,
+        name: customer.name,
+        phone: customer.phone,
+        status: customer.status,
+      },
+    };
   }
 
   async me(userId: string) {

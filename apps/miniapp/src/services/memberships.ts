@@ -1,6 +1,7 @@
 import { http } from './request';
 import {
   type CreateMembershipPayloadDto,
+  type ConfirmPaymentPayloadDto,
   type MemberLevelDto,
   type MembershipRecordDto,
   type PaginatedResponse,
@@ -33,6 +34,8 @@ export const membershipsApi = {
 
   approve: (id: string, data: ReviewMembershipPayloadDto) =>
     http.patch<MembershipRecord>(`/memberships/${id}/approve`, data),
+  confirmPayment: (id: string, data: ConfirmPaymentPayloadDto) =>
+    http.patch<MembershipRecord>(`/memberships/${id}/confirm-payment`, data),
   reject: (id: string, data: ReviewMembershipPayloadDto) =>
     http.patch<MembershipRecord>(`/memberships/${id}/reject`, data),
 

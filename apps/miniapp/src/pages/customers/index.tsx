@@ -14,6 +14,10 @@ const SOURCE_LABELS: Record<string, string> = {
 };
 
 const STATUS_LABELS: Record<string, string> = {
+  PROSPECT: '意向会员',
+  ACTIVE_MEMBER: '正式会员',
+  ACTIVE: '正常',
+  INACTIVE: '停用',
   PENDING: '待审核',
   APPROVED: '有效',
   REJECTED: '已拒绝',
@@ -21,6 +25,10 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_CLASS: Record<string, string> = {
+  PROSPECT: 'tag--pending',
+  ACTIVE_MEMBER: 'tag--approved',
+  ACTIVE: 'tag--approved',
+  INACTIVE: 'tag--expired',
   PENDING: 'tag--pending',
   APPROVED: 'tag--approved',
   REJECTED: 'tag--rejected',
@@ -50,8 +58,6 @@ export default function CustomersPage() {
   const load = async (name?: string) => {
     setLoading(true);
     try {
-      // CustomerStatus 只有 ACTIVE / INACTIVE，没有 APPROVED/PENDING
-      // 有效客户 = ACTIVE，非活跃 = INACTIVE，前端 list 的 status label 是会员状态
       const [all, inactive] = await Promise.all([
         customersApi.getAll(name ? { name } : undefined),
         customersApi.getAll({ status: 'INACTIVE' as any, ...(name ? { name } : {}) }),

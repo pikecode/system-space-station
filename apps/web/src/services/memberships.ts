@@ -6,6 +6,7 @@ export const membershipsApi = {
   create: (data: unknown) => request.post('/memberships', data),
   resubmit: (id: string, data: unknown) => request.patch(`/memberships/${id}/resubmit`, data),
   approve: (id: string, data: unknown) => request.patch(`/memberships/${id}/approve`, data),
+  confirmPayment: (id: string, data: unknown) => request.patch(`/memberships/${id}/confirm-payment`, data),
   reject: (id: string, data: unknown) => request.patch(`/memberships/${id}/reject`, data),
   requestRefund: (id: string, data: unknown) => request.post(`/memberships/${id}/refund`, data),
   approveRefund: (id: string) => request.patch(`/memberships/${id}/refund/approve`),

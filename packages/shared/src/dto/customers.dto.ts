@@ -43,6 +43,12 @@ export interface CustomerDto {
   riskTolerance?: RiskTolerance | null;
   isAccreditedInvestor?: boolean | null;
   investmentAmount?: string | null;
+  customerNo?: string | null;
+  memberActivatedAt?: string | null;
+  contractedBy?: string | null;
+  contractedEmployeeNo?: string | null;
+  contractedDepartmentId?: string | null;
+  contractedAt?: string | null;
   assignedUser?: { id: string; name: string } | null;
   department?: { id: string; name: string } | null;
   memberships?: MembershipSummaryDto[];
@@ -89,6 +95,11 @@ export interface CreateCustomerPayloadDto {
 export type UpdateCustomerPayloadDto = Partial<
   Omit<CreateCustomerPayloadDto, 'shareCode' | 'assignedUserId'>
 > & { status?: CustomerStatus };
+
+export interface ContractCustomerPayloadDto {
+  contractedEmployeeNo: string;
+  contractedAt?: string;
+}
 
 export interface PublicRegisterCustomerPayloadDto {
   shareCode: string;

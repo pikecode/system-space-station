@@ -1,10 +1,13 @@
 import Taro from '@tarojs/taro';
 import { http } from './request';
-import type { MiniAppLoginDto, LoginResponseDto } from 'shared';
+import type { CustomerLoginDto, CustomerLoginResponseDto, MiniAppLoginDto, LoginResponseDto } from 'shared';
 
 export const authApi = {
   login: (data: MiniAppLoginDto) =>
     http.post<LoginResponseDto>('/auth/miniapp-login', data, false),
+
+  customerLogin: (data: CustomerLoginDto) =>
+    http.post<CustomerLoginResponseDto>('/auth/customer-login', data, false),
 
   wechatLogin: async (): Promise<LoginResponseDto> => {
     const { code } = await Taro.login();

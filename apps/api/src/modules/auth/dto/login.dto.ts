@@ -32,3 +32,14 @@ export class MiniAppLoginDto {
   @MaxLength(128)
   password: string;
 }
+
+export class CustomerLoginDto {
+  @IsString()
+  @MaxLength(32)
+  customerNo: string;
+
+  @IsString()
+  @MinLength(6)
+  @MaxLength(128)
+  password: string;
+}

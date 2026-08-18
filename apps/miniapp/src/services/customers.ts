@@ -2,6 +2,7 @@ import { http } from './request';
 import {
   type CreateCustomerPayloadDto,
   type CustomerDto,
+  type ContractCustomerPayloadDto,
   type PaginatedResponse,
   type QueryCustomersDto,
   type UpdateCustomerPayloadDto,
@@ -25,4 +26,7 @@ export const customersApi = {
 
   update: (id: string, data: UpdateCustomerPayloadDto) =>
     http.patch<CustomerRow>(`/customers/${id}`, data),
+
+  contract: (id: string, data: ContractCustomerPayloadDto) =>
+    http.patch<CustomerRow>(`/customers/${id}/contract`, data),
 };
