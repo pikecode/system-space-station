@@ -14,6 +14,7 @@ import { CommissionsModule } from './modules/commissions/commissions.module';
 import { SchedulerModule } from './modules/scheduler/scheduler.module';
 import { PublicModule } from './modules/public/public.module';
 import { CustomerPortalModule } from './modules/customer-portal/customer-portal.module';
+import { InvestmentsModule } from './modules/investments/investments.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { CustomerPortalModule } from './modules/customer-portal/customer-portal.
     SchedulerModule,
     PublicModule,
     CustomerPortalModule,
+    InvestmentsModule,
   ],
 })
 export class AppModule {}

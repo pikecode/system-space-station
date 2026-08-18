@@ -36,6 +36,48 @@ export class CustomerPortalController {
             memberLevel: { select: { id: true, name: true } },
           },
         },
+        investments: {
+          where: { status: 'ACTIVE' },
+          orderBy: { investedAt: 'desc' },
+          select: {
+            id: true,
+            investmentNo: true,
+            amount: true,
+            investedAt: true,
+            status: true,
+            product: {
+              select: {
+                id: true,
+                productNo: true,
+                name: true,
+                productType: true,
+                riskLevel: true,
+              },
+            },
+          },
+        },
+        profitRecords: {
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+          select: {
+            id: true,
+            principalAmount: true,
+            profitAmount: true,
+            customerAmount: true,
+            status: true,
+            createdAt: true,
+            settledAt: true,
+            product: { select: { id: true, productNo: true, name: true } },
+            yieldPeriod: {
+              select: {
+                id: true,
+                periodStart: true,
+                periodEnd: true,
+                totalProfit: true,
+              },
+            },
+          },
+        },
       },
     });
   }
@@ -56,6 +98,58 @@ export class CustomerPortalController {
         startDate: true,
         endDate: true,
         memberLevel: { select: { id: true, name: true } },
+      },
+    });
+  }
+
+  @Get('investments')
+  async investments(@CurrentUser() user: any) {
+    this.assertCustomer(user);
+    return this.prisma.customerInvestment.findMany({
+      where: { customerId: user.id, status: 'ACTIVE' },
+      orderBy: { investedAt: 'desc' },
+      select: {
+        id: true,
+        investmentNo: true,
+        amount: true,
+        investedAt: true,
+        status: true,
+        product: {
+          select: {
+            id: true,
+            productNo: true,
+            name: true,
+            productType: true,
+            riskLevel: true,
+          },
+        },
+      },
+    });
+  }
+
+  @Get('profits')
+  async profits(@CurrentUser() user: any) {
+    this.assertCustomer(user);
+    return this.prisma.customerProfitRecord.findMany({
+      where: { customerId: user.id },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        principalAmount: true,
+        profitAmount: true,
+        customerAmount: true,
+        status: true,
+        createdAt: true,
+        settledAt: true,
+        product: { select: { id: true, productNo: true, name: true } },
+        yieldPeriod: {
+          select: {
+            id: true,
+            periodStart: true,
+            periodEnd: true,
+            totalProfit: true,
+          },
+        },
       },
     });
   }

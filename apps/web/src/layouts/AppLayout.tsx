@@ -6,6 +6,7 @@ import {
   AuditOutlined,
   ContactsOutlined,
   DollarOutlined,
+  FundProjectionScreenOutlined,
   IdcardOutlined,
   LogoutOutlined,
   SafetyCertificateOutlined,
@@ -22,6 +23,7 @@ const menusByRole = {
     { path: '/admin/admins', name: '系统管理员', icon: <SafetyCertificateOutlined /> },
     { path: '/admin/customers', name: '客户总览', icon: <ContactsOutlined /> },
     { path: '/admin/commissions', name: '分成总览', icon: <DollarOutlined /> },
+    { path: '/admin/investments', name: '投资收益', icon: <FundProjectionScreenOutlined /> },
     { path: '/admin/config', name: '系统配置', icon: <SettingOutlined /> },
   ],
   HEAD: [

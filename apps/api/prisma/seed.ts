@@ -1,4 +1,4 @@
-import { PrismaClient, UserType } from '@prisma/client';
+import { Prisma, PrismaClient, UserType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -1122,6 +1122,263 @@ async function main() {
     contractedDepartmentId: usersForCustomerScope.marketHead.departmentId,
   });
 
+  // ── 20. 投资收益测试数据 ──────────────────────────────────────────────────
+  await prisma.profitShareConfig.upsert({
+    where: { id: 'profit-share-config-default' },
+    update: {
+      customerRatio: 60,
+      departmentRatio: 15,
+      contractedUserRatio: 10,
+      createdUserRatio: 10,
+      companyRatio: 5,
+      effectiveFrom: new Date('2026-08-01'),
+      status: 'ACTIVE',
+      remark: '投资收益默认分配比例：客户60%，部门15%，签约人10%，录入人10%，公司5%',
+    },
+    create: {
+      id: 'profit-share-config-default',
+      customerRatio: 60,
+      departmentRatio: 15,
+      contractedUserRatio: 10,
+      createdUserRatio: 10,
+      companyRatio: 5,
+      effectiveFrom: new Date('2026-08-01'),
+      status: 'ACTIVE',
+      remark: '投资收益默认分配比例：客户60%，部门15%，签约人10%，录入人10%，公司5%',
+      createdBy: admin.id,
+    },
+  });
+
+  await prisma.investmentProduct.upsert({
+    where: { id: 'seed-product-stable-growth-1' },
+    update: {
+      productNo: 'P202608001',
+      name: '稳健增长一号',
+      productType: '固定收益',
+      riskLevel: 'MODERATE',
+      minAmount: 100000,
+      expectedStartAt: new Date('2026-08-15'),
+      expectedEndAt: new Date('2027-08-14'),
+      status: 'ACTIVE',
+      remark: '用于企业会员小程序收益展示测试',
+    },
+    create: {
+      id: 'seed-product-stable-growth-1',
+      productNo: 'P202608001',
+      name: '稳健增长一号',
+      productType: '固定收益',
+      riskLevel: 'MODERATE',
+      minAmount: 100000,
+      expectedStartAt: new Date('2026-08-15'),
+      expectedEndAt: new Date('2027-08-14'),
+      status: 'ACTIVE',
+      remark: '用于企业会员小程序收益展示测试',
+      createdBy: admin.id,
+    },
+  });
+
+  const goldInvestment = await prisma.customerInvestment.upsert({
+    where: { id: 'seed-investment-company-gold-a' },
+    update: {
+      investmentNo: 'I202608880001',
+      customerId: 'seed-company-paid-gold-a',
+      productId: 'seed-product-stable-growth-1',
+      amount: 5000000,
+      investedAt: new Date('2026-08-15'),
+      status: 'ACTIVE',
+      contractedBy: usersForCustomerScope.marketHead.id,
+      contractedEmployeeNo: 'MKT0201',
+      contractedDepartmentId: usersForCustomerScope.marketHead.departmentId,
+      createdBy: usersForCustomerScope.divisionMember.id,
+      createdEmployeeNo: 'DIV020102',
+      createdDepartmentId: usersForCustomerScope.divisionMember.departmentId,
+      remark: '金卡企业测试投资',
+    },
+    create: {
+      id: 'seed-investment-company-gold-a',
+      investmentNo: 'I202608880001',
+      customerId: 'seed-company-paid-gold-a',
+      productId: 'seed-product-stable-growth-1',
+      amount: 5000000,
+      investedAt: new Date('2026-08-15'),
+      status: 'ACTIVE',
+      contractedBy: usersForCustomerScope.marketHead.id,
+      contractedEmployeeNo: 'MKT0201',
+      contractedDepartmentId: usersForCustomerScope.marketHead.departmentId,
+      createdBy: usersForCustomerScope.divisionMember.id,
+      createdEmployeeNo: 'DIV020102',
+      createdDepartmentId: usersForCustomerScope.divisionMember.departmentId,
+      remark: '金卡企业测试投资',
+    },
+  });
+
+  const silverInvestment = await prisma.customerInvestment.upsert({
+    where: { id: 'seed-investment-company-silver-a' },
+    update: {
+      investmentNo: 'I202608880002',
+      customerId: 'seed-company-paid-silver-a',
+      productId: 'seed-product-stable-growth-1',
+      amount: 3000000,
+      investedAt: new Date('2026-08-15'),
+      status: 'ACTIVE',
+      contractedBy: usersForCustomerScope.marketHead.id,
+      contractedEmployeeNo: 'MKT0201',
+      contractedDepartmentId: usersForCustomerScope.marketHead.departmentId,
+      createdBy: usersForCustomerScope.marketOneDivisionTwoHead.id,
+      createdEmployeeNo: 'DIV020201',
+      createdDepartmentId: usersForCustomerScope.marketOneDivisionTwoHead.departmentId,
+      remark: '银卡企业测试投资',
+    },
+    create: {
+      id: 'seed-investment-company-silver-a',
+      investmentNo: 'I202608880002',
+      customerId: 'seed-company-paid-silver-a',
+      productId: 'seed-product-stable-growth-1',
+      amount: 3000000,
+      investedAt: new Date('2026-08-15'),
+      status: 'ACTIVE',
+      contractedBy: usersForCustomerScope.marketHead.id,
+      contractedEmployeeNo: 'MKT0201',
+      contractedDepartmentId: usersForCustomerScope.marketHead.departmentId,
+      createdBy: usersForCustomerScope.marketOneDivisionTwoHead.id,
+      createdEmployeeNo: 'DIV020201',
+      createdDepartmentId: usersForCustomerScope.marketOneDivisionTwoHead.departmentId,
+      remark: '银卡企业测试投资',
+    },
+  });
+
+  await prisma.productYieldPeriod.upsert({
+    where: {
+      productId_periodStart_periodEnd: {
+        productId: 'seed-product-stable-growth-1',
+        periodStart: new Date('2026-09-01'),
+        periodEnd: new Date('2026-09-30'),
+      },
+    },
+    update: {
+      totalProfit: 100000,
+      status: 'CONFIRMED',
+      confirmedBy: admin.id,
+      confirmedAt: new Date('2026-10-01T09:00:00.000Z'),
+      remark: '2026年9月产品总收益，按产品总收益录入',
+    },
+    create: {
+      id: 'seed-yield-stable-growth-202609',
+      productId: 'seed-product-stable-growth-1',
+      periodStart: new Date('2026-09-01'),
+      periodEnd: new Date('2026-09-30'),
+      totalProfit: 100000,
+      status: 'CONFIRMED',
+      confirmedBy: admin.id,
+      confirmedAt: new Date('2026-10-01T09:00:00.000Z'),
+      remark: '2026年9月产品总收益，按产品总收益录入',
+      createdBy: admin.id,
+    },
+  });
+
+  const ratioSnapshot = {
+    configId: 'profit-share-config-default',
+    customerRatio: '60',
+    departmentRatio: '15',
+    contractedUserRatio: '10',
+    createdUserRatio: '10',
+    companyRatio: '5',
+    effectiveFrom: new Date('2026-08-01').toISOString(),
+  };
+
+  const upsertProfitRecord = async (record: {
+    id: string;
+    customerId: string;
+    investmentId: string;
+    customerNo: string;
+    principalAmount: number;
+    investmentShareRatio: string;
+    profitAmount: number;
+    customerAmount: number;
+    contractedBy: string;
+    contractedEmployeeNo: string;
+    contractedDepartmentId: string;
+    createdBy: string;
+    createdEmployeeNo: string;
+  }) => {
+    await prisma.customerProfitRecord.upsert({
+      where: { id: record.id },
+      update: {
+        principalAmount: record.principalAmount,
+        investmentShareRatio: new Prisma.Decimal(record.investmentShareRatio),
+        profitAmount: record.profitAmount,
+        customerAmount: record.customerAmount,
+        ratioSnapshot,
+        status: 'GENERATED',
+        settledAt: null,
+      },
+      create: {
+        id: record.id,
+        customerId: record.customerId,
+        investmentId: record.investmentId,
+        productId: 'seed-product-stable-growth-1',
+        yieldPeriodId: 'seed-yield-stable-growth-202609',
+        principalAmount: record.principalAmount,
+        investmentShareRatio: new Prisma.Decimal(record.investmentShareRatio),
+        profitAmount: record.profitAmount,
+        customerAmount: record.customerAmount,
+        ratioSnapshot,
+        status: 'GENERATED',
+      },
+    });
+    await prisma.profitShareRecord.deleteMany({ where: { profitRecordId: record.id } });
+    const departmentAmount = new Prisma.Decimal(record.profitAmount).mul(15).div(100).toDecimalPlaces(2);
+    const contractedAmount = new Prisma.Decimal(record.profitAmount).mul(10).div(100).toDecimalPlaces(2);
+    const createdAmount = new Prisma.Decimal(record.profitAmount).mul(10).div(100).toDecimalPlaces(2);
+    const companyAmount = new Prisma.Decimal(record.profitAmount)
+      .minus(record.customerAmount)
+      .minus(departmentAmount)
+      .minus(contractedAmount)
+      .minus(createdAmount)
+      .toDecimalPlaces(2);
+    await prisma.profitShareRecord.createMany({
+      data: [
+        { profitRecordId: record.id, receiverType: 'CUSTOMER', receiverId: record.customerId, receiverNo: record.customerNo, ratio: 60, amount: record.customerAmount },
+        { profitRecordId: record.id, receiverType: 'DEPARTMENT', receiverId: record.contractedDepartmentId, receiverNo: record.contractedDepartmentId, ratio: 15, amount: departmentAmount },
+        { profitRecordId: record.id, receiverType: 'CONTRACTED_USER', receiverId: record.contractedBy, receiverNo: record.contractedEmployeeNo, ratio: 10, amount: contractedAmount },
+        { profitRecordId: record.id, receiverType: 'CREATED_USER', receiverId: record.createdBy, receiverNo: record.createdEmployeeNo, ratio: 10, amount: createdAmount },
+        { profitRecordId: record.id, receiverType: 'COMPANY', receiverId: 'COMPANY', receiverNo: 'COMPANY', ratio: 5, amount: companyAmount },
+      ],
+    });
+  };
+
+  await upsertProfitRecord({
+    id: 'seed-profit-company-gold-202609',
+    customerId: 'seed-company-paid-gold-a',
+    investmentId: goldInvestment.id,
+    customerNo: 'C202608880001',
+    principalAmount: 5000000,
+    investmentShareRatio: '0.62500000',
+    profitAmount: 62500,
+    customerAmount: 37500,
+    contractedBy: usersForCustomerScope.marketHead.id,
+    contractedEmployeeNo: 'MKT0201',
+    contractedDepartmentId: usersForCustomerScope.marketHead.departmentId,
+    createdBy: usersForCustomerScope.divisionMember.id,
+    createdEmployeeNo: 'DIV020102',
+  });
+
+  await upsertProfitRecord({
+    id: 'seed-profit-company-silver-202609',
+    customerId: 'seed-company-paid-silver-a',
+    investmentId: silverInvestment.id,
+    customerNo: 'C202608880002',
+    principalAmount: 3000000,
+    investmentShareRatio: '0.37500000',
+    profitAmount: 37500,
+    customerAmount: 22500,
+    contractedBy: usersForCustomerScope.marketHead.id,
+    contractedEmployeeNo: 'MKT0201',
+    contractedDepartmentId: usersForCustomerScope.marketHead.departmentId,
+    createdBy: usersForCustomerScope.marketOneDivisionTwoHead.id,
+    createdEmployeeNo: 'DIV020201',
+  });
+
   await prisma.membership.upsert({
     where: { id: 'seed-membership-pending-div020201-a' },
     update: {
@@ -1186,8 +1443,11 @@ async function main() {
   console.log('  MKT0201 登录：看到市场一部及下属事业1部/事业2部客户，不应看到“市场二部-隔离客户”');
   console.log('  MKT000001 / DEV0001 / SVC0001 登录：可看到全量客户，其中 DEV/SVC 只读');
   console.log('企业会员小程序登录测试账号（密码均为 Corp123456）：');
-  console.log('  C202608880001 / Corp123456  测试企业-正式会员-金卡');
-  console.log('  C202608880002 / Corp123456  测试企业-正式会员-银卡');
+  console.log('  C202608880001 / Corp123456  测试企业-正式会员-金卡，投资 I202608880001，本期到账收益 37500');
+  console.log('  C202608880002 / Corp123456  测试企业-正式会员-银卡，投资 I202608880002，本期到账收益 22500');
+  console.log('投资收益测试数据：');
+  console.log('  产品 P202608001 稳健增长一号，2026-09 产品总收益 100000');
+  console.log('  收益比例：客户60%，部门15%，签约人10%，录入人10%，公司5%；当前为手动结算');
   console.log('企业入会状态测试数据：');
   console.log('  测试企业-意向会员-未提交：PROSPECT，无入会记录，不可客户登录');
   console.log('  测试企业-入会待审批：PROSPECT + PENDING，不可客户登录');

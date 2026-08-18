@@ -127,6 +127,43 @@ enum SchedulerStatus {
   SKIPPED
 }
 
+enum InvestmentProductStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+  ARCHIVED
+}
+
+enum CustomerInvestmentStatus {
+  ACTIVE
+  EXITED
+  CANCELLED
+}
+
+enum ProductYieldStatus {
+  DRAFT
+  CONFIRMED
+  SETTLED
+}
+
+enum CustomerProfitStatus {
+  GENERATED
+  SETTLED
+}
+
+enum ProfitShareConfigStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ProfitShareReceiverType {
+  CUSTOMER
+  DEPARTMENT
+  CONTRACTED_USER
+  CREATED_USER
+  COMPANY
+}
+
 model Department {
   id                String             @id @default(cuid())
   name              String
@@ -221,7 +258,7 @@ model MemberLevel {
 }
 
 model Customer {
-  id                     String             @id @default(cuid())
+  id                     String                 @id @default(cuid())
   customerType           CustomerType
   name                   String
   phone                  String
@@ -240,18 +277,18 @@ model Customer {
   registeredCapital      String?
   idCard                 String?
   riskTolerance          RiskTolerance?
-  isAccreditedInvestor   Boolean            @default(false)
-  investmentAmount       Decimal?           @db.Decimal(12, 2)
-  customerNo             String?            @unique
+  isAccreditedInvestor   Boolean                @default(false)
+  investmentAmount       Decimal?               @db.Decimal(12, 2)
+  customerNo             String?                @unique
   customerPasswordHash   String?
   memberActivatedAt      DateTime?
   customerLastLoginAt    DateTime?
   assignedTo             String
-  assignedUser           User               @relation("AssignedCustomers", fields: [assignedTo], references: [id])
+  assignedUser           User                   @relation("AssignedCustomers", fields: [assignedTo], references: [id])
   createdBy              String
-  creator                User               @relation("CreatedCustomers", fields: [createdBy], references: [id])
+  creator                User                   @relation("CreatedCustomers", fields: [createdBy], references: [id])
   referredBy             String?
-  referrer               User?              @relation("ReferredCustomers", fields: [referredBy], references: [id])
+  referrer               User?                  @relation("ReferredCustomers", fields: [referredBy], references: [id])
   referrerEmployeeNo     String?
   referrerDepartmentId   String?
   contractedBy           String?
@@ -259,12 +296,14 @@ model Customer {
   contractedDepartmentId String?
   contractedAt           DateTime?
   departmentId           String
-  department             Department         @relation(fields: [departmentId], references: [id])
-  status                 CustomerStatus     @default(PROSPECT)
-  registrationSource     RegistrationSource @default(PARTNER)
-  createdAt              DateTime           @default(now())
-  updatedAt              DateTime           @updatedAt
+  department             Department             @relation(fields: [departmentId], references: [id])
+  status                 CustomerStatus         @default(PROSPECT)
+  registrationSource     RegistrationSource     @default(PARTNER)
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
   memberships            Membership[]
+  investments            CustomerInvestment[]
+  profitRecords          CustomerProfitRecord[]
 
   @@index([assignedTo])
   @@index([departmentId])
@@ -375,6 +414,134 @@ model SettlementPeriod {
   records        CommissionRecord[]
 
   @@index([status, endDate])
+}
+
+model InvestmentProduct {
+  id              String                  @id @default(cuid())
+  productNo       String                  @unique
+  name            String
+  productType     String?
+  riskLevel       RiskTolerance?
+  minAmount       Decimal?                @db.Decimal(12, 2)
+  expectedStartAt DateTime?
+  expectedEndAt   DateTime?
+  status          InvestmentProductStatus @default(DRAFT)
+  remark          String?
+  createdBy       String
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  investments     CustomerInvestment[]
+  yieldPeriods    ProductYieldPeriod[]
+  profitRecords   CustomerProfitRecord[]
+
+  @@index([status])
+  @@index([productNo])
+}
+
+model CustomerInvestment {
+  id                     String                   @id @default(cuid())
+  investmentNo           String                   @unique
+  customerId             String
+  customer               Customer                 @relation(fields: [customerId], references: [id])
+  productId              String
+  product                InvestmentProduct        @relation(fields: [productId], references: [id])
+  amount                 Decimal                  @db.Decimal(12, 2)
+  investedAt             DateTime
+  status                 CustomerInvestmentStatus @default(ACTIVE)
+  contractedBy           String?
+  contractedEmployeeNo   String?
+  contractedDepartmentId String?
+  createdBy              String
+  createdEmployeeNo      String?
+  createdDepartmentId    String?
+  remark                 String?
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+  profitRecords          CustomerProfitRecord[]
+
+  @@index([customerId])
+  @@index([productId, status])
+  @@index([contractedEmployeeNo])
+}
+
+model ProductYieldPeriod {
+  id            String                 @id @default(cuid())
+  productId     String
+  product       InvestmentProduct      @relation(fields: [productId], references: [id])
+  periodStart   DateTime
+  periodEnd     DateTime
+  totalProfit   Decimal                @db.Decimal(12, 2)
+  status        ProductYieldStatus     @default(DRAFT)
+  confirmedBy   String?
+  confirmedAt   DateTime?
+  remark        String?
+  createdBy     String
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  profitRecords CustomerProfitRecord[]
+
+  @@unique([productId, periodStart, periodEnd])
+  @@index([status])
+}
+
+model CustomerProfitRecord {
+  id                   String               @id @default(cuid())
+  customerId           String
+  customer             Customer             @relation(fields: [customerId], references: [id])
+  investmentId         String
+  investment           CustomerInvestment   @relation(fields: [investmentId], references: [id])
+  productId            String
+  product              InvestmentProduct    @relation(fields: [productId], references: [id])
+  yieldPeriodId        String
+  yieldPeriod          ProductYieldPeriod   @relation(fields: [yieldPeriodId], references: [id])
+  principalAmount      Decimal              @db.Decimal(12, 2)
+  investmentShareRatio Decimal              @db.Decimal(12, 8)
+  profitAmount         Decimal              @db.Decimal(12, 2)
+  customerAmount       Decimal              @db.Decimal(12, 2)
+  ratioSnapshot        Json
+  status               CustomerProfitStatus @default(GENERATED)
+  settledAt            DateTime?
+  createdAt            DateTime             @default(now())
+  shareRecords         ProfitShareRecord[]
+
+  @@unique([investmentId, yieldPeriodId])
+  @@index([customerId, createdAt])
+  @@index([productId])
+  @@index([status])
+}
+
+model ProfitShareConfig {
+  id                  String                  @id @default(cuid())
+  customerRatio       Decimal                 @db.Decimal(5, 2)
+  departmentRatio     Decimal                 @db.Decimal(5, 2)
+  contractedUserRatio Decimal                 @db.Decimal(5, 2)
+  createdUserRatio    Decimal                 @db.Decimal(5, 2)
+  companyRatio        Decimal                 @db.Decimal(5, 2)
+  effectiveFrom       DateTime
+  status              ProfitShareConfigStatus @default(ACTIVE)
+  remark              String?
+  createdBy           String
+  createdAt           DateTime                @default(now())
+
+  @@index([status, effectiveFrom])
+}
+
+model ProfitShareRecord {
+  id             String                  @id @default(cuid())
+  profitRecordId String
+  profitRecord   CustomerProfitRecord    @relation(fields: [profitRecordId], references: [id])
+  receiverType   ProfitShareReceiverType
+  receiverId     String?
+  receiverNo     String?
+  ratio          Decimal                 @db.Decimal(5, 2)
+  amount         Decimal                 @db.Decimal(12, 2)
+  status         CustomerProfitStatus    @default(GENERATED)
+  createdAt      DateTime                @default(now())
+  settledAt      DateTime?
+
+  @@index([profitRecordId])
+  @@index([receiverType, receiverNo])
+  @@index([status])
 }
 
 model SchedulerLog {

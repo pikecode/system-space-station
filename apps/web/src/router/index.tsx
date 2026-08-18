@@ -12,6 +12,7 @@ const UsersPage = lazy(() => import('../pages/admin/users/UsersPage'));
 const AdminsPage = lazy(() => import('../pages/admin/admins/AdminsPage'));
 const AdminCustomersPage = lazy(() => import('../pages/admin/customers/AdminCustomersPage'));
 const AdminCommissionsPage = lazy(() => import('../pages/admin/commissions/AdminCommissionsPage'));
+const AdminInvestmentsPage = lazy(() => import('../pages/admin/investments/AdminInvestmentsPage'));
 const ConfigPage = lazy(() => import('../pages/admin/config/ConfigPage'));
 const CustomersPage = lazy(() => import('../pages/my/customers/CustomersPage'));
 const MembershipsPage = lazy(() => import('../pages/my/memberships/MembershipsPage'));
@@ -147,6 +148,16 @@ export const router = createBrowserRouter([
           <RequireAdmin>
             <Suspense fallback={Fallback}>
               <AdminCommissionsPage />
+            </Suspense>
+          </RequireAdmin>
+        ),
+      },
+      {
+        path: 'admin/investments',
+        element: (
+          <RequireAdmin>
+            <Suspense fallback={Fallback}>
+              <AdminInvestmentsPage />
             </Suspense>
           </RequireAdmin>
         ),
