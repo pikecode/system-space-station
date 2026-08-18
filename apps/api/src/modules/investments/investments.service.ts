@@ -12,6 +12,7 @@ import {
   ProfitShareConfig,
   ProfitShareReceiverType,
 } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateInvestmentProductDto } from './dto/create-investment-product.dto';
 import { CreateCustomerInvestmentDto } from './dto/create-customer-investment.dto';
@@ -20,12 +21,22 @@ import { CreateProfitShareConfigDto } from './dto/create-profit-share-config.dto
 import { CreateInvestmentCommissionConfigDto } from './dto/create-investment-commission-config.dto';
 
 const INVESTMENT_NO_LOCK_KEY = 2_608_182;
+const CUSTOMER_NO_LOCK_KEY = 2_608_181;
 
 type Tx = Prisma.TransactionClient;
 
 @Injectable()
 export class InvestmentsService {
   constructor(private prisma: PrismaService) {}
+
+  private async generateCustomerNo(tx: Tx): Promise<string> {
+    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(${CUSTOMER_NO_LOCK_KEY})`);
+    const prefix = `C${new Date().toISOString().slice(0, 7).replace('-', '')}`;
+    const count = await tx.customer.count({
+      where: { customerNo: { startsWith: prefix } },
+    });
+    return `${prefix}${String(count + 1).padStart(6, '0')}`;
+  }
 
   findProducts(query: { status?: string }) {
     return this.prisma.investmentProduct.findMany({
@@ -77,7 +88,7 @@ export class InvestmentsService {
         }),
       ]);
       if (!customer) throw new NotFoundException('客户不存在');
-      if (customer.status !== 'ACTIVE_MEMBER') throw new BadRequestException('只有正式会员可以创建投资记录');
+      if (customer.status === 'INACTIVE') throw new BadRequestException('客户已停用，不能创建投资记录');
       if (!product) throw new NotFoundException('产品不存在');
       if (product.status !== 'ACTIVE') throw new BadRequestException('只有启用产品可以创建投资记录');
       const amount = new Prisma.Decimal(dto.amount);
@@ -94,6 +105,34 @@ export class InvestmentsService {
       if (dto.contractedEmployeeNo && !contracted) throw new NotFoundException('签约人不存在');
       if (contracted && contracted.status !== 'ACTIVE') throw new BadRequestException('签约人已停用');
       if (contracted && !contracted.departmentId) throw new BadRequestException('签约人未分配部门');
+
+      if (!customer.contractedBy && !contracted) {
+        throw new BadRequestException('客户尚未维护签约人，请填写签约人编号后再创建投资');
+      }
+
+      const shouldActivateCustomer = customer.status !== 'ACTIVE_MEMBER';
+      const activatedAt = new Date(dto.investedAt);
+      const initialPassword = customer.phone.slice(-6) || '123456';
+      const customerNo = customer.customerNo ?? await this.generateCustomerNo(tx);
+      const customerPasswordHash = customer.customerPasswordHash
+        ?? await bcrypt.hash(initialPassword, 10);
+      if (shouldActivateCustomer || !customer.customerNo || !customer.customerPasswordHash || (contracted && !customer.contractedBy)) {
+        await tx.customer.update({
+          where: { id: customer.id },
+          data: {
+            status: 'ACTIVE_MEMBER',
+            customerNo,
+            customerPasswordHash,
+            memberActivatedAt: customer.memberActivatedAt ?? activatedAt,
+            ...(contracted && !customer.contractedBy ? {
+              contractedBy: contracted.id,
+              contractedEmployeeNo: contracted.employeeNo,
+              contractedDepartmentId: contracted.departmentId,
+              contractedAt: activatedAt,
+            } : {}),
+          },
+        });
+      }
 
       const investmentNo = await this.generateInvestmentNo(tx);
       const investment = await tx.customerInvestment.create({
@@ -113,7 +152,24 @@ export class InvestmentsService {
         },
       });
       await this.createInvestmentCommissionRecords(tx, investment);
-      return investment;
+      if (shouldActivateCustomer) {
+        await tx.auditLog.create({
+          data: {
+            action: 'CUSTOMER_INVESTMENT_ACTIVATE_MEMBER',
+            entityType: 'Customer',
+            entityId: customer.id,
+            operatorId: currentUser.id,
+            before: { status: customer.status, customerNo: customer.customerNo },
+            after: { status: 'ACTIVE_MEMBER', customerNo },
+          },
+        });
+      }
+      return {
+        ...investment,
+        customerLogin: customer.customerPasswordHash
+          ? { customerNo, initialPassword: null }
+          : { customerNo, initialPassword },
+      };
     });
   }
 

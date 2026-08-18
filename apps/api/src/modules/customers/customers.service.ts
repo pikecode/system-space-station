@@ -2,6 +2,7 @@ import {
   Injectable, NotFoundException, BadRequestException, ForbiddenException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
@@ -21,6 +22,7 @@ export class CustomersService {
 
     const where: Record<string, any> = {};
     if (!query.status) where.status = { not: 'INACTIVE' };
+    else if (query.status === 'PROSPECT') where.status = { in: ['PROSPECT', 'ACTIVE'] };
     else where.status = query.status;
 
     const scope = resolveDataScope(currentUser);
@@ -82,6 +84,59 @@ export class CustomersService {
     if (!customer) throw new NotFoundException('客户不存在');
     await this.checkAccess(customer, currentUser);
     return customer;
+  }
+
+  async getAssets(id: string, currentUser: any) {
+    const customer = await this.prisma.customer.findUnique({
+      where: { id },
+      include: {
+        assignedUser: { select: { id: true, name: true } },
+        department: { select: { id: true, name: true } },
+      },
+    });
+    if (!customer) throw new NotFoundException('客户不存在');
+    await this.checkAccess(customer, currentUser);
+
+    const investments = await this.prisma.customerInvestment.findMany({
+      where: { customerId: id },
+      include: {
+        customer: { select: { id: true, name: true, customerNo: true, status: true } },
+        product: { select: { id: true, productNo: true, name: true, status: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    const investmentIds = investments.map((item) => item.id);
+    const [investmentCommissions, profitRecords] = await this.prisma.$transaction([
+      this.prisma.investmentCommissionRecord.findMany({
+        where: { investmentId: { in: investmentIds } },
+        include: {
+          investment: {
+            include: {
+              customer: { select: { id: true, name: true, customerNo: true } },
+              product: { select: { id: true, productNo: true, name: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.customerProfitRecord.findMany({
+        where: { customerId: id },
+        include: {
+          customer: { select: { id: true, name: true, customerNo: true } },
+          product: { select: { id: true, productNo: true, name: true } },
+          yieldPeriod: { select: { id: true, periodStart: true, periodEnd: true, totalProfit: true } },
+          shareRecords: { orderBy: { createdAt: 'asc' } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    return {
+      customer,
+      investments,
+      investmentCommissions,
+      profitRecords,
+    };
   }
 
   async create(dto: CreateCustomerDto, currentUser: any) {
@@ -239,6 +294,41 @@ export class CustomersService {
     if (!customer) throw new NotFoundException('客户不存在');
     await this.checkAccess(customer, currentUser, true);
     return this.prisma.customer.update({ where: { id }, data: { status: 'INACTIVE' } });
+  }
+
+  async restore(id: string, currentUser: any) {
+    const customer = await this.prisma.customer.findUnique({ where: { id } });
+    if (!customer) throw new NotFoundException('客户不存在');
+    await this.checkAccess(customer, currentUser, true);
+    if (customer.status !== 'INACTIVE') return customer;
+    const investmentCount = await this.prisma.customerInvestment.count({
+      where: { customerId: id },
+    });
+    return this.prisma.customer.update({
+      where: { id },
+      data: {
+        status: investmentCount > 0 ? 'ACTIVE_MEMBER' : 'PROSPECT',
+      },
+    });
+  }
+
+  async resetPassword(id: string, currentUser: any) {
+    const customer = await this.prisma.customer.findUnique({ where: { id } });
+    if (!customer) throw new NotFoundException('客户不存在');
+    await this.checkAccess(customer, currentUser, true);
+    if (customer.status !== 'ACTIVE_MEMBER') {
+      throw new BadRequestException('只有正式会员可以重置客户登录密码');
+    }
+    const initialPassword = customer.phone.slice(-6) || '123456';
+    const customerPasswordHash = await bcrypt.hash(initialPassword, 10);
+    await this.prisma.customer.update({
+      where: { id },
+      data: { customerPasswordHash },
+    });
+    return {
+      customerNo: customer.customerNo,
+      initialPassword,
+    };
   }
 
   private async checkAccess(customer: any, currentUser: any, requireWrite = false) {

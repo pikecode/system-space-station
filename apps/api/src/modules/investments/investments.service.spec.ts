@@ -16,10 +16,16 @@ describe('InvestmentsService', () => {
         findUnique: vi.fn().mockResolvedValue({
           id: 'customer-1',
           status: 'ACTIVE_MEMBER',
+          phone: '13800001111',
+          customerNo: 'C202608000001',
+          customerPasswordHash: 'HASHED',
+          memberActivatedAt: new Date('2026-08-01'),
           contractedBy: 'contracted-user-1',
           contractedEmployeeNo: 'MKT0201',
           contractedDepartmentId: 'dept-market-1',
         }),
+        count: vi.fn().mockResolvedValue(1),
+        update: vi.fn().mockResolvedValue({}),
       },
       investmentProduct: {
         findUnique: vi.fn().mockResolvedValue({
@@ -97,6 +103,104 @@ describe('InvestmentsService', () => {
           amount: new Prisma.Decimal(1000),
         }),
       ]),
+    });
+  });
+
+  it('首次创建投资时自动激活客户为正式会员并生成客户登录信息', async () => {
+    const customerUpdate = vi.fn().mockResolvedValue({});
+    const createInvestment = vi.fn().mockResolvedValue({
+      id: 'investment-1',
+      amount: new Prisma.Decimal(200000),
+      contractedBy: 'contracted-user-1',
+      contractedEmployeeNo: 'MKT0201',
+      contractedDepartmentId: 'dept-market-1',
+    });
+    const tx = {
+      customer: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'customer-1',
+          status: 'PROSPECT',
+          phone: '13800009999',
+          customerNo: null,
+          customerPasswordHash: null,
+          memberActivatedAt: null,
+          contractedBy: null,
+          contractedEmployeeNo: null,
+          contractedDepartmentId: null,
+        }),
+        count: vi.fn().mockResolvedValue(0),
+        update: customerUpdate,
+      },
+      investmentProduct: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'product-1',
+          status: 'ACTIVE',
+          minAmount: new Prisma.Decimal(100000),
+        }),
+      },
+      user: {
+        findUnique: vi.fn()
+          .mockResolvedValueOnce({
+            id: 'operator-1',
+            employeeNo: 'DIV020102',
+            departmentId: 'dept-div-1',
+          })
+          .mockResolvedValueOnce({
+            id: 'contracted-user-1',
+            employeeNo: 'MKT0201',
+            departmentId: 'dept-market-1',
+            status: 'ACTIVE',
+          }),
+      },
+      customerInvestment: {
+        count: vi.fn().mockResolvedValue(0),
+        create: createInvestment,
+      },
+      investmentCommissionConfig: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'investment-commission-config-1',
+          contractedDepartmentRatio: new Prisma.Decimal(1),
+          contractedUserRatio: new Prisma.Decimal(2),
+          companyRatio: new Prisma.Decimal(0.5),
+          effectiveFrom: new Date('2026-08-01'),
+        }),
+      },
+      investmentCommissionRecord: {
+        createMany: vi.fn().mockResolvedValue({ count: 3 }),
+      },
+      auditLog: { create: vi.fn().mockResolvedValue({}) },
+      $executeRaw: vi.fn().mockResolvedValue(0),
+    };
+    const service = new InvestmentsService({
+      $transaction: vi.fn((callback) => callback(tx)),
+    } as never);
+
+    const result = await service.createCustomerInvestment({
+      customerId: 'customer-1',
+      productId: 'product-1',
+      amount: 200000,
+      investedAt: '2026-08-18',
+      contractedEmployeeNo: 'MKT0201',
+    }, { id: 'operator-1' });
+
+    expect(customerUpdate).toHaveBeenCalledWith({
+      where: { id: 'customer-1' },
+      data: expect.objectContaining({
+        status: 'ACTIVE_MEMBER',
+        customerNo: 'C202608000001',
+        memberActivatedAt: new Date('2026-08-18'),
+        contractedBy: 'contracted-user-1',
+        contractedEmployeeNo: 'MKT0201',
+        contractedDepartmentId: 'dept-market-1',
+        contractedAt: new Date('2026-08-18'),
+      }),
+    });
+    expect(result).toMatchObject({
+      id: 'investment-1',
+      customerLogin: {
+        customerNo: 'C202608000001',
+        initialPassword: '009999',
+      },
     });
   });
 

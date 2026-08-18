@@ -3,11 +3,9 @@ import { ProLayout } from '@ant-design/pro-components';
 import { Dropdown } from 'antd';
 import {
   ApartmentOutlined,
-  AuditOutlined,
   ContactsOutlined,
   DollarOutlined,
   FundProjectionScreenOutlined,
-  IdcardOutlined,
   LogoutOutlined,
   SafetyCertificateOutlined,
   SettingOutlined,
@@ -24,7 +22,7 @@ const menusByRole = {
       icon: <ContactsOutlined />,
       children: [
         { path: '/admin/customers', name: '客户管理', icon: <ContactsOutlined /> },
-        { path: '/admin/investments', name: '投资收益', icon: <FundProjectionScreenOutlined /> },
+        { path: '/admin/investments', name: '投资管理', icon: <FundProjectionScreenOutlined /> },
         { path: '/admin/commissions', name: '佣金结算', icon: <DollarOutlined /> },
       ],
     },
@@ -49,12 +47,10 @@ const menusByRole = {
   ],
   HEAD: [
     { path: '/dept/customers', name: '客户管理', icon: <ContactsOutlined /> },
-    { path: '/dept/approvals', name: '入会审批', icon: <AuditOutlined /> },
     { path: '/dept/commissions', name: '部门佣金', icon: <DollarOutlined /> },
   ],
   MEMBER: [
     { path: '/my/customers', name: '客户管理', icon: <ContactsOutlined /> },
-    { path: '/my/memberships', name: '会员申请', icon: <IdcardOutlined /> },
     { path: '/my/commissions', name: '我的佣金', icon: <DollarOutlined /> },
   ],
 };

@@ -16,12 +16,13 @@ import {
   Tabs,
   Tag,
 } from 'antd';
-import { PlusOutlined, CheckCircleOutlined, PayCircleOutlined } from '@ant-design/icons';
+import { PlusOutlined, CheckCircleOutlined, PayCircleOutlined, SettingOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import ProTable from '../../../components/BusinessProTable';
 import {
   investmentsApi,
+  type CreateCustomerInvestmentResult,
   type CustomerInvestment,
   type CustomerProfitRecord,
   type InvestmentCommissionConfig,
@@ -104,15 +105,14 @@ function statusTag(value: string) {
 }
 
 export default function AdminInvestmentsPage() {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const productRef = useRef<ActionType>();
   const investmentRef = useRef<ActionType>();
-  const investmentCommissionRef = useRef<ActionType>();
   const yieldRef = useRef<ActionType>();
-  const profitRef = useRef<ActionType>();
   const configRef = useRef<ActionType>();
   const investmentCommissionConfigRef = useRef<ActionType>();
   const [drawer, setDrawer] = useState<'product' | 'investment' | 'yield' | 'config' | 'investmentCommissionConfig' | null>(null);
+  const [ruleDrawerOpen, setRuleDrawerOpen] = useState(false);
   const [detailInvestment, setDetailInvestment] = useState<CustomerInvestment | null>(null);
   const [form] = Form.useForm();
   const productOptionsQuery = useQuery({
@@ -120,8 +120,8 @@ export default function AdminInvestmentsPage() {
     queryFn: () => investmentsApi.products(),
   });
   const customerOptionsQuery = useQuery({
-    queryKey: ['active-member-customer-options'],
-    queryFn: () => customersApi.getAll({ page: '1', pageSize: '100', status: 'ACTIVE_MEMBER' } as any),
+    queryKey: ['investable-customer-options'],
+    queryFn: () => customersApi.getAll({ page: '1', pageSize: '100' } as any),
   });
   const detailCommissionQuery = useQuery({
     queryKey: ['investment-commission-detail', detailInvestment?.id],
@@ -154,9 +154,7 @@ export default function AdminInvestmentsPage() {
   const reloadAll = () => {
     productRef.current?.reload();
     investmentRef.current?.reload();
-    investmentCommissionRef.current?.reload();
     yieldRef.current?.reload();
-    profitRef.current?.reload();
     configRef.current?.reload();
     investmentCommissionConfigRef.current?.reload();
   };
@@ -202,10 +200,25 @@ export default function AdminInvestmentsPage() {
         effectiveFrom: values.effectiveFrom.format('YYYY-MM-DD'),
       });
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      const customerLogin = drawer === 'investment'
+        ? (result as CreateCustomerInvestmentResult).customerLogin
+        : undefined;
       message.success('保存成功');
       closeDrawer();
       reloadAll();
+      if (customerLogin?.initialPassword) {
+        modal.success({
+          title: '客户已成为正式会员',
+          content: (
+            <Space direction="vertical" size={4}>
+              <div>客户编号：{customerLogin.customerNo}</div>
+              <div>初始密码：{customerLogin.initialPassword}</div>
+              <div>请将编号和密码提供给客户，客户可用于小程序登录。</div>
+            </Space>
+          ),
+        });
+      }
     },
     onError: (e: any) => message.error(e?.response?.data?.message ?? '保存失败'),
   });
@@ -474,11 +487,16 @@ export default function AdminInvestmentsPage() {
   return (
     <>
       <Card style={{ marginBottom: 16 }}>
-        <Space size={32} wrap>
-          <Statistic title="收益录入方式" value="产品总收益" />
-          <Statistic title="收益分配方式" value="全局统一比例" />
-          <Statistic title="本金佣金方式" value="按投资本金比例" />
-          <Statistic title="结算方式" value="手动结算" />
+        <Space size={32} wrap align="center" style={{ width: '100%', justifyContent: 'space-between' }}>
+          <Space size={32} wrap>
+            <Statistic title="主流程" value="产品 / 投资 / 收益" />
+            <Statistic title="收益分配" value="按生效比例快照" />
+            <Statistic title="本金佣金" value="按投资本金比例" />
+            <Statistic title="结算方式" value="手动结算" />
+          </Space>
+          <Button icon={<SettingOutlined />} onClick={() => setRuleDrawerOpen(true)}>
+            规则配置
+          </Button>
         </Space>
       </Card>
 
@@ -522,27 +540,8 @@ export default function AdminInvestmentsPage() {
             ),
           },
           {
-            key: 'investmentCommissions',
-            label: '本金佣金',
-            children: (
-              <ProTable<InvestmentCommissionRecord>
-                actionRef={investmentCommissionRef}
-                rowKey="id"
-                columns={investmentCommissionColumns}
-                request={async (params) => {
-                  const data = await investmentsApi.investmentCommissions({
-                    receiverType: params.receiverType,
-                    status: params.status,
-                  });
-                  return { data, success: true, total: data.length };
-                }}
-                search={{ labelWidth: 'auto' }}
-              />
-            ),
-          },
-          {
             key: 'yields',
-            label: '产品收益',
+            label: '收益周期',
             children: (
               <ProTable<ProductYieldPeriod>
                 actionRef={yieldRef}
@@ -560,92 +559,46 @@ export default function AdminInvestmentsPage() {
               />
             ),
           },
-          {
-            key: 'profits',
-            label: '客户收益',
-            children: (
-              <ProTable<CustomerProfitRecord>
-                actionRef={profitRef}
-                rowKey="id"
-                columns={profitColumns}
-                expandable={{
-                  expandedRowRender: (record) => (
-                    <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                      <Descriptions size="small" column={4} bordered>
-                        <Descriptions.Item label="产品总收益">{money(record.yieldPeriod.totalProfit)}</Descriptions.Item>
-                        <Descriptions.Item label="投资占比">
-                          {(Number(record.investmentShareRatio) * 100).toFixed(4)}%
-                        </Descriptions.Item>
-                        <Descriptions.Item label="客户毛收益">{money(record.profitAmount)}</Descriptions.Item>
-                        <Descriptions.Item label="客户实际到账">{money(record.customerAmount)}</Descriptions.Item>
-                        <Descriptions.Item label="比例配置">
-                          {record.ratioSnapshot.configId}
-                        </Descriptions.Item>
-                        <Descriptions.Item label="生效时间">{date(record.ratioSnapshot.effectiveFrom)}</Descriptions.Item>
-                        <Descriptions.Item label="周期">
-                          {date(record.yieldPeriod.periodStart)} 至 {date(record.yieldPeriod.periodEnd)}
-                        </Descriptions.Item>
-                        <Descriptions.Item label="客户编号">{record.customer.customerNo ?? '-'}</Descriptions.Item>
-                      </Descriptions>
-                      <ProTable<ProfitShareRecord>
-                        rowKey="id"
-                        search={false}
-                        pagination={false}
-                        options={false}
-                        columns={shareColumns}
-                        dataSource={record.shareRecords ?? []}
-                      />
-                    </Space>
-                  ),
-                }}
-                request={async (params) => {
-                  const data = await investmentsApi.profits({
-                    customerId: params.customerId,
-                    productId: params.productId,
-                    status: params.status,
-                  });
-                  return { data, success: true, total: data.length };
-                }}
-                search={{ labelWidth: 'auto' }}
-              />
-            ),
-          },
-          {
-            key: 'configs',
-            label: '收益分配比例',
-            children: (
-              <ProTable<ProfitShareConfig>
-                actionRef={configRef}
-                rowKey="id"
-                search={false}
-                columns={configColumns}
-                request={async () => {
-                  const data = await investmentsApi.configs();
-                  return { data, success: true, total: data.length };
-                }}
-                toolbar={{ actions: [<Button key="add" type="primary" icon={<PlusOutlined />} onClick={() => setDrawer('config')}>新增比例</Button>] }}
-              />
-            ),
-          },
-          {
-            key: 'investmentCommissionConfigs',
-            label: '本金佣金比例',
-            children: (
-              <ProTable<InvestmentCommissionConfig>
-                actionRef={investmentCommissionConfigRef}
-                rowKey="id"
-                search={false}
-                columns={investmentCommissionConfigColumns}
-                request={async () => {
-                  const data = await investmentsApi.investmentCommissionConfigs();
-                  return { data, success: true, total: data.length };
-                }}
-                toolbar={{ actions: [<Button key="add" type="primary" icon={<PlusOutlined />} onClick={() => setDrawer('investmentCommissionConfig')}>新增比例</Button>] }}
-              />
-            ),
-          },
         ]}
       />
+
+      <Drawer
+        title="规则配置"
+        open={ruleDrawerOpen}
+        width={980}
+        onClose={() => setRuleDrawerOpen(false)}
+      >
+        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <Card size="small" title="收益分配比例">
+            <ProTable<ProfitShareConfig>
+              actionRef={configRef}
+              rowKey="id"
+              search={false}
+              columns={configColumns}
+              request={async () => {
+                const data = await investmentsApi.configs();
+                return { data, success: true, total: data.length };
+              }}
+              toolbar={{ actions: [<Button key="add" type="primary" icon={<PlusOutlined />} onClick={() => setDrawer('config')}>新增比例</Button>] }}
+              scroll={{ x: 'max-content' }}
+            />
+          </Card>
+          <Card size="small" title="本金佣金比例">
+            <ProTable<InvestmentCommissionConfig>
+              actionRef={investmentCommissionConfigRef}
+              rowKey="id"
+              search={false}
+              columns={investmentCommissionConfigColumns}
+              request={async () => {
+                const data = await investmentsApi.investmentCommissionConfigs();
+                return { data, success: true, total: data.length };
+              }}
+              toolbar={{ actions: [<Button key="add" type="primary" icon={<PlusOutlined />} onClick={() => setDrawer('investmentCommissionConfig')}>新增比例</Button>] }}
+              scroll={{ x: 'max-content' }}
+            />
+          </Card>
+        </Space>
+      </Drawer>
 
       <Drawer
         title={drawerTitle}
@@ -675,11 +628,11 @@ export default function AdminInvestmentsPage() {
           )}
           {drawer === 'investment' && (
             <>
-              <Form.Item name="customerId" label="正式会员客户" rules={[{ required: true }]}>
+              <Form.Item name="customerId" label="投资客户" rules={[{ required: true }]}>
                 <Select
                   showSearch
                   loading={customerOptionsQuery.isFetching}
-                  placeholder="选择已缴费的正式会员"
+                  placeholder="选择客户，首次投资会自动成为正式会员"
                   optionFilterProp="label"
                   options={activeMemberOptions}
                 />

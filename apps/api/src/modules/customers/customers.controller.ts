@@ -23,6 +23,11 @@ export class CustomersController {
     return this.customersService.findOne(id, user);
   }
 
+  @Get(':id/assets')
+  getAssets(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.customersService.getAssets(id, user);
+  }
+
   @Post()
   create(@Body() dto: CreateCustomerDto, @CurrentUser() user: any) {
     return this.customersService.create(dto, user);
@@ -31,6 +36,11 @@ export class CustomersController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateCustomerDto, @CurrentUser() user: any) {
     return this.customersService.update(id, dto, user);
+  }
+
+  @Patch(':id/reset-password')
+  resetPassword(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.customersService.resetPassword(id, user);
   }
 
   @Patch(':id/transfer')
@@ -46,5 +56,10 @@ export class CustomersController {
   @Delete(':id')
   disable(@Param('id') id: string, @CurrentUser() user: any) {
     return this.customersService.disable(id, user);
+  }
+
+  @Patch(':id/restore')
+  restore(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.customersService.restore(id, user);
   }
 }
