@@ -15,10 +15,12 @@ export default function ApprovalsPage() {
   const authorized = useRequireLogin();
   const [list, setList] = useState<MembershipRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const canReviewApprovals = user?.canWriteCustomer === true && (user?.role === 'HEAD' || user?.role === 'ADMIN');
 
   const load = async () => {
-    if (!authorized || user?.role === 'MEMBER') {
+    if (!authorized || !canReviewApprovals) {
       setLoading(false);
+      setList([]);
       return;
     }
     setLoading(true);
@@ -32,17 +34,17 @@ export default function ApprovalsPage() {
     }
   };
 
-  useEffect(() => { load(); }, [authorized, user?.role]);
+  useEffect(() => { load(); }, [authorized, canReviewApprovals]);
 
   if (!authorized) return <View className='loading'>跳转登录中...</View>;
 
-  if (user?.role === 'MEMBER') {
+  if (!canReviewApprovals) {
     return (
       <View className='page'>
         <View className='status-panel'>
           <View className='status-panel__mark'>!</View>
           <Text className='status-panel__title'>暂无查看权限</Text>
-          <Text className='status-panel__desc'>待办审批仅对部门负责人和系统管理员开放</Text>
+          <Text className='status-panel__desc'>待办审批仅对可办理业务的负责人开放</Text>
         </View>
       </View>
     );

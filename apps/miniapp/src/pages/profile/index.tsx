@@ -248,9 +248,15 @@ export default function ProfilePage() {
     });
   };
 
+  const canOperateBusiness = user?.canWriteCustomer === true;
   const navItems = [
-    { title: '分成明细', desc: '查看收入、状态和结算日期', url: '/pages/commissions/list', visible: true },
-    { title: '审批待办', desc: '处理入会与退款申请', url: '/pages/approvals/index', visible: user?.role === 'HEAD' || user?.role === 'ADMIN' },
+    { title: '分成明细', desc: '查看收入、状态和结算日期', url: '/pages/commissions/list', visible: canOperateBusiness },
+    {
+      title: '审批待办',
+      desc: '处理入会与退款申请',
+      url: '/pages/approvals/index',
+      visible: canOperateBusiness && (user?.role === 'HEAD' || user?.role === 'ADMIN'),
+    },
   ].filter((item) => item.visible);
 
   if (!authorized) return <View className='loading'>跳转登录中...</View>;
@@ -294,22 +300,26 @@ export default function ProfilePage() {
         </>
       )}
 
-      <View className='section-title'>业务工具</View>
-      <View className='entity-list'>
-        {navItems.map((item) => (
-          <View
-            key={item.url}
-            className='entity-row'
-            onClick={() => Taro.navigateTo({ url: item.url })}
-          >
-            <View className='entity-row__body'>
-              <Text className='entity-row__title'>{item.title}</Text>
-              <Text className='profile-nav__desc'>{item.desc}</Text>
-            </View>
-            <Text className='entity-row__arrow'>›</Text>
+      {navItems.length > 0 && (
+        <>
+          <View className='section-title'>业务工具</View>
+          <View className='entity-list'>
+            {navItems.map((item) => (
+              <View
+                key={item.url}
+                className='entity-row'
+                onClick={() => Taro.navigateTo({ url: item.url })}
+              >
+                <View className='entity-row__body'>
+                  <Text className='entity-row__title'>{item.title}</Text>
+                  <Text className='profile-nav__desc'>{item.desc}</Text>
+                </View>
+                <Text className='entity-row__arrow'>›</Text>
+              </View>
+            ))}
           </View>
-        ))}
-      </View>
+        </>
+      )}
 
       <View className='logout-action' onClick={handleLogout}>退出登录</View>
 

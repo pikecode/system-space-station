@@ -27,9 +27,15 @@ export default function CommissionsListPage() {
   const authorized = useRequireLogin();
   const [list, setList] = useState<CommissionRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const canViewCommissions = user?.canWriteCustomer === true;
 
   useEffect(() => {
     if (!authorized) return;
+    if (!canViewCommissions) {
+      setLoading(false);
+      setList([]);
+      return;
+    }
     setLoading(true);
     const fetch = user?.role === 'HEAD'
       ? commissionsApi.getDepartment()
@@ -38,9 +44,21 @@ export default function CommissionsListPage() {
       .then((page) => setList(page.data))
       .catch((e: any) => Taro.showToast({ title: e.message || '加载失败', icon: 'none' }))
       .finally(() => setLoading(false));
-  }, [authorized, user?.role]);
+  }, [authorized, canViewCommissions, user?.role]);
 
   if (!authorized) return <View className='loading'>跳转登录中...</View>;
+
+  if (!canViewCommissions) {
+    return (
+      <View className='page'>
+        <View className='status-panel'>
+          <View className='status-panel__mark'>!</View>
+          <Text className='status-panel__title'>暂无查看权限</Text>
+          <Text className='status-panel__desc'>当前账号仅可查看客户信息</Text>
+        </View>
+      </View>
+    );
+  }
 
   const totalPending = list
     .filter((record) => record.status === 'PENDING' && record.entryType === 'EARNING')
