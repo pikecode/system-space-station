@@ -248,6 +248,58 @@ describe('AuthService', () => {
     }));
   });
 
+  it('小程序统一登录可自动识别客户编号', async () => {
+    const { service, findUniqueCustomer, updateCustomer } = await createFixture();
+    findUniqueCustomer.mockResolvedValue({
+      id: 'customer-1',
+      name: '客户甲',
+      phone: '13800000000',
+      customerNo: 'C202608000001',
+      status: 'ACTIVE_MEMBER',
+      customerPasswordHash: await bcrypt.hash('000000', 4),
+    });
+
+    const response = await service.unifiedMiniAppLogin({
+      accountNo: ' c202608000001 ',
+      password: '000000',
+    });
+
+    expect(response.accountType).toBe('CUSTOMER');
+    if (response.accountType !== 'CUSTOMER') throw new Error('expected customer login response');
+    expect(response.customer.customerNo).toBe('C202608000001');
+    expect(updateCustomer).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'customer-1' },
+      data: expect.objectContaining({ customerLastLoginAt: expect.any(Date) }),
+    }));
+  });
+
+  it('小程序统一登录找不到客户编号时自动按员工编号登录', async () => {
+    const { service, findUnique, findUniqueCustomer } = await createFixture();
+    findUniqueCustomer.mockResolvedValue(null);
+    findUnique.mockResolvedValue({
+      id: 'user-1',
+      name: '营销人员',
+      employeeNo: 'YX0001',
+      role: 'MEMBER',
+      departmentId: 'dept-1',
+      authVersion: 1,
+      status: 'ACTIVE',
+      avatar: null,
+      shareCode: 'ABC123',
+      passwordHash: await bcrypt.hash('User123456', 4),
+      department: { id: 'dept-1', name: '营销一部', type: 'MARKET', status: 'ACTIVE', parentId: null },
+    });
+
+    const response = await service.unifiedMiniAppLogin({
+      accountNo: 'yx0001',
+      password: 'User123456',
+    });
+
+    expect(response.accountType).toBe('EMPLOYEE');
+    if (response.accountType !== 'EMPLOYEE') throw new Error('expected employee login response');
+    expect(response.user.employeeNo).toBe('YX0001');
+  });
+
   it('意向客户不能使用客户编号登录', async () => {
     const { service, findUniqueCustomer } = await createFixture();
     findUniqueCustomer.mockResolvedValue({

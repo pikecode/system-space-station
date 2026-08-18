@@ -43,3 +43,14 @@ export class CustomerLoginDto {
   @MaxLength(128)
   password: string;
 }
+
+export class UnifiedMiniAppLoginDto {
+  @IsString()
+  @MaxLength(32)
+  accountNo: string;
+
+  @IsString()
+  @MinLength(6)
+  @MaxLength(128)
+  password: string;
+}

@@ -1,6 +1,6 @@
 import { Controller, Post, Body, Get, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { CustomerLoginDto, LoginDto, MiniAppLoginDto } from './dto/login.dto';
+import { CustomerLoginDto, LoginDto, MiniAppLoginDto, UnifiedMiniAppLoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 
@@ -21,6 +21,11 @@ export class AuthController {
   @Post('customer-login')
   customerLogin(@Body() dto: CustomerLoginDto) {
     return this.authService.customerLogin(dto);
+  }
+
+  @Post('miniapp-unified-login')
+  unifiedMiniAppLogin(@Body() dto: UnifiedMiniAppLoginDto) {
+    return this.authService.unifiedMiniAppLogin(dto);
   }
 
   @Post('wechat-login')

@@ -15,6 +15,11 @@ export interface CustomerLoginDto {
   password: string;
 }
 
+export interface UnifiedMiniAppLoginDto {
+  accountNo: string;
+  password: string;
+}
+
 export interface LoginResponseDto {
   token: string;
   user: {
@@ -50,3 +55,7 @@ export interface CustomerLoginResponseDto {
     status: string;
   };
 }
+
+export type UnifiedMiniAppLoginResponseDto =
+  | (LoginResponseDto & { accountType: 'EMPLOYEE' })
+  | (CustomerLoginResponseDto & { accountType: 'CUSTOMER' });

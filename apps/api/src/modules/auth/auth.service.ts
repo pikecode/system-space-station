@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { canDepartmentLoginMiniApp, canMiniAppUserWriteCustomer } from 'shared';
 import { PrismaService } from '../../prisma/prisma.service';
-import { CustomerLoginDto, LoginDto, MiniAppLoginDto } from './dto/login.dto';
+import { CustomerLoginDto, LoginDto, MiniAppLoginDto, UnifiedMiniAppLoginDto } from './dto/login.dto';
 
 @Injectable()
 export class AuthService {
@@ -151,6 +151,30 @@ export class AuthService {
         status: customer.status,
       },
     };
+  }
+
+  async unifiedMiniAppLogin(dto: UnifiedMiniAppLoginDto) {
+    const accountNo = dto.accountNo.trim().toUpperCase();
+    if (!accountNo) throw new UnauthorizedException('编号或密码错误');
+
+    const customer = await this.prisma.customer.findUnique({
+      where: { customerNo: accountNo },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        customerNo: true,
+        status: true,
+        customerPasswordHash: true,
+      },
+    });
+    if (customer) {
+      const response = await this.customerLogin({ customerNo: accountNo, password: dto.password });
+      return { ...response, accountType: 'CUSTOMER' as const };
+    }
+
+    const response = await this.miniAppLogin({ employeeNo: accountNo, password: dto.password });
+    return { ...response, accountType: 'EMPLOYEE' as const };
   }
 
   async me(userId: string) {

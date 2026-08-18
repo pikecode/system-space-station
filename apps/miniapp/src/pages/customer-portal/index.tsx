@@ -12,7 +12,7 @@ const CUSTOMER_TYPE_LABELS: Record<string, string> = {
 const STATUS_LABELS: Record<string, string> = {
   PROSPECT: '意向会员',
   ACTIVE_MEMBER: '正式会员',
-  ACTIVE: '正常',
+  ACTIVE: '意向会员',
   INACTIVE: '停用',
   PENDING: '待审批',
   APPROVED: '待缴费',
@@ -38,6 +38,13 @@ export default function CustomerPortalPage() {
   const logout = useAuthStore((s) => s.logout);
   const [data, setData] = useState<CustomerPortalMe | null>(null);
   const [loading, setLoading] = useState(true);
+  const investmentTotal = (data?.investments ?? []).reduce((sum, item) => sum + Number(item.amount), 0);
+  const settledProfitTotal = (data?.profitRecords ?? [])
+    .filter((item) => item.status === 'SETTLED')
+    .reduce((sum, item) => sum + Number(item.customerAmount), 0);
+  const pendingProfitTotal = (data?.profitRecords ?? [])
+    .filter((item) => item.status !== 'SETTLED')
+    .reduce((sum, item) => sum + Number(item.customerAmount), 0);
 
   useEffect(() => {
     if (!authorized) return;
@@ -54,21 +61,37 @@ export default function CustomerPortalPage() {
       <View className='identity-band'>
         <View className='avatar avatar--large'>{data?.name?.[0] ?? '?'}</View>
         <View className='identity-band__body'>
-          <Text className='identity-band__eyebrow'>当前会员</Text>
+          <Text className='identity-band__eyebrow'>投资会员</Text>
           <Text className='identity-band__title'>{data?.name ?? '加载中'}</Text>
           <Text className='identity-band__meta'>{data?.customerNo ?? '-'}</Text>
         </View>
+        <Text className='tag tag--approved'>{STATUS_LABELS[data?.status ?? ''] ?? '加载中'}</Text>
       </View>
 
       <ScrollView scrollY className='page-scroll'>
-        <View className='section-title'>企业信息</View>
+        <View className='summary-band'>
+          <View className='metric'>
+            <Text className='metric__label'>投资本金</Text>
+            <Text className='metric__value'>{formatMoney(investmentTotal)}</Text>
+          </View>
+          <View className='metric'>
+            <Text className='metric__label'>已到账收益</Text>
+            <Text className='metric__value'>{formatMoney(settledProfitTotal)}</Text>
+          </View>
+          <View className='metric'>
+            <Text className='metric__label'>待结算收益</Text>
+            <Text className='metric__value metric__value--warning'>{formatMoney(pendingProfitTotal)}</Text>
+          </View>
+        </View>
+
+        <View className='section-title'>账户信息</View>
         <View className='surface'>
           <View className='row'>
             <Text className='row__label'>客户类型</Text>
             <Text className='row__value'>{CUSTOMER_TYPE_LABELS[data?.customerType ?? ''] ?? '-'}</Text>
           </View>
           <View className='row'>
-            <Text className='row__label'>会员状态</Text>
+            <Text className='row__label'>账户状态</Text>
             <Text className='row__value'>{STATUS_LABELS[data?.status ?? ''] ?? '-'}</Text>
           </View>
           <View className='row'>
@@ -80,14 +103,15 @@ export default function CustomerPortalPage() {
             <Text className='row__value'>{formatDate(data?.memberActivatedAt)}</Text>
           </View>
           <View className='row'>
-            <Text className='row__label'>投资金额</Text>
-            <Text className='row__value'>
-              {data?.investmentAmount ? formatMoney(data.investmentAmount) : '-'}
-            </Text>
+            <Text className='row__label'>投资笔数</Text>
+            <Text className='row__value'>{data?.investments?.length ?? 0}</Text>
           </View>
         </View>
 
-        <View className='section-title'>投资产品</View>
+        <View className='section-title'>
+          <Text>我的投资</Text>
+          <Text className='section-title__hint'>本金明细</Text>
+        </View>
         {loading ? (
           <View className='status-panel'>
             <Text className='status-panel__desc'>正在同步投资信息...</Text>
@@ -95,7 +119,7 @@ export default function CustomerPortalPage() {
         ) : !data?.investments?.length ? (
           <View className='status-panel'>
             <Text className='status-panel__title'>暂无投资记录</Text>
-            <Text className='status-panel__desc'>完成产品投资后会展示投资明细</Text>
+            <Text className='status-panel__desc'>投资成功后会自动成为正式会员，并展示投资明细</Text>
           </View>
         ) : (
           <View className='entity-list'>
@@ -116,7 +140,10 @@ export default function CustomerPortalPage() {
           </View>
         )}
 
-        <View className='section-title'>到账收益</View>
+        <View className='section-title'>
+          <Text>收益记录</Text>
+          <Text className='section-title__hint'>客户实际到账</Text>
+        </View>
         {loading ? (
           <View className='status-panel'>
             <Text className='status-panel__desc'>正在同步收益信息...</Text>
@@ -124,7 +151,7 @@ export default function CustomerPortalPage() {
         ) : !data?.profitRecords?.length ? (
           <View className='status-panel'>
             <Text className='status-panel__title'>暂无收益记录</Text>
-            <Text className='status-panel__desc'>后台确认产品收益后会展示客户实际到账收益</Text>
+            <Text className='status-panel__desc'>后台确认产品收益后会展示客户实际收益</Text>
           </View>
         ) : (
           <View className='entity-list'>
@@ -140,35 +167,6 @@ export default function CustomerPortalPage() {
                       {formatDate(item.yieldPeriod.periodStart)} 至 {formatDate(item.yieldPeriod.periodEnd)}
                     </Text>
                     <Text className='entity-row__value'>{formatMoney(item.customerAmount)}</Text>
-                  </View>
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-
-        <View className='section-title'>入会记录</View>
-        {loading ? (
-          <View className='status-panel'>
-            <Text className='status-panel__desc'>正在同步会员信息...</Text>
-          </View>
-        ) : !data?.memberships?.length ? (
-          <View className='status-panel'>
-            <Text className='status-panel__title'>暂无入会记录</Text>
-            <Text className='status-panel__desc'>完成缴费后会展示正式会员信息</Text>
-          </View>
-        ) : (
-          <View className='entity-list'>
-            {data.memberships.map((item) => (
-              <View key={item.id} className='entity-row'>
-                <View className='entity-row__body'>
-                  <View className='entity-row__top'>
-                    <Text className='entity-row__title'>{item.memberLevel?.name ?? item.memberNo}</Text>
-                    <Text className='tag tag--approved'>{STATUS_LABELS[item.status] ?? item.status}</Text>
-                  </View>
-                  <View className='entity-row__bottom'>
-                    <Text className='entity-row__meta'>{formatDate(item.startDate)} 至 {formatDate(item.endDate)}</Text>
-                    <Text className='entity-row__value'>{formatMoney(item.fee)}</Text>
                   </View>
                 </View>
               </View>
