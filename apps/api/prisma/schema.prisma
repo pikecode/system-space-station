@@ -164,6 +164,22 @@ enum ProfitShareReceiverType {
   COMPANY
 }
 
+enum InvestmentCommissionConfigStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum InvestmentCommissionStatus {
+  GENERATED
+  SETTLED
+}
+
+enum InvestmentCommissionReceiverType {
+  CONTRACTED_DEPARTMENT
+  CONTRACTED_USER
+  COMPANY
+}
+
 model Department {
   id                String             @id @default(cuid())
   name              String
@@ -458,6 +474,7 @@ model CustomerInvestment {
   createdAt              DateTime                 @default(now())
   updatedAt              DateTime                 @updatedAt
   profitRecords          CustomerProfitRecord[]
+  commissionRecords      InvestmentCommissionRecord[]
 
   @@index([customerId])
   @@index([productId, status])
@@ -540,6 +557,41 @@ model ProfitShareRecord {
   settledAt      DateTime?
 
   @@index([profitRecordId])
+  @@index([receiverType, receiverNo])
+  @@index([status])
+}
+
+model InvestmentCommissionConfig {
+  id                         String                           @id @default(cuid())
+  contractedDepartmentRatio  Decimal                          @db.Decimal(5, 2)
+  contractedUserRatio        Decimal                          @db.Decimal(5, 2)
+  companyRatio               Decimal                          @db.Decimal(5, 2)
+  effectiveFrom              DateTime
+  status                     InvestmentCommissionConfigStatus @default(ACTIVE)
+  remark                     String?
+  createdBy                  String
+  createdAt                  DateTime                         @default(now())
+
+  @@index([status, effectiveFrom])
+}
+
+model InvestmentCommissionRecord {
+  id             String                           @id @default(cuid())
+  investmentId   String
+  investment     CustomerInvestment               @relation(fields: [investmentId], references: [id])
+  receiverType   InvestmentCommissionReceiverType
+  receiverId     String?
+  receiverNo     String?
+  baseAmount     Decimal                          @db.Decimal(12, 2)
+  ratio          Decimal                          @db.Decimal(5, 2)
+  amount         Decimal                          @db.Decimal(12, 2)
+  configSnapshot Json
+  status         InvestmentCommissionStatus       @default(GENERATED)
+  createdAt      DateTime                         @default(now())
+  settledAt      DateTime?
+
+  @@unique([investmentId, receiverType])
+  @@index([investmentId])
   @@index([receiverType, receiverNo])
   @@index([status])
 }

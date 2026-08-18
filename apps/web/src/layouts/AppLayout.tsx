@@ -18,23 +18,44 @@ import { useIsMobile } from '../hooks/useIsMobile';
 
 const menusByRole = {
   ADMIN: [
-    { path: '/admin/departments', name: '部门管理', icon: <ApartmentOutlined /> },
-    { path: '/admin/users', name: '员工管理', icon: <TeamOutlined /> },
-    { path: '/admin/admins', name: '系统管理员', icon: <SafetyCertificateOutlined /> },
-    { path: '/admin/customers', name: '客户总览', icon: <ContactsOutlined /> },
-    { path: '/admin/commissions', name: '分成总览', icon: <DollarOutlined /> },
-    { path: '/admin/investments', name: '投资收益', icon: <FundProjectionScreenOutlined /> },
-    { path: '/admin/config', name: '系统配置', icon: <SettingOutlined /> },
+    {
+      path: '/admin/business',
+      name: '业务管理',
+      icon: <ContactsOutlined />,
+      children: [
+        { path: '/admin/customers', name: '客户管理', icon: <ContactsOutlined /> },
+        { path: '/admin/investments', name: '投资收益', icon: <FundProjectionScreenOutlined /> },
+        { path: '/admin/commissions', name: '佣金结算', icon: <DollarOutlined /> },
+      ],
+    },
+    {
+      path: '/admin/organization',
+      name: '组织管理',
+      icon: <ApartmentOutlined />,
+      children: [
+        { path: '/admin/departments', name: '组织架构', icon: <ApartmentOutlined /> },
+        { path: '/admin/users', name: '人员管理', icon: <TeamOutlined /> },
+      ],
+    },
+    {
+      path: '/admin/system',
+      name: '系统管理',
+      icon: <SettingOutlined />,
+      children: [
+        { path: '/admin/admins', name: '管理员账号', icon: <SafetyCertificateOutlined /> },
+        { path: '/admin/config', name: '基础配置', icon: <SettingOutlined /> },
+      ],
+    },
   ],
   HEAD: [
-    { path: '/dept/customers', name: '部门客户', icon: <ContactsOutlined /> },
-    { path: '/dept/approvals', name: '待审批', icon: <AuditOutlined /> },
-    { path: '/dept/commissions', name: '部门分成', icon: <DollarOutlined /> },
+    { path: '/dept/customers', name: '客户管理', icon: <ContactsOutlined /> },
+    { path: '/dept/approvals', name: '入会审批', icon: <AuditOutlined /> },
+    { path: '/dept/commissions', name: '部门佣金', icon: <DollarOutlined /> },
   ],
   MEMBER: [
-    { path: '/my/customers', name: '我的客户', icon: <ContactsOutlined /> },
+    { path: '/my/customers', name: '客户管理', icon: <ContactsOutlined /> },
     { path: '/my/memberships', name: '会员申请', icon: <IdcardOutlined /> },
-    { path: '/my/commissions', name: '我的分成', icon: <DollarOutlined /> },
+    { path: '/my/commissions', name: '我的佣金', icon: <DollarOutlined /> },
   ],
 };
 

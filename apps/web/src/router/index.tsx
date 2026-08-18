@@ -71,7 +71,7 @@ function RequireHead({ children }: { children: React.ReactNode }) {
 
 function RoleHomeRedirect() {
   const role = useAuthStore((s) => s.user?.role);
-  if (role === 'ADMIN') return <Navigate to="/admin/departments" replace />;
+  if (role === 'ADMIN') return <Navigate to="/admin/customers" replace />;
   if (role === 'HEAD') return <Navigate to="/dept/customers" replace />;
   return <Navigate to="/my/customers" replace />;
 }

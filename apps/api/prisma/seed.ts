@@ -1149,6 +1149,28 @@ async function main() {
     },
   });
 
+  await prisma.investmentCommissionConfig.upsert({
+    where: { id: 'investment-commission-config-default' },
+    update: {
+      contractedDepartmentRatio: 1,
+      contractedUserRatio: 2,
+      companyRatio: 0.5,
+      effectiveFrom: new Date('2026-08-01'),
+      status: 'ACTIVE',
+      remark: '投资本金佣金默认比例：签约部门1%，签约人2%，公司0.5%',
+    },
+    create: {
+      id: 'investment-commission-config-default',
+      contractedDepartmentRatio: 1,
+      contractedUserRatio: 2,
+      companyRatio: 0.5,
+      effectiveFrom: new Date('2026-08-01'),
+      status: 'ACTIVE',
+      remark: '投资本金佣金默认比例：签约部门1%，签约人2%，公司0.5%',
+      createdBy: admin.id,
+    },
+  });
+
   await prisma.investmentProduct.upsert({
     where: { id: 'seed-product-stable-growth-1' },
     update: {
@@ -1246,6 +1268,64 @@ async function main() {
       remark: '银卡企业测试投资',
     },
   });
+
+  const investmentCommissionSnapshot = {
+    configId: 'investment-commission-config-default',
+    contractedDepartmentRatio: '1',
+    contractedUserRatio: '2',
+    companyRatio: '0.5',
+    effectiveFrom: new Date('2026-08-01').toISOString(),
+  };
+
+  const upsertInvestmentCommissionRecords = async (investment: {
+    id: string;
+    amount: Prisma.Decimal;
+    contractedBy: string | null;
+    contractedEmployeeNo: string | null;
+    contractedDepartmentId: string | null;
+  }) => {
+    await prisma.investmentCommissionRecord.deleteMany({ where: { investmentId: investment.id } });
+    const departmentAmount = investment.amount.mul(1).div(100).toDecimalPlaces(2);
+    const contractedAmount = investment.amount.mul(2).div(100).toDecimalPlaces(2);
+    const companyAmount = investment.amount.mul(0.5).div(100).toDecimalPlaces(2);
+    await prisma.investmentCommissionRecord.createMany({
+      data: [
+        {
+          investmentId: investment.id,
+          receiverType: 'CONTRACTED_DEPARTMENT',
+          receiverId: investment.contractedDepartmentId,
+          receiverNo: investment.contractedDepartmentId,
+          baseAmount: investment.amount,
+          ratio: 1,
+          amount: departmentAmount,
+          configSnapshot: investmentCommissionSnapshot,
+        },
+        {
+          investmentId: investment.id,
+          receiverType: 'CONTRACTED_USER',
+          receiverId: investment.contractedBy,
+          receiverNo: investment.contractedEmployeeNo,
+          baseAmount: investment.amount,
+          ratio: 2,
+          amount: contractedAmount,
+          configSnapshot: investmentCommissionSnapshot,
+        },
+        {
+          investmentId: investment.id,
+          receiverType: 'COMPANY',
+          receiverId: 'COMPANY',
+          receiverNo: 'COMPANY',
+          baseAmount: investment.amount,
+          ratio: 0.5,
+          amount: companyAmount,
+          configSnapshot: investmentCommissionSnapshot,
+        },
+      ],
+    });
+  };
+
+  await upsertInvestmentCommissionRecords(goldInvestment);
+  await upsertInvestmentCommissionRecords(silverInvestment);
 
   await prisma.productYieldPeriod.upsert({
     where: {
@@ -1447,6 +1527,8 @@ async function main() {
   console.log('  C202608880002 / Corp123456  测试企业-正式会员-银卡，投资 I202608880002，本期到账收益 22500');
   console.log('投资收益测试数据：');
   console.log('  产品 P202608001 稳健增长一号，2026-09 产品总收益 100000');
+  console.log('  投资本金佣金比例：签约部门1%，签约人2%，公司0.5%');
+  console.log('  已为 I202608880001 / I202608880002 生成本金佣金记录');
   console.log('  收益比例：客户60%，部门15%，签约人10%，录入人10%，公司5%；当前为手动结算');
   console.log('企业入会状态测试数据：');
   console.log('  测试企业-意向会员-未提交：PROSPECT，无入会记录，不可客户登录');

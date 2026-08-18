@@ -79,15 +79,59 @@ export interface ProfitShareConfig {
   remark?: string | null;
 }
 
+export interface InvestmentCommissionConfig {
+  id: string;
+  contractedDepartmentRatio: string;
+  contractedUserRatio: string;
+  companyRatio: string;
+  effectiveFrom: string;
+  status: string;
+  remark?: string | null;
+}
+
+export interface InvestmentCommissionRecord {
+  id: string;
+  receiverType: string;
+  receiverId?: string | null;
+  receiverNo?: string | null;
+  baseAmount: string;
+  ratio: string;
+  amount: string;
+  configSnapshot: {
+    configId: string;
+    contractedDepartmentRatio: string;
+    contractedUserRatio: string;
+    companyRatio: string;
+    effectiveFrom: string;
+  };
+  status: string;
+  createdAt: string;
+  settledAt?: string | null;
+  investment: CustomerInvestment;
+}
+
 export const investmentsApi = {
-  products: () => request.get<InvestmentProduct[], InvestmentProduct[]>('/investment-products'),
+  products: (params?: Record<string, unknown>) =>
+    request.get<InvestmentProduct[], InvestmentProduct[]>('/investment-products', { params }),
   createProduct: (data: unknown) => request.post('/investment-products', data),
-  customerInvestments: () => request.get<CustomerInvestment[], CustomerInvestment[]>('/customer-investments'),
+  customerInvestments: (params?: Record<string, unknown>) =>
+    request.get<CustomerInvestment[], CustomerInvestment[]>('/customer-investments', { params }),
   createCustomerInvestment: (data: unknown) => request.post('/customer-investments', data),
-  yieldPeriods: () => request.get<ProductYieldPeriod[], ProductYieldPeriod[]>('/product-yields'),
+  investmentCommissions: (params?: Record<string, unknown>) =>
+    request.get<InvestmentCommissionRecord[], InvestmentCommissionRecord[]>('/investment-commissions', { params }),
+  settleInvestmentCommission: (id: string) => request.post(`/investment-commissions/${id}/settle`),
+  investmentCommissionConfigs: () =>
+    request.get<InvestmentCommissionConfig[], InvestmentCommissionConfig[]>('/investment-commission-configs'),
+  currentInvestmentCommissionConfig: () =>
+    request.get<InvestmentCommissionConfig, InvestmentCommissionConfig>('/investment-commission-configs/current'),
+  createInvestmentCommissionConfig: (data: unknown) => request.post('/investment-commission-configs', data),
+  yieldPeriods: (params?: Record<string, unknown>) =>
+    request.get<ProductYieldPeriod[], ProductYieldPeriod[]>('/product-yields', { params }),
   createYieldPeriod: (data: unknown) => request.post('/product-yields', data),
   confirmYieldPeriod: (id: string) => request.post(`/product-yields/${id}/confirm`),
-  profits: () => request.get<CustomerProfitRecord[], CustomerProfitRecord[]>('/customer-profits'),
+  settleYieldPeriod: (id: string) => request.post(`/product-yields/${id}/settle`),
+  profits: (params?: Record<string, unknown>) =>
+    request.get<CustomerProfitRecord[], CustomerProfitRecord[]>('/customer-profits', { params }),
   settleProfit: (id: string) => request.post(`/customer-profits/${id}/settle`),
   configs: () => request.get<ProfitShareConfig[], ProfitShareConfig[]>('/profit-share-configs'),
   currentConfig: () => request.get<ProfitShareConfig, ProfitShareConfig>('/profit-share-configs/current'),

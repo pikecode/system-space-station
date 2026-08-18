@@ -8,6 +8,7 @@ import { CreateInvestmentProductDto } from './dto/create-investment-product.dto'
 import { CreateCustomerInvestmentDto } from './dto/create-customer-investment.dto';
 import { CreateProductYieldDto } from './dto/create-product-yield.dto';
 import { CreateProfitShareConfigDto } from './dto/create-profit-share-config.dto';
+import { CreateInvestmentCommissionConfigDto } from './dto/create-investment-commission-config.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
@@ -35,6 +36,31 @@ export class InvestmentsController {
     return this.service.createCustomerInvestment(dto, user);
   }
 
+  @Get('investment-commissions')
+  findInvestmentCommissionRecords(@Query() query: { investmentId?: string; receiverType?: string; status?: string }) {
+    return this.service.findInvestmentCommissionRecords(query);
+  }
+
+  @Post('investment-commissions/:id/settle')
+  settleInvestmentCommissionRecord(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.service.settleInvestmentCommissionRecord(id, user.id);
+  }
+
+  @Get('investment-commission-configs')
+  getInvestmentCommissionConfigs() {
+    return this.service.getInvestmentCommissionConfigs();
+  }
+
+  @Get('investment-commission-configs/current')
+  getCurrentInvestmentCommissionConfig() {
+    return this.service.getCurrentInvestmentCommissionConfig();
+  }
+
+  @Post('investment-commission-configs')
+  createInvestmentCommissionConfig(@Body() dto: CreateInvestmentCommissionConfigDto, @CurrentUser() user: any) {
+    return this.service.createInvestmentCommissionConfig(dto, user.id);
+  }
+
   @Get('product-yields')
   findYieldPeriods(@Query() query: { productId?: string; status?: string }) {
     return this.service.findYieldPeriods(query);
@@ -50,8 +76,13 @@ export class InvestmentsController {
     return this.service.confirmYieldPeriod(id, user.id);
   }
 
+  @Post('product-yields/:id/settle')
+  settleYieldPeriod(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.service.settleYieldPeriod(id, user.id);
+  }
+
   @Get('customer-profits')
-  findProfitRecords(@Query() query: { customerId?: string; productId?: string; status?: string }) {
+  findProfitRecords(@Query() query: { customerId?: string; productId?: string; investmentId?: string; status?: string }) {
     return this.service.findProfitRecords(query);
   }
 

@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import {
   CustomerInvestment,
+  InvestmentCommissionConfig,
+  InvestmentCommissionReceiverType,
   Prisma,
   ProfitShareConfig,
   ProfitShareReceiverType,
@@ -15,6 +17,7 @@ import { CreateInvestmentProductDto } from './dto/create-investment-product.dto'
 import { CreateCustomerInvestmentDto } from './dto/create-customer-investment.dto';
 import { CreateProductYieldDto } from './dto/create-product-yield.dto';
 import { CreateProfitShareConfigDto } from './dto/create-profit-share-config.dto';
+import { CreateInvestmentCommissionConfigDto } from './dto/create-investment-commission-config.dto';
 
 const INVESTMENT_NO_LOCK_KEY = 2_608_182;
 
@@ -89,11 +92,11 @@ export class InvestmentsService {
         })
         : null;
       if (dto.contractedEmployeeNo && !contracted) throw new NotFoundException('签约人不存在');
-      if (contracted?.status !== 'ACTIVE') throw new BadRequestException('签约人已停用');
+      if (contracted && contracted.status !== 'ACTIVE') throw new BadRequestException('签约人已停用');
       if (contracted && !contracted.departmentId) throw new BadRequestException('签约人未分配部门');
 
       const investmentNo = await this.generateInvestmentNo(tx);
-      return tx.customerInvestment.create({
+      const investment = await tx.customerInvestment.create({
         data: {
           investmentNo,
           customerId: customer.id,
@@ -109,6 +112,81 @@ export class InvestmentsService {
           remark: dto.remark,
         },
       });
+      await this.createInvestmentCommissionRecords(tx, investment);
+      return investment;
+    });
+  }
+
+  findInvestmentCommissionRecords(query: { investmentId?: string; receiverType?: string; status?: string }) {
+    const where: Prisma.InvestmentCommissionRecordWhereInput = {};
+    if (query.investmentId) where.investmentId = query.investmentId;
+    if (query.receiverType) where.receiverType = query.receiverType as any;
+    if (query.status) where.status = query.status as any;
+    return this.prisma.investmentCommissionRecord.findMany({
+      where,
+      include: {
+        investment: {
+          include: {
+            customer: { select: { id: true, name: true, customerNo: true } },
+            product: { select: { id: true, productNo: true, name: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async settleInvestmentCommissionRecord(id: string, operatorId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const record = await tx.investmentCommissionRecord.findUnique({ where: { id } });
+      if (!record) throw new NotFoundException('投资本金佣金记录不存在');
+      if (record.status !== 'GENERATED') throw new ConflictException('只有已生成状态可以结算');
+      const updated = await tx.investmentCommissionRecord.update({
+        where: { id },
+        data: { status: 'SETTLED', settledAt: new Date() },
+      });
+      await tx.auditLog.create({
+        data: {
+          action: 'INVESTMENT_COMMISSION_SETTLE',
+          entityType: 'InvestmentCommissionRecord',
+          entityId: id,
+          operatorId,
+          after: { status: 'SETTLED' },
+        },
+      });
+      return updated;
+    });
+  }
+
+  getInvestmentCommissionConfigs() {
+    return this.prisma.investmentCommissionConfig.findMany({
+      orderBy: [{ effectiveFrom: 'desc' }, { createdAt: 'desc' }],
+    });
+  }
+
+  getCurrentInvestmentCommissionConfig(tx: Tx = this.prisma) {
+    return tx.investmentCommissionConfig.findFirst({
+      where: { status: 'ACTIVE', effectiveFrom: { lte: new Date() } },
+      orderBy: [{ effectiveFrom: 'desc' }, { createdAt: 'desc' }],
+    }).then((config) => {
+      if (!config) throw new BadRequestException('请先配置投资本金佣金比例');
+      return config;
+    });
+  }
+
+  async createInvestmentCommissionConfig(dto: CreateInvestmentCommissionConfigDto, operatorId: string) {
+    const sum = dto.contractedDepartmentRatio + dto.contractedUserRatio + dto.companyRatio;
+    if (sum <= 0) throw new BadRequestException('投资本金佣金比例之和必须大于0');
+    if (sum > 100) throw new BadRequestException(`投资本金佣金比例之和不能超过100，当前为${sum}`);
+    return this.prisma.investmentCommissionConfig.create({
+      data: {
+        contractedDepartmentRatio: new Prisma.Decimal(dto.contractedDepartmentRatio),
+        contractedUserRatio: new Prisma.Decimal(dto.contractedUserRatio),
+        companyRatio: new Prisma.Decimal(dto.companyRatio),
+        effectiveFrom: new Date(dto.effectiveFrom),
+        remark: dto.remark,
+        createdBy: operatorId,
+      },
     });
   }
 
@@ -217,10 +295,11 @@ export class InvestmentsService {
     });
   }
 
-  findProfitRecords(query: { customerId?: string; productId?: string; status?: string }) {
+  findProfitRecords(query: { customerId?: string; productId?: string; investmentId?: string; status?: string }) {
     const where: Prisma.CustomerProfitRecordWhereInput = {};
     if (query.customerId) where.customerId = query.customerId;
     if (query.productId) where.productId = query.productId;
+    if (query.investmentId) where.investmentId = query.investmentId;
     if (query.status) where.status = query.status as any;
     return this.prisma.customerProfitRecord.findMany({
       where,
@@ -258,6 +337,53 @@ export class InvestmentsService {
         },
       });
       return tx.customerProfitRecord.findUnique({ where: { id }, include: { shareRecords: true } });
+    });
+  }
+
+  async settleYieldPeriod(id: string, operatorId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const yieldPeriod = await tx.productYieldPeriod.findUnique({
+        where: { id },
+        include: { _count: { select: { profitRecords: true } } },
+      });
+      if (!yieldPeriod) throw new NotFoundException('产品收益周期不存在');
+      if (yieldPeriod.status !== 'CONFIRMED') throw new ConflictException('只有已确认状态的收益周期可以批量结算');
+      if (yieldPeriod._count.profitRecords === 0) throw new BadRequestException('该收益周期暂无客户收益记录');
+
+      const generatedCount = await tx.customerProfitRecord.count({
+        where: { yieldPeriodId: id, status: 'GENERATED' },
+      });
+      if (generatedCount === 0) throw new ConflictException('该收益周期没有待结算的客户收益');
+      if (generatedCount !== yieldPeriod._count.profitRecords) {
+        throw new ConflictException('该收益周期存在部分已结算记录，请先核对客户收益明细');
+      }
+
+      const now = new Date();
+      await tx.customerProfitRecord.updateMany({
+        where: { yieldPeriodId: id, status: 'GENERATED' },
+        data: { status: 'SETTLED', settledAt: now },
+      });
+      await tx.profitShareRecord.updateMany({
+        where: { profitRecord: { yieldPeriodId: id }, status: 'GENERATED' },
+        data: { status: 'SETTLED', settledAt: now },
+      });
+      await tx.productYieldPeriod.update({
+        where: { id },
+        data: { status: 'SETTLED' },
+      });
+      await tx.auditLog.create({
+        data: {
+          action: 'PRODUCT_YIELD_SETTLE',
+          entityType: 'ProductYieldPeriod',
+          entityId: id,
+          operatorId,
+          after: { status: 'SETTLED', recordCount: generatedCount },
+        },
+      });
+      return tx.productYieldPeriod.findUnique({
+        where: { id },
+        include: { _count: { select: { profitRecords: true } } },
+      });
     });
   }
 
@@ -313,6 +439,66 @@ export class InvestmentsService {
       companyRatio: config.companyRatio.toString(),
       effectiveFrom: config.effectiveFrom.toISOString(),
     };
+  }
+
+  private toInvestmentCommissionSnapshot(config: InvestmentCommissionConfig) {
+    return {
+      configId: config.id,
+      contractedDepartmentRatio: config.contractedDepartmentRatio.toString(),
+      contractedUserRatio: config.contractedUserRatio.toString(),
+      companyRatio: config.companyRatio.toString(),
+      effectiveFrom: config.effectiveFrom.toISOString(),
+    };
+  }
+
+  private async createInvestmentCommissionRecords(tx: Tx, investment: CustomerInvestment) {
+    const config = await this.getCurrentInvestmentCommissionConfig(tx);
+    const snapshot = this.toInvestmentCommissionSnapshot(config);
+    const departmentAmount = this.applyRatio(investment.amount, snapshot.contractedDepartmentRatio);
+    const contractedUserAmount = this.applyRatio(investment.amount, snapshot.contractedUserRatio);
+    const companyAmount = this.applyRatio(investment.amount, snapshot.companyRatio);
+
+    if (departmentAmount.gt(0) && !investment.contractedDepartmentId) {
+      throw new BadRequestException('客户投资缺少签约部门，无法生成投资本金佣金');
+    }
+    if (contractedUserAmount.gt(0) && !investment.contractedBy) {
+      throw new BadRequestException('客户投资缺少签约人，无法生成投资本金佣金');
+    }
+
+    await tx.investmentCommissionRecord.createMany({
+      data: [
+        {
+          investmentId: investment.id,
+          receiverType: InvestmentCommissionReceiverType.CONTRACTED_DEPARTMENT,
+          receiverId: investment.contractedDepartmentId,
+          receiverNo: investment.contractedDepartmentId,
+          baseAmount: investment.amount,
+          ratio: new Prisma.Decimal(snapshot.contractedDepartmentRatio),
+          amount: departmentAmount,
+          configSnapshot: snapshot,
+        },
+        {
+          investmentId: investment.id,
+          receiverType: InvestmentCommissionReceiverType.CONTRACTED_USER,
+          receiverId: investment.contractedBy,
+          receiverNo: investment.contractedEmployeeNo,
+          baseAmount: investment.amount,
+          ratio: new Prisma.Decimal(snapshot.contractedUserRatio),
+          amount: contractedUserAmount,
+          configSnapshot: snapshot,
+        },
+        {
+          investmentId: investment.id,
+          receiverType: InvestmentCommissionReceiverType.COMPANY,
+          receiverId: 'COMPANY',
+          receiverNo: 'COMPANY',
+          baseAmount: investment.amount,
+          ratio: new Prisma.Decimal(snapshot.companyRatio),
+          amount: companyAmount,
+          configSnapshot: snapshot,
+        },
+      ],
+    });
   }
 
   private calculateShareAmounts(grossProfit: Prisma.Decimal, ratioSnapshot: ReturnType<InvestmentsService['toRatioSnapshot']>) {
