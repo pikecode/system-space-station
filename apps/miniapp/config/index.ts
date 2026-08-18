@@ -1,6 +1,7 @@
 import { defineConfig } from '@tarojs/cli';
 
 const isDebugBuild = process.env.TARO_DEBUG === 'true';
+const outputRoot = process.env.TARO_ENV === 'h5' ? 'dist-h5' : 'dist';
 
 export default defineConfig({
   projectName: 'miniapp',
@@ -13,7 +14,7 @@ export default defineConfig({
     828: 1.81 / 2,
   },
   sourceRoot: 'src',
-  outputRoot: 'dist',
+  outputRoot,
   plugins: [],
   env: {
     TARO_APP_API_URL: JSON.stringify(process.env.TARO_APP_API_URL ?? 'https://zganquandao.com/api'),

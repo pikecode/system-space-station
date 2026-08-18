@@ -12,18 +12,10 @@
   gap: 20rpx;
 }
 
-.login-brand__mark {
+.login-brand__logo {
   display: flex;
-  align-items: center;
-  justify-content: center;
   width: 72rpx;
   height: 72rpx;
-  background: var(--color-brand-deep);
-  border-radius: var(--radius-md);
-  color: var(--color-text-inv);
-  font-family: "DIN Alternate", sans-serif;
-  font-size: 25rpx;
-  font-weight: 700;
 }
 
 .login-brand__name {

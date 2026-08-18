@@ -7,6 +7,7 @@ import request from '../../services/request';
 import { useAuthStore } from '../../store/auth';
 import type { LoginDto, LoginResponseDto } from 'shared';
 import { getApiErrorMessage } from '../../utils/apiError';
+import logoAsset from '../../assets/logo.png';
 
 /* Hallmark · genre: modern-minimal · macrostructure: Workbench (centered card)
  * design-system: design.md · designed-as-app · page: login
@@ -48,6 +49,16 @@ export default function LoginPage() {
       {/* System name as standalone heading — sits above the form surface,
           not embedded in it. Gives the page a visual anchor. */}
       <div style={{ marginBottom: 'var(--space-lg)', textAlign: 'center' }}>
+        <img
+          src={logoAsset}
+          alt="中玄资产"
+          style={{
+            width: 96,
+            height: 104,
+            objectFit: 'contain',
+            marginBottom: 'var(--space-sm)',
+          }}
+        />
         <h1 style={{
           margin: 0,
           fontSize: 'var(--text-2xl)',

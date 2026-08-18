@@ -13,6 +13,7 @@ import {
 } from '@ant-design/icons';
 import { useAuthStore } from '../store/auth';
 import { useIsMobile } from '../hooks/useIsMobile';
+import logoAsset from '../assets/logo.png';
 
 const menusByRole = {
   ADMIN: [
@@ -66,6 +67,7 @@ export default function AppLayout() {
   return (
     <ProLayout
       title="客户资源管理"
+      logo={logoAsset}
       location={{ pathname: location.pathname }}
       menuDataRender={() => menus}
       menuItemRender={(item, dom) => (

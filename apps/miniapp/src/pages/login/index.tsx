@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import Taro from '@tarojs/taro';
-import { View, Text, Input, Button } from '@tarojs/components';
+import { View, Text, Input, Button, Image } from '@tarojs/components';
 import { authApi } from '../../services/auth';
 import { useAuthStore } from '../../store/auth';
+import logoAsset from '../../assets/logo.png';
 import './index.css';
 
 export default function LoginPage() {
@@ -53,7 +54,7 @@ export default function LoginPage() {
   return (
     <View className='login-page'>
       <View className='login-brand'>
-        <View className='login-brand__mark'>CRM</View>
+        <Image className='login-brand__logo' src={logoAsset} mode='aspectFit' />
         <View>
           <Text className='login-brand__name'>客户资源管理</Text>
           <Text className='login-brand__meta'>业务工作台</Text>
@@ -71,7 +72,7 @@ export default function LoginPage() {
           <View className='login-field__control'>
             <Input
               className='login-field__input'
-              placeholder='请输入员工编号或客户编号'
+              placeholder='请输入编号'
               confirmType='next'
               value={accountNo}
               onInput={(e) => {

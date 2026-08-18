@@ -5,3 +5,8 @@ declare const process: {
 };
 
 declare function require(moduleName: string): any;
+
+declare module '*.png' {
+  const src: string;
+  export default src;
+}

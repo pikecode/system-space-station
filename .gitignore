@@ -12,6 +12,7 @@ node_modules
 apps/api/.env
 apps/api/dist/
 apps/miniapp/dist/
+apps/miniapp/dist-h5/
 apps/web/dist/
 packages/shared/dist/
 .playwright-mcp/
